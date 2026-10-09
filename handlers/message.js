@@ -6,7 +6,7 @@ const L = {
   ps: {
     welcome:'🚀 Telegram Connect ته ښه راغلاست!\n\nچینلونه، ګروپونه او بوټونه پیدا کړه، خپل توکي ثبت کړه او د اعلان غوښتنه ولېږه.',
     menu:'👇 له لاندې مینو څخه یو انتخاب وکړه.',
-    search:'🔎 لټون', register:'➕ ثبتول', ads:'📢 اعلانونه', account:'👤 زما حساب', help:'ℹ️ مرسته', language:'🌐 ژبه',
+    search:'🔎 لټون', register:'➕ ثبتول', ads:'📢 اعلانونه', account:'👤 زما حساب', help:'ℹ️ مرسته', language:'🌐 ژبه', admin:'🛠️ د مديريت پينل', adminListings:'📋 د ثبتونو کتنه', adminAds:'📢 د اعلانونو کتنه', adminUsers:'👥 کاروونکي',
     chooseLanguage:'🌐 خپله ژبه وټاکه:', chooseType:'څه شی ثبتول غواړې؟', channel:'📢 چینل', group:'👥 ګروپ', bot:'🤖 بوټ',
     askName:'د چینل، ګروپ یا بوټ نوم ولیکه:', askUsername:'Username ولیکه، لکه @MyChannel. که نه لري، /skip ولیکه:',
     askDescription:'لنډه پېژندنه ولیکه یا /skip ولیکه:', saved:'✅ ستا ثبت د کتنې لپاره ولېږل شو.',
@@ -23,7 +23,7 @@ const L = {
   },
   fa: {
     welcome:'🚀 به Telegram Connect خوش آمدید!\n\nکانال‌ها، گروه‌ها و ربات‌ها را پیدا کنید، مورد خود را ثبت کنید و درخواست اعلان بفرستید.',
-    menu:'👇 یک گزینه را از منوی زیر انتخاب کنید.', search:'🔎 جستجو', register:'➕ ثبت', ads:'📢 اعلان‌ها', account:'👤 حساب من', help:'ℹ️ راهنما', language:'🌐 زبان',
+    menu:'👇 یک گزینه را از منوی زیر انتخاب کنید.', search:'🔎 جستجو', register:'➕ ثبت', ads:'📢 اعلان‌ها', account:'👤 حساب من', help:'ℹ️ راهنما', language:'🌐 زبان', admin:'🛠️ پنل مدیریت', adminListings:'📋 بررسی موارد ثبت‌شده', adminAds:'📢 بررسی درخواست‌های اعلان', adminUsers:'👥 کاربران',
     chooseLanguage:'🌐 زبان خود را انتخاب کنید:', chooseType:'چه چیزی را ثبت می‌کنید؟', channel:'📢 کانال', group:'👥 گروه', bot:'🤖 ربات',
     askName:'نام کانال، گروه یا ربات را بنویسید:', askUsername:'Username را مانند @MyChannel بفرستید؛ اگر ندارد /skip را بفرستید:',
     askDescription:'معرفی کوتاه بنویسید یا /skip بفرستید:', saved:'✅ مورد شما برای بررسی ثبت شد.',
@@ -38,7 +38,7 @@ const L = {
   },
   en: {
     welcome:'🚀 Welcome to Telegram Connect!\n\nDiscover channels, groups and bots, submit your listing, and send ad requests.',
-    menu:'👇 Choose an option below.', search:'🔎 Search', register:'➕ Submit listing', ads:'📢 Advertise', account:'👤 My account', help:'ℹ️ Help', language:'🌐 Language',
+    menu:'👇 Choose an option below.', search:'🔎 Search', register:'➕ Submit listing', ads:'📢 Advertise', account:'👤 My account', help:'ℹ️ Help', language:'🌐 Language', admin:'🛠️ Admin panel', adminListings:'📋 Review listings', adminAds:'📢 Review ad requests', adminUsers:'👥 Users',
     chooseLanguage:'🌐 Choose your language:', chooseType:'What would you like to submit?', channel:'📢 Channel', group:'👥 Group', bot:'🤖 Bot',
     askName:'Enter the channel, group, or bot name:', askUsername:'Send its username, e.g. @MyChannel. If it has none, send /skip:',
     askDescription:'Send a short description or /skip:', saved:'✅ Your listing was submitted for review.',
@@ -53,7 +53,7 @@ const L = {
   },
   ur: {
     welcome:'🚀 Telegram Connect میں خوش آمدید!\n\nچینلز، گروپس اور بوٹس تلاش کریں، اپنی لسٹنگ درج کریں اور اشتہار کی درخواست بھیجیں۔',
-    menu:'👇 نیچے مینو سے ایک اختیار منتخب کریں۔', search:'🔎 تلاش', register:'➕ لسٹنگ درج کریں', ads:'📢 اشتہار', account:'👤 میرا اکاؤنٹ', help:'ℹ️ مدد', language:'🌐 زبان',
+    menu:'👇 نیچے مینو سے ایک اختیار منتخب کریں۔', search:'🔎 تلاش', register:'➕ لسٹنگ درج کریں', ads:'📢 اشتہار', account:'👤 میرا اکاؤنٹ', help:'ℹ️ مدد', language:'🌐 زبان', admin:'🛠️ ایڈمن پینل', adminListings:'📋 لسٹنگز دیکھیں', adminAds:'📢 اشتہارات دیکھیں', adminUsers:'👥 صارفین',
     chooseLanguage:'🌐 اپنی زبان منتخب کریں:', chooseType:'آپ کیا درج کرنا چاہتے ہیں؟', channel:'📢 چینل', group:'👥 گروپ', bot:'🤖 بوٹ',
     askName:'چینل، گروپ یا بوٹ کا نام لکھیں:', askUsername:'یوزرنیم مثلاً @MyChannel بھیجیں، نہ ہو تو /skip بھیجیں:',
     askDescription:'مختصر تعارف لکھیں یا /skip بھیجیں:', saved:'✅ آپ کی لسٹنگ جائزے کے لیے جمع ہوگئی۔',
@@ -68,7 +68,7 @@ const L = {
   },
   ar: {
     welcome:'🚀 أهلاً بك في Telegram Connect!\n\nاكتشف القنوات والمجموعات والروبوتات، وسجّل قائمتك وأرسل طلب إعلان.',
-    menu:'👇 اختر خياراً من القائمة.', search:'🔎 بحث', register:'➕ إضافة قائمة', ads:'📢 إعلان', account:'👤 حسابي', help:'ℹ️ مساعدة', language:'🌐 اللغة',
+    menu:'👇 اختر خياراً من القائمة.', search:'🔎 بحث', register:'➕ إضافة قائمة', ads:'📢 إعلان', account:'👤 حسابي', help:'ℹ️ مساعدة', language:'🌐 اللغة', admin:'🛠️ لوحة الإدارة', adminListings:'📋 مراجعة القوائم', adminAds:'📢 مراجعة طلبات الإعلان', adminUsers:'👥 المستخدمون',
     chooseLanguage:'🌐 اختر لغتك:', chooseType:'ماذا تريد أن تضيف؟', channel:'📢 قناة', group:'👥 مجموعة', bot:'🤖 روبوت',
     askName:'اكتب اسم القناة أو المجموعة أو الروبوت:', askUsername:'أرسل اسم المستخدم مثل @MyChannel، أو /skip إن لم يوجد:',
     askDescription:'اكتب وصفاً قصيراً أو أرسل /skip:', saved:'✅ تم إرسال قائمتك للمراجعة.',
@@ -134,7 +134,7 @@ async function clearDraft(user) {
 }
 async function showMain(chatId,user,prefix='') {
   const t=L[getLang(user)];
-  await send(chatId,[prefix,t.welcome,t.menu].filter(Boolean).join('\n\n'),mainKeyboard(t));
+  await send(chatId,[prefix,t.welcome,t.menu].filter(Boolean).join('\n\n'),mainKeyboard(t,isAdmin(user.telegram_id)));
 }
 function cleanUsername(value) {
   const v=value.trim().replace(/^@/,'');
@@ -154,6 +154,44 @@ export default async function(message) {
   if (!text) return;
   let user=await getOrCreateUser(message.from);
   let t=L[getLang(user)];
+
+  // Admin panel: accessible only to the two configured Telegram IDs
+  const admin = isAdmin(message.from.id);
+  if (text==='/admin' || text===t.admin) {
+    if (!admin) { await send(chatId,'⛔ دا برخه یوازې د بوټ مدیرانو لپاره ده.'); return; }
+    await send(chatId,'🛠️ د مديريت پينل\\n\\nله لاندې څخه انتخاب وکړه. دلته یوازې مدیران د ثبتونو د تایید/رد او د کاروونکو د شمېر لیدلو اجازه لري.',adminKeyboard(t)); return;
+  }
+  if ([t.adminListings,t.adminAds,t.adminUsers].includes(text) && !admin) {
+    await send(chatId,'⛔ دا برخه یوازې د بوټ مدیرانو لپاره ده.'); return;
+  }
+  if (admin && (text===t.adminListings || text==='/pending_listings')) {
+    const rows=await db.select().from(listings).where(eq(listings.status,'pending')).all();
+    const body=rows.length ? rows.slice(0,20).map(x=>`#${x.id} | ${x.type} | ${x.name}\\nکارن ID: ${x.owner_id}\\nUsername: ${x.username ?? 'نشته'}\\nتشریح: ${x.description ?? 'نشته'}\\nتایید: /approve_listing ${x.id}\\nرد: /reject_listing ${x.id}`).join('\\n\\n') : 'اوس د کتنې لپاره ثبتونه نشته.';
+    await send(chatId,'📋 د تایید په تمه ثبتونه:\\n\\n'+body,adminKeyboard(t)); return;
+  }
+  if (admin && (text===t.adminAds || text==='/pending_ads')) {
+    const rows=await db.select().from(ads).where(eq(ads.status,'pending')).all();
+    const body=rows.length ? rows.slice(0,20).map(x=>`#${x.id} | ${x.title}\\nد کارن داخلي ID: ${x.owner_id}\\nبوديجه: ${x.budget ?? 'نه ده ټاکل شوې'}\\nتشریح: ${x.description ?? 'نشته'}\\nتایید: /approve_ad ${x.id}\\nرد: /reject_ad ${x.id}`).join('\\n\\n') : 'اوس د کتنې لپاره د اعلان غوښتنې نشته.';
+    await send(chatId,'📢 د تایید په تمه اعلانونه:\\n\\n'+body,adminKeyboard(t)); return;
+  }
+  if (admin && (text===t.adminUsers || text==='/stats')) {
+    const allUsers=await db.select().from(users).all();
+    const allListings=await db.select().from(listings).all();
+    const allAds=await db.select().from(ads).all();
+    await send(chatId,`📊 د بوټ احصائیه\\n\\n👥 کاروونکي: ${allUsers.length}\\n📋 ټول ثبتونه: ${allListings.length} (د تایید په تمه: ${allListings.filter(x=>x.status==='pending').length})\\n📢 ټول اعلانونه: ${allAds.length} (د تایید په تمه: ${allAds.filter(x=>x.status==='pending').length})`,adminKeyboard(t)); return;
+  }
+  const adminAction=text.match(/^\\/(approve|reject)_(listing|ad)\\s+(\\d+)$/);
+  if (adminAction) {
+    if (!admin) { await send(chatId,'⛔ دا امر یوازې مدیران کارولی شي.'); return; }
+    const [,decision,kind,idText]=adminAction;
+    const id=Number(idText);
+    const table=kind==='listing' ? listings : ads;
+    const row=await db.select().from(table).where(eq(table.id,id)).get();
+    if (!row) { await send(chatId,'❌ دا شمېره ونه موندل شوه.'); return; }
+    const status=decision==='approve' ? 'approved' : 'rejected';
+    await db.update(table).set({status}).where(eq(table.id,id)).run();
+    await send(chatId,`${decision==='approve'?'✅ تایید شو':'❌ رد شو'}: #${id} — ${row.name ?? row.title}`,adminKeyboard(t)); return;
+  }
 
   if (text==='/cancel') {
     user=await clearDraft(user); t=L[getLang(user)];
@@ -229,7 +267,7 @@ export default async function(message) {
     user=await clearDraft(user); t=L[getLang(user)]; await showMain(chatId,user,t.adSaved); return;
   }
 
-  if (text===t.help || text==='/help') { await send(chatId,t.helpText,mainKeyboard(t)); return; }
+  if (text===t.help || text==='/help') { await send(chatId,t.helpText,mainKeyboard(t,isAdmin(user.telegram_id))); return; }
   if (text===t.account) {
     const ownListings=await db.select().from(listings).where(eq(listings.owner_id,user.id)).all();
     const ownAds=await db.select().from(ads).where(eq(ads.owner_id,user.id)).all();
@@ -239,7 +277,7 @@ export default async function(message) {
     const adText=ownAds.length
       ? ownAds.slice(0,10).map((x,i)=>`${i+1}. ${x.title} — ${t.statuses[x.status] ?? x.status}`).join('\n')
       : t.noAds;
-    await send(chatId,`${t.account}\n\n🆔 Telegram ID: ${message.from.id}\n👤 ${message.from.first_name ?? ''}\n🔗 ${message.from.username ? '@'+message.from.username : '—'}\n\n📋 ${ownListings.length} listing(s)\n${listingText}\n\n📢 ${ownAds.length} ad request(s)\n${adText}`,mainKeyboard(t));
+    await send(chatId,`${t.account}\n\n🆔 Telegram ID: ${message.from.id}\n👤 ${message.from.first_name ?? ''}\n🔗 ${message.from.username ? '@'+message.from.username : '—'}\n\n📋 ${ownListings.length} listing(s)\n${listingText}\n\n📢 ${ownAds.length} ad request(s)\n${adText}`,mainKeyboard(t,isAdmin(user.telegram_id)));
     return;
   }
   if (text===t.register) { await send(chatId,t.chooseType,typeKeyboard(t)); return; }
@@ -260,13 +298,13 @@ export default async function(message) {
       .all();
     const visible=matches.filter(item=>item.status==='approved').slice(0,10);
     user=await updateUser(user,{state:null});
-    if (!visible.length) { await send(chatId,t.noResults,mainKeyboard(t)); return; }
+    if (!visible.length) { await send(chatId,t.noResults,mainKeyboard(t,isAdmin(user.telegram_id))); return; }
     const lines=visible.map((item,i)=>`${i+1}. ${item.type}: ${item.name}${item.username?'\n'+item.username:''}${item.description?'\n'+item.description:''}`);
-    await send(chatId,t.results+'\n\n'+lines.join('\n\n'),mainKeyboard(t)); return;
+    await send(chatId,t.results+'\n\n'+lines.join('\n\n'),mainKeyboard(t,isAdmin(user.telegram_id))); return;
   }
   if (text===t.ads) {
     user=await updateUser(user,{state:'ad_title',draft_title:null,draft_description:null,draft_budget:null});
     await send(chatId,t.adsIntro,keyboard([[t.back]])); return;
   }
-  await send(chatId,t.unknown,mainKeyboard(t));
+  await send(chatId,t.unknown,mainKeyboard(t,isAdmin(user.telegram_id)));
 }
