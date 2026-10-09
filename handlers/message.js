@@ -343,6 +343,7 @@ export default async function (message, ctx) {
     if (kind === 'listing') {
       const row = await db.select().from(listings).where(eq(listings.id, id)).get();
       if (!row) { await send(chatId, '❌ ثبت ونه موندل شو.'); return; }
+      if (row.status !== 'pending') { await send(chatId, `ℹ️ دا ثبت مخکې ارزول شوی دی. اوسنی حالت: ${row.status}`, adminKeyboard(t)); return; }
       const status = decision === 'approve' ? 'approved' : 'rejected';
       await db.update(listings).set({ status }).where(eq(listings.id, id)).run();
       await tellOwner(row, `${status === 'approved' ? '✅ ستا ثبت تایید شو' : '❌ ستا ثبت رد شو'}: ${row.name}`);
@@ -351,6 +352,7 @@ export default async function (message, ctx) {
     }
     const row = await db.select().from(ads).where(eq(ads.id, id)).get();
     if (!row) { await send(chatId, '❌ اعلان ونه موندل شو.'); return; }
+    if (row.status !== 'pending') { await send(chatId, `ℹ️ دا اعلان مخکې ارزول شوی دی. اوسنی حالت: ${row.status}`, adminKeyboard(t)); return; }
     if (decision === 'reject') {
       await db.update(ads).set({ status: 'rejected' }).where(eq(ads.id, id)).run();
       const owner = await db.select().from(users).where(eq(users.id, row.owner_id)).get();
