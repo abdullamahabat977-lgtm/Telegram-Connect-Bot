@@ -195,7 +195,7 @@ export default async function(message) {
     user=await clearDraft(user);
     await send(chatId,`✅ عمومي پیغام واستول شو.\\nبریالي لېږل: ${sent}\\nناکام/نه رسېدلي: ${failed}`,adminKeyboard(t)); return;
   }
-  const blockAction=text.match(/^\\/(block|unblock)\\s+(\\d+)$/);
+  const blockAction = text.match(new RegExp('^/(block|unblock)\\s+(\\d+)$'));
   if (blockAction) {
     if (!admin) { await send(chatId,'⛔ دا امر یوازې مدیران کارولی شي.'); return; }
     const [,action,idText]=blockAction;
