@@ -91,9 +91,13 @@ const LANG_FROM_BUTTON = Object.fromEntries(Object.entries(LANGUAGE_BUTTONS).map
 function keyboard(rows) {
   return { keyboard: rows.map(row => row.map(text => ({ text }))), resize_keyboard: true };
 }
-function mainKeyboard(t) {
-  return keyboard([[t.search,t.register],[t.ads,t.account],[t.help,t.language]]);
+function isAdmin(telegramId) { return [7851941608,7003093962].includes(Number(telegramId)); }
+function mainKeyboard(t, admin=false) {
+  const rows=[[t.search,t.register],[t.ads,t.account],[t.help,t.language]];
+  if (admin) rows.push([t.admin]);
+  return keyboard(rows);
 }
+function adminKeyboard(t) { return keyboard([[t.adminListings,t.adminAds],[t.adminUsers],[t.back]]); }
 function languageKeyboard() {
   return { ...keyboard([[LANGUAGE_BUTTONS.ps,LANGUAGE_BUTTONS.fa],[LANGUAGE_BUTTONS.en,LANGUAGE_BUTTONS.ur],[LANGUAGE_BUTTONS.ar]]), one_time_keyboard:true };
 }
@@ -159,26 +163,26 @@ export default async function(message) {
   const admin = isAdmin(message.from.id);
   if (text==='/admin' || text===t.admin) {
     if (!admin) { await send(chatId,'⛔ دا برخه یوازې د بوټ مدیرانو لپاره ده.'); return; }
-    await send(chatId,'🛠️ د مديريت پينل\\n\\nله لاندې څخه انتخاب وکړه. دلته یوازې مدیران د ثبتونو د تایید/رد او د کاروونکو د شمېر لیدلو اجازه لري.',adminKeyboard(t)); return;
+    await send(chatId,'🛠️ د مديريت پينل\n\nله لاندې څخه انتخاب وکړه. دلته یوازې مدیران د ثبتونو د تایید/رد او د کاروونکو د شمېر لیدلو اجازه لري.',adminKeyboard(t)); return;
   }
   if ([t.adminListings,t.adminAds,t.adminUsers].includes(text) && !admin) {
     await send(chatId,'⛔ دا برخه یوازې د بوټ مدیرانو لپاره ده.'); return;
   }
   if (admin && (text===t.adminListings || text==='/pending_listings')) {
     const rows=await db.select().from(listings).where(eq(listings.status,'pending')).all();
-    const body=rows.length ? rows.slice(0,20).map(x=>`#${x.id} | ${x.type} | ${x.name}\\nکارن ID: ${x.owner_id}\\nUsername: ${x.username ?? 'نشته'}\\nتشریح: ${x.description ?? 'نشته'}\\nتایید: /approve_listing ${x.id}\\nرد: /reject_listing ${x.id}`).join('\\n\\n') : 'اوس د کتنې لپاره ثبتونه نشته.';
-    await send(chatId,'📋 د تایید په تمه ثبتونه:\\n\\n'+body,adminKeyboard(t)); return;
+    const body=rows.length ? rows.slice(0,20).map(x=>`#${x.id} | ${x.type} | ${x.name}\nکارن ID: ${x.owner_id}\nUsername: ${x.username ?? 'نشته'}\nتشریح: ${x.description ?? 'نشته'}\nتایید: /approve_listing ${x.id}\nرد: /reject_listing ${x.id}`).join('\n\n') : 'اوس د کتنې لپاره ثبتونه نشته.';
+    await send(chatId,'📋 د تایید په تمه ثبتونه:\n\n'+body,adminKeyboard(t)); return;
   }
   if (admin && (text===t.adminAds || text==='/pending_ads')) {
     const rows=await db.select().from(ads).where(eq(ads.status,'pending')).all();
-    const body=rows.length ? rows.slice(0,20).map(x=>`#${x.id} | ${x.title}\\nد کارن داخلي ID: ${x.owner_id}\\nبوديجه: ${x.budget ?? 'نه ده ټاکل شوې'}\\nتشریح: ${x.description ?? 'نشته'}\\nتایید: /approve_ad ${x.id}\\nرد: /reject_ad ${x.id}`).join('\\n\\n') : 'اوس د کتنې لپاره د اعلان غوښتنې نشته.';
-    await send(chatId,'📢 د تایید په تمه اعلانونه:\\n\\n'+body,adminKeyboard(t)); return;
+    const body=rows.length ? rows.slice(0,20).map(x=>`#${x.id} | ${x.title}\nد کارن داخلي ID: ${x.owner_id}\nبوديجه: ${x.budget ?? 'نه ده ټاکل شوې'}\nتشریح: ${x.description ?? 'نشته'}\nتایید: /approve_ad ${x.id}\nرد: /reject_ad ${x.id}`).join('\n\n') : 'اوس د کتنې لپاره د اعلان غوښتنې نشته.';
+    await send(chatId,'📢 د تایید په تمه اعلانونه:\n\n'+body,adminKeyboard(t)); return;
   }
   if (admin && (text===t.adminUsers || text==='/stats')) {
     const allUsers=await db.select().from(users).all();
     const allListings=await db.select().from(listings).all();
     const allAds=await db.select().from(ads).all();
-    await send(chatId,`📊 د بوټ احصائیه\\n\\n👥 کاروونکي: ${allUsers.length}\\n📋 ټول ثبتونه: ${allListings.length} (د تایید په تمه: ${allListings.filter(x=>x.status==='pending').length})\\n📢 ټول اعلانونه: ${allAds.length} (د تایید په تمه: ${allAds.filter(x=>x.status==='pending').length})`,adminKeyboard(t)); return;
+    await send(chatId,`📊 د بوټ احصائیه\n\n👥 کاروونکي: ${allUsers.length}\n📋 ټول ثبتونه: ${allListings.length} (د تایید په تمه: ${allListings.filter(x=>x.status==='pending').length})\n📢 ټول اعلانونه: ${allAds.length} (د تایید په تمه: ${allAds.filter(x=>x.status==='pending').length})`,adminKeyboard(t)); return;
   }
   const adminAction=text.match(/^\\/(approve|reject)_(listing|ad)\\s+(\\d+)$/);
   if (adminAction) {
