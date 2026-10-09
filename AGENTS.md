@@ -1,14 +1,10 @@
-# Instructions for contributors and AI coding assistants
+# Telegram Serverless project rules
 
-This project targets Telegram Serverless. Follow its official runtime rules.
-
-- Runtime modules must live under `tgcloud/`.
-- Use only platform SDK imports such as `sdk` and `sdk/db`; do not import third-party runtime packages.
-- Use relative imports with the `.js` extension, e.g. `../schema.js`.
-- Message handlers receive a Telegram Message object as their first argument.
-- Use `api.sendMessage({ chat_id, text, reply_markup })` for replies.
-- Database calls are asynchronous. Define tables in `tgcloud/schema.js`.
-- Code changes in this repository do not deploy automatically. Review and deploy through the official Telegram Serverless workflow.
-- Never store bot tokens or secrets in source control.
-- Before changing schema fields, compare with the user's current live schema and review the migration; do not assume a GitHub schema file has migrated the live database.
-- Keep user-facing text available in Pashto, Dari, English, Urdu, and Arabic.
+- Keep `schema.js` at repository root.
+- Keep handlers directly under `handlers/`; handler directories are flat.
+- Import project modules by bare name, e.g. `import { users } from 'schema';`; no relative paths or `.js` extension for project-module imports.
+- Import platform APIs from `sdk` and database helpers from `sdk/db`.
+- Await database operations.
+- Review schema changes and migrations before applying them to the live database.
+- Never commit bot tokens or other secrets.
+- Keep user-facing messages available in Pashto, Dari, English, Urdu, and Arabic.
