@@ -1,447 +1,272 @@
 import { api, db } from 'sdk';
 import { eq, or, like } from 'sdk/db';
-import { users, listings } from 'schema';
+import { users, listings, ads } from 'schema';
 
-const LANGUAGES = {
+const L = {
   ps: {
-    name: 'پښتو',
-    welcome: '🚀 Telegram Connect ته ښه راغلاست!\n\nد ټیلیګرام چینلونه، ګروپونه او بوټونه ومومئ، خپل توکي ثبت کړئ او اعلانونه وپلټئ.',
-    menu: '👇 له لاندې مینو څخه یو انتخاب کړه.',
-    search: '🔎 لټون',
-    register: '➕ ثبتول',
-    ads: '📢 اعلانونه',
-    account: '👤 زما حساب',
-    help: 'ℹ️ مرسته',
-    language: '🌐 ژبه',
-    chooseLanguage: '🌐 خپله ژبه وټاکه:',
-    helpText: 'ℹ️ لارښود\n\n🔎 لټون — د نوم یا Username له مخې ثبت شوي توکي پیدا کړه.\n➕ ثبتول — خپل چینل، ګروپ یا بوټ ثبت کړه.\n📢 اعلانونه — د اعلانونو په اړه معلومات.\n👤 زما حساب — خپل حساب او ثبت شوي توکي وګوره.\n🌐 ژبه — د بوټ ژبه بدله کړه.',
-    chooseType: 'څه شی غواړې ثبت کړې؟',
-    channel: '📢 چینل',
-    group: '👥 ګروپ',
-    bot: '🤖 بوټ',
-    askName: 'د خپل چینل، ګروپ یا بوټ نوم ولیکه:',
-    askUsername: 'اوس یې Username ولیکه، لکه @MyChannel. که Username نه لري، /skip ولیکه:',
-    askDescription: 'لنډه پېژندنه ولیکه، یا د پرېښودلو لپاره /skip ولیکه:',
-    saved: '✅ ستا معلومات د کتنې لپاره ثبت شول.',
-    cancelled: 'سمه ده، عملیات لغوه شول.',
-    noResults: '🔎 کومه پایله ونه موندل شوه. بل نوم یا Username وازمویه.',
-    results: '🔎 د لټون پایلې:',
-    accountText: '👤 ستا حساب',
-    noItems: 'تر اوسه دې هېڅ توکی نه دی ثبت کړی.',
-    adsText: '📢 د اعلانونو برخه به د اعلانونو د خپرولو او مدیریت لپاره وکارول شي. د پیسو یا اعلانونو د منلو سیستم تر فعالېدو مخکې هېڅ پیسې مه لېږه.',
-    unknown: 'مهرباني وکړه، د مینو له تڼیو څخه یو انتخاب کړه یا /help ولیکه.',
-    back: '🏠 اصلي مینو',
-    invalid: 'دا ژبه نه پېژندل کېږي. له تڼیو څخه یوه ژبه وټاکه.',
-    nameRequired: 'مهرباني وکړه، یو معتبر نوم ولیکه.',
-    usernameHint: 'Username باید د @ سره یا بې له @ څخه وي، یا /skip ولیکه.',
-    searchPrompt: 'د چینل، ګروپ یا بوټ نوم یا Username ولیکه:',
+    welcome:'🚀 Telegram Connect ته ښه راغلاست!\n\nچینلونه، ګروپونه او بوټونه پیدا کړه، خپل توکي ثبت کړه او د اعلان غوښتنه ولېږه.',
+    menu:'👇 له لاندې مینو څخه یو انتخاب وکړه.',
+    search:'🔎 لټون', register:'➕ ثبتول', ads:'📢 اعلانونه', account:'👤 زما حساب', help:'ℹ️ مرسته', language:'🌐 ژبه',
+    chooseLanguage:'🌐 خپله ژبه وټاکه:', chooseType:'څه شی ثبتول غواړې؟', channel:'📢 چینل', group:'👥 ګروپ', bot:'🤖 بوټ',
+    askName:'د چینل، ګروپ یا بوټ نوم ولیکه:', askUsername:'Username ولیکه، لکه @MyChannel. که نه لري، /skip ولیکه:',
+    askDescription:'لنډه پېژندنه ولیکه یا /skip ولیکه:', saved:'✅ ستا ثبت د کتنې لپاره ولېږل شو.',
+    searchPrompt:'د نوم یا Username له مخې لټون وکړه:', noResults:'🔎 تایید شوې پایله ونه موندل شوه.', results:'🔎 د لټون پایلې:',
+    account:'👤 زما حساب', noListings:'تر اوسه دې کوم چینل، ګروپ یا بوټ نه دی ثبت کړی.',
+    adsIntro:'📢 د اعلان غوښتنه ثبتولی شې. اوس د اعلان سرلیک ولیکه:', adDescription:'د اعلان تشریح ولیکه یا /skip ولیکه:',
+    adBudget:'د اعلان بودیجه په عدد ولیکه، یا /skip ولیکه که بودیجه لا نه ده ټاکل شوې:',
+    adSaved:'✅ د اعلان غوښتنه دې د کتنې لپاره ثبت شوه.', noAds:'تر اوسه دې د اعلان غوښتنه نه ده ثبت کړې.',
+    helpText:'ℹ️ لارښود\n🔎 لټون — تایید شوي توکي پیدا کړه.\n➕ ثبتول — خپل چینل، ګروپ یا بوټ ثبت کړه.\n📢 اعلانونه — د اعلان غوښتنه ثبت کړه.\n👤 زما حساب — خپل ثبتونه وګوره.\n🌐 ژبه — ژبه بدله کړه.\n/cancel — عملیات لغوه کړه.',
+    cancel:'عملیات لغوه شول.', back:'🏠 اصلي مینو', unknown:'له مینو څخه یو انتخاب وکړه یا /help ولیکه.',
+    invalidName:'مهرباني وکړه معتبر نوم ولیکه.', invalidUsername:'Username باید ۵ تر ۳۲ انګلیسي توري، عدد یا _ ولري؛ یا /skip ولیکه.',
+    invalidBudget:'بودیجه باید صفر یا مثبت عدد وي، یا /skip ولیکه.', languageSaved:'ژبه بدله شوه.',
+    statuses:{pending:'تر کتنې لاندې', approved:'تایید شوی', rejected:'رد شوی'}
   },
   fa: {
-    name: 'دری',
-    welcome: '🚀 به Telegram Connect خوش آمدید!\n\nکانال‌ها، گروه‌ها و ربات‌های تلگرام را پیدا کنید، مورد خود را ثبت کنید و اعلان‌ها را جستجو کنید.',
-    menu: '👇 از منوی زیر یک گزینه را انتخاب کنید.',
-    search: '🔎 جستجو',
-    register: '➕ ثبت',
-    ads: '📢 اعلان‌ها',
-    account: '👤 حساب من',
-    help: 'ℹ️ راهنما',
-    language: '🌐 زبان',
-    chooseLanguage: '🌐 زبان خود را انتخاب کنید:',
-    helpText: 'ℹ️ راهنما\n\n🔎 جستجو — موارد ثبت‌شده را پیدا کنید.\n➕ ثبت — کانال، گروه یا ربات خود را ثبت کنید.\n📢 اعلان‌ها — معلومات اعلان‌ها.\n👤 حساب من — حساب و موارد ثبت‌شده را ببینید.\n🌐 زبان — زبان ربات را تغییر دهید.',
-    chooseType: 'چه چیزی را می‌خواهید ثبت کنید؟',
-    channel: '📢 کانال',
-    group: '👥 گروه',
-    bot: '🤖 ربات',
-    askName: 'نام کانال، گروه یا ربات خود را بنویسید:',
-    askUsername: 'اکنون Username را بفرستید، مانند @MyChannel. اگر ندارد، /skip بنویسید:',
-    askDescription: 'یک معرفی کوتاه بنویسید یا برای رد کردن /skip را بفرستید:',
-    saved: '✅ معلومات شما برای بررسی ثبت شد.',
-    cancelled: 'عملیات لغو شد.',
-    noResults: '🔎 نتیجه‌ای پیدا نشد. نام یا Username دیگری را امتحان کنید.',
-    results: '🔎 نتایج جستجو:',
-    accountText: '👤 حساب شما',
-    noItems: 'هنوز موردی ثبت نکرده‌اید.',
-    adsText: '📢 این بخش برای نشر و مدیریت اعلان‌ها است. تا فعال‌شدن سیستم رسمی، پولی ارسال نکنید.',
-    unknown: 'لطفاً از دکمه‌های منو استفاده کنید یا /help را بفرستید.',
-    back: '🏠 منوی اصلی',
-    invalid: 'این زبان شناخته نشد. یکی از دکمه‌ها را انتخاب کنید.',
-    nameRequired: 'لطفاً یک نام معتبر بنویسید.',
-    usernameHint: 'Username را با یا بدون @ بنویسید یا /skip را بفرستید.',
-    searchPrompt: 'نام یا Username کانال، گروه یا ربات را بنویسید:',
+    welcome:'🚀 به Telegram Connect خوش آمدید!\n\nکانال‌ها، گروه‌ها و ربات‌ها را پیدا کنید، مورد خود را ثبت کنید و درخواست اعلان بفرستید.',
+    menu:'👇 یک گزینه را از منوی زیر انتخاب کنید.', search:'🔎 جستجو', register:'➕ ثبت', ads:'📢 اعلان‌ها', account:'👤 حساب من', help:'ℹ️ راهنما', language:'🌐 زبان',
+    chooseLanguage:'🌐 زبان خود را انتخاب کنید:', chooseType:'چه چیزی را ثبت می‌کنید؟', channel:'📢 کانال', group:'👥 گروه', bot:'🤖 ربات',
+    askName:'نام کانال، گروه یا ربات را بنویسید:', askUsername:'Username را مانند @MyChannel بفرستید؛ اگر ندارد /skip را بفرستید:',
+    askDescription:'معرفی کوتاه بنویسید یا /skip بفرستید:', saved:'✅ مورد شما برای بررسی ثبت شد.',
+    searchPrompt:'نام یا Username را برای جستجو بفرستید:', noResults:'🔎 نتیجهٔ تأییدشده‌ای پیدا نشد.', results:'🔎 نتایج جستجو:',
+    noListings:'هنوز موردی ثبت نکرده‌اید.', adsIntro:'📢 می‌توانید درخواست اعلان ثبت کنید. عنوان اعلان را بنویسید:', adDescription:'توضیح اعلان را بنویسید یا /skip بفرستید:',
+    adBudget:'بودجه را به عدد بنویسید یا اگر مشخص نیست /skip بفرستید:', adSaved:'✅ درخواست اعلان برای بررسی ثبت شد.', noAds:'هنوز درخواست اعلانی ثبت نکرده‌اید.',
+    helpText:'ℹ️ راهنما\n🔎 جستجو — موارد تأییدشده را پیدا کنید.\n➕ ثبت — کانال، گروه یا ربات خود را ثبت کنید.\n📢 اعلان‌ها — درخواست اعلان ثبت کنید.\n👤 حساب من — موارد خود را ببینید.\n🌐 زبان — زبان را تغییر دهید.\n/cancel — لغو عملیات.',
+    cancel:'عملیات لغو شد.', back:'🏠 منوی اصلی', unknown:'از منو انتخاب کنید یا /help را بفرستید.',
+    invalidName:'لطفاً نام معتبر بنویسید.', invalidUsername:'Username باید ۵ تا ۳۲ حرف انگلیسی، عدد یا _ باشد؛ یا /skip بفرستید.',
+    invalidBudget:'بودجه باید عدد صفر یا مثبت باشد یا /skip بفرستید.', languageSaved:'زبان تغییر کرد.',
+    statuses:{pending:'در انتظار بررسی', approved:'تأیید شده', rejected:'رد شده'}
   },
   en: {
-    name: 'English',
-    welcome: '🚀 Welcome to Telegram Connect!\n\nDiscover Telegram channels, groups, and bots, submit your own listing, and explore promotions.',
-    menu: '👇 Choose an option from the menu below.',
-    search: '🔎 Search',
-    register: '➕ Submit listing',
-    ads: '📢 Advertisements',
-    account: '👤 My account',
-    help: 'ℹ️ Help',
-    language: '🌐 Language',
-    chooseLanguage: '🌐 Choose your language:',
-    helpText: 'ℹ️ Help\n\n🔎 Search — find listings by name or username.\n➕ Submit listing — add your channel, group, or bot.\n📢 Advertisements — information about promotions.\n👤 My account — view your account and listings.\n🌐 Language — change the bot language.',
-    chooseType: 'What would you like to submit?',
-    channel: '📢 Channel',
-    group: '👥 Group',
-    bot: '🤖 Bot',
-    askName: 'Enter the name of your channel, group, or bot:',
-    askUsername: 'Send its username, e.g. @MyChannel. If it has none, send /skip:',
-    askDescription: 'Send a short description, or /skip to leave it blank:',
-    saved: '✅ Your listing has been submitted for review.',
-    cancelled: 'Operation cancelled.',
-    noResults: '🔎 No results found. Try another name or username.',
-    results: '🔎 Search results:',
-    accountText: '👤 My account',
-    noItems: 'You have not submitted any listings yet.',
-    adsText: '📢 This section is for promotion management. Do not send money until an official payment and ad-review process is enabled.',
-    unknown: 'Please choose a menu button or send /help.',
-    back: '🏠 Main menu',
-    invalid: 'Unknown language. Please choose one of the buttons.',
-    nameRequired: 'Please enter a valid name.',
-    usernameHint: 'Send a username with or without @, or send /skip.',
-    searchPrompt: 'Enter a channel, group, or bot name or username:',
+    welcome:'🚀 Welcome to Telegram Connect!\n\nDiscover channels, groups and bots, submit your listing, and send ad requests.',
+    menu:'👇 Choose an option below.', search:'🔎 Search', register:'➕ Submit listing', ads:'📢 Advertise', account:'👤 My account', help:'ℹ️ Help', language:'🌐 Language',
+    chooseLanguage:'🌐 Choose your language:', chooseType:'What would you like to submit?', channel:'📢 Channel', group:'👥 Group', bot:'🤖 Bot',
+    askName:'Enter the channel, group, or bot name:', askUsername:'Send its username, e.g. @MyChannel. If it has none, send /skip:',
+    askDescription:'Send a short description or /skip:', saved:'✅ Your listing was submitted for review.',
+    searchPrompt:'Enter a name or username to search:', noResults:'🔎 No approved results found.', results:'🔎 Search results:',
+    noListings:'You have not submitted any listings yet.', adsIntro:'📢 You can submit an ad request. Enter the ad title:', adDescription:'Enter the ad description or send /skip:',
+    adBudget:'Enter the budget as a number, or /skip if undecided:', adSaved:'✅ Your ad request was submitted for review.', noAds:'You have not submitted any ad requests yet.',
+    helpText:'ℹ️ Help\n🔎 Search — find approved listings.\n➕ Submit listing — add your channel, group, or bot.\n📢 Advertise — submit an ad request.\n👤 My account — view your submissions.\n🌐 Language — change language.\n/cancel — cancel the current operation.',
+    cancel:'Operation cancelled.', back:'🏠 Main menu', unknown:'Choose a menu button or send /help.',
+    invalidName:'Please enter a valid name.', invalidUsername:'Username must be 5–32 English letters, digits, or underscores, or send /skip.',
+    invalidBudget:'Budget must be a non-negative number, or send /skip.', languageSaved:'Language updated.',
+    statuses:{pending:'Pending review', approved:'Approved', rejected:'Rejected'}
   },
   ur: {
-    name: 'اردو',
-    welcome: '🚀 Telegram Connect میں خوش آمدید!\n\nٹیلیگرام چینلز، گروپس اور بوٹس تلاش کریں، اپنی لسٹنگ درج کریں اور اشتہارات دیکھیں۔',
-    menu: '👇 نیچے مینو سے ایک اختیار منتخب کریں۔',
-    search: '🔎 تلاش',
-    register: '➕ درج کریں',
-    ads: '📢 اشتہارات',
-    account: '👤 میرا اکاؤنٹ',
-    help: 'ℹ️ مدد',
-    language: '🌐 زبان',
-    chooseLanguage: '🌐 اپنی زبان منتخب کریں:',
-    helpText: 'ℹ️ مدد\n\n🔎 تلاش — نام یا یوزرنیم سے لسٹنگ تلاش کریں۔\n➕ درج کریں — اپنا چینل، گروپ یا بوٹ شامل کریں۔\n📢 اشتہارات — تشہیر کی معلومات۔\n👤 میرا اکاؤنٹ — اکاؤنٹ اور لسٹنگ دیکھیں۔\n🌐 زبان — زبان تبدیل کریں۔',
-    chooseType: 'آپ کیا درج کرنا چاہتے ہیں؟',
-    channel: '📢 چینل',
-    group: '👥 گروپ',
-    bot: '🤖 بوٹ',
-    askName: 'اپنے چینل، گروپ یا بوٹ کا نام لکھیں:',
-    askUsername: 'یوزرنیم بھیجیں، مثلاً @MyChannel۔ اگر نہیں ہے تو /skip بھیجیں:',
-    askDescription: 'مختصر تعارف لکھیں یا چھوڑنے کے لیے /skip بھیجیں:',
-    saved: '✅ آپ کی لسٹنگ جائزے کے لیے جمع ہوگئی ہے۔',
-    cancelled: 'عمل منسوخ ہوگیا۔',
-    noResults: '🔎 کوئی نتیجہ نہیں ملا۔ دوسرا نام یا یوزرنیم آزمائیں۔',
-    results: '🔎 تلاش کے نتائج:',
-    accountText: '👤 میرا اکاؤنٹ',
-    noItems: 'آپ نے ابھی کوئی لسٹنگ جمع نہیں کی۔',
-    adsText: '📢 یہ حصہ تشہیر کے انتظام کے لیے ہے۔ ادائیگی کا باقاعدہ نظام فعال ہونے تک رقم نہ بھیجیں۔',
-    unknown: 'براہ کرم مینو کا بٹن منتخب کریں یا /help بھیجیں۔',
-    back: '🏠 مرکزی مینو',
-    invalid: 'یہ زبان معلوم نہیں۔ براہ کرم بٹن منتخب کریں۔',
-    nameRequired: 'براہ کرم درست نام درج کریں۔',
-    usernameHint: 'یوزرنیم @ کے ساتھ یا بغیر بھیجیں، یا /skip بھیجیں۔',
-    searchPrompt: 'چینل، گروپ یا بوٹ کا نام یا یوزرنیم لکھیں:',
+    welcome:'🚀 Telegram Connect میں خوش آمدید!\n\nچینلز، گروپس اور بوٹس تلاش کریں، اپنی لسٹنگ درج کریں اور اشتہار کی درخواست بھیجیں۔',
+    menu:'👇 نیچے مینو سے ایک اختیار منتخب کریں۔', search:'🔎 تلاش', register:'➕ لسٹنگ درج کریں', ads:'📢 اشتہار', account:'👤 میرا اکاؤنٹ', help:'ℹ️ مدد', language:'🌐 زبان',
+    chooseLanguage:'🌐 اپنی زبان منتخب کریں:', chooseType:'آپ کیا درج کرنا چاہتے ہیں؟', channel:'📢 چینل', group:'👥 گروپ', bot:'🤖 بوٹ',
+    askName:'چینل، گروپ یا بوٹ کا نام لکھیں:', askUsername:'یوزرنیم مثلاً @MyChannel بھیجیں، نہ ہو تو /skip بھیجیں:',
+    askDescription:'مختصر تعارف لکھیں یا /skip بھیجیں:', saved:'✅ آپ کی لسٹنگ جائزے کے لیے جمع ہوگئی۔',
+    searchPrompt:'تلاش کے لیے نام یا یوزرنیم لکھیں:', noResults:'🔎 کوئی منظور شدہ نتیجہ نہیں ملا۔', results:'🔎 تلاش کے نتائج:',
+    noListings:'آپ نے ابھی کوئی لسٹنگ جمع نہیں کی۔', adsIntro:'📢 اشتہار کی درخواست دے سکتے ہیں۔ اشتہار کا عنوان لکھیں:', adDescription:'اشتہار کی وضاحت لکھیں یا /skip بھیجیں:',
+    adBudget:'بجٹ عدد میں لکھیں یا نامعلوم ہونے پر /skip بھیجیں:', adSaved:'✅ اشتہار کی درخواست جائزے کے لیے جمع ہوگئی۔', noAds:'آپ نے ابھی اشتہار کی درخواست نہیں دی۔',
+    helpText:'ℹ️ مدد\n🔎 تلاش — منظور شدہ لسٹنگ تلاش کریں۔\n➕ لسٹنگ درج کریں — اپنا چینل، گروپ یا بوٹ شامل کریں۔\n📢 اشتہار — درخواست جمع کریں۔\n👤 میرا اکاؤنٹ — اپنی لسٹنگ دیکھیں۔\n🌐 زبان — زبان تبدیل کریں۔\n/cancel — منسوخ کریں۔',
+    cancel:'عمل منسوخ ہوگیا۔', back:'🏠 مرکزی مینو', unknown:'مینو کا بٹن منتخب کریں یا /help بھیجیں.',
+    invalidName:'درست نام درج کریں۔', invalidUsername:'یوزرنیم ۵ سے ۳۲ انگریزی حروف، اعداد یا _ پر مشتمل ہو، یا /skip بھیجیں.',
+    invalidBudget:'بجٹ صفر یا مثبت عدد ہونا چاہیے، یا /skip بھیجیں۔', languageSaved:'زبان تبدیل ہوگئی۔',
+    statuses:{pending:'جائزے کے انتظار میں', approved:'منظور شدہ', rejected:'مسترد'}
   },
   ar: {
-    name: 'العربية',
-    welcome: '🚀 أهلاً بك في Telegram Connect!\n\nاكتشف قنوات ومجموعات وروبوتات تيليجرام، وسجّل مشروعك وابحث عن الإعلانات.',
-    menu: '👇 اختر أحد الخيارات من القائمة.',
-    search: '🔎 بحث',
-    register: '➕ إضافة',
-    ads: '📢 الإعلانات',
-    account: '👤 حسابي',
-    help: 'ℹ️ مساعدة',
-    language: '🌐 اللغة',
-    chooseLanguage: '🌐 اختر لغتك:',
-    helpText: 'ℹ️ المساعدة\n\n🔎 بحث — ابحث بالاسم أو اسم المستخدم.\n➕ إضافة — سجّل قناتك أو مجموعتك أو روبوتك.\n📢 الإعلانات — معلومات الترويج.\n👤 حسابي — اعرض حسابك وإضافاتك.\n🌐 اللغة — غيّر لغة الروبوت.',
-    chooseType: 'ماذا تريد أن تضيف؟',
-    channel: '📢 قناة',
-    group: '👥 مجموعة',
-    bot: '🤖 روبوت',
-    askName: 'اكتب اسم القناة أو المجموعة أو الروبوت:',
-    askUsername: 'أرسل اسم المستخدم مثل @MyChannel. إذا لم يوجد، أرسل /skip:',
-    askDescription: 'اكتب وصفاً قصيراً أو أرسل /skip لتخطيه:',
-    saved: '✅ تم إرسال قائمتك للمراجعة.',
-    cancelled: 'تم إلغاء العملية.',
-    noResults: '🔎 لم يتم العثور على نتائج. جرّب اسماً آخر.',
-    results: '🔎 نتائج البحث:',
-    accountText: '👤 حسابي',
-    noItems: 'لم تضف أي عناصر بعد.',
-    adsText: '📢 هذا القسم لإدارة الترويج. لا ترسل أي أموال قبل تفعيل نظام دفع ومراجعة رسمي.',
-    unknown: 'يرجى اختيار زر من القائمة أو إرسال /help.',
-    back: '🏠 القائمة الرئيسية',
-    invalid: 'اللغة غير معروفة. اختر أحد الأزرار.',
-    nameRequired: 'يرجى كتابة اسم صحيح.',
-    usernameHint: 'أرسل اسم المستخدم مع @ أو بدونه، أو أرسل /skip.',
-    searchPrompt: 'اكتب اسم القناة أو المجموعة أو الروبوت أو اسم المستخدم:',
-  },
+    welcome:'🚀 أهلاً بك في Telegram Connect!\n\nاكتشف القنوات والمجموعات والروبوتات، وسجّل قائمتك وأرسل طلب إعلان.',
+    menu:'👇 اختر خياراً من القائمة.', search:'🔎 بحث', register:'➕ إضافة قائمة', ads:'📢 إعلان', account:'👤 حسابي', help:'ℹ️ مساعدة', language:'🌐 اللغة',
+    chooseLanguage:'🌐 اختر لغتك:', chooseType:'ماذا تريد أن تضيف؟', channel:'📢 قناة', group:'👥 مجموعة', bot:'🤖 روبوت',
+    askName:'اكتب اسم القناة أو المجموعة أو الروبوت:', askUsername:'أرسل اسم المستخدم مثل @MyChannel، أو /skip إن لم يوجد:',
+    askDescription:'اكتب وصفاً قصيراً أو أرسل /skip:', saved:'✅ تم إرسال قائمتك للمراجعة.',
+    searchPrompt:'اكتب الاسم أو اسم المستخدم للبحث:', noResults:'🔎 لم يتم العثور على نتائج معتمدة.', results:'🔎 نتائج البحث:',
+    noListings:'لم تضف أي قوائم بعد.', adsIntro:'📢 يمكنك إرسال طلب إعلان. اكتب عنوان الإعلان:', adDescription:'اكتب وصف الإعلان أو أرسل /skip:',
+    adBudget:'اكتب الميزانية كرقم أو أرسل /skip إذا لم تحددها:', adSaved:'✅ تم إرسال طلب الإعلان للمراجعة.', noAds:'لم ترسل أي طلب إعلان بعد.',
+    helpText:'ℹ️ المساعدة\n🔎 بحث — ابحث عن القوائم المعتمدة.\n➕ إضافة قائمة — سجّل قناتك أو مجموعتك أو روبوتك.\n📢 إعلان — أرسل طلب إعلان.\n👤 حسابي — اعرض قوائمك.\n🌐 اللغة — غيّر اللغة.\n/cancel — إلغاء العملية.',
+    cancel:'تم إلغاء العملية.', back:'🏠 القائمة الرئيسية', unknown:'اختر زرًا من القائمة أو أرسل /help.',
+    invalidName:'يرجى كتابة اسم صحيح.', invalidUsername:'يجب أن يتكون اسم المستخدم من 5 إلى 32 حرفاً أو رقماً إنجليزياً أو _، أو أرسل /skip.',
+    invalidBudget:'يجب أن تكون الميزانية رقماً غير سالب أو أرسل /skip.', languageSaved:'تم تغيير اللغة.',
+    statuses:{pending:'قيد المراجعة', approved:'معتمد', rejected:'مرفوض'}
+  }
 };
 
-const LANG_BUTTONS = {
-  ps: '🇦🇫 پښتو',
-  fa: '🇦🇫 دری',
-  en: '🇬🇧 English',
-  ur: '🇵🇰 اردو',
-  ar: '🇸🇦 العربية',
+const LANGUAGE_BUTTONS = {
+  ps:'🇦🇫 پښتو', fa:'🇦🇫 دری', en:'🇬🇧 English', ur:'🇵🇰 اردو', ar:'🇸🇦 العربية'
 };
+const LANG_FROM_BUTTON = Object.fromEntries(Object.entries(LANGUAGE_BUTTONS).map(([k,v]) => [v,k]));
 
-const LANGUAGE_FROM_BUTTON = Object.fromEntries(
-  Object.entries(LANG_BUTTONS).map(([code, label]) => [label, code])
-);
-
+function keyboard(rows) {
+  return { keyboard: rows.map(row => row.map(text => ({ text }))), resize_keyboard: true };
+}
 function mainKeyboard(t) {
-  return {
-    keyboard: [
-      [{ text: t.search }, { text: t.register }],
-      [{ text: t.ads }, { text: t.account }],
-      [{ text: t.help }, { text: t.language }],
-    ],
-    resize_keyboard: true,
-  };
+  return keyboard([[t.search,t.register],[t.ads,t.account],[t.help,t.language]]);
 }
-
 function languageKeyboard() {
-  return {
-    keyboard: [
-      [{ text: LANG_BUTTONS.ps }, { text: LANG_BUTTONS.fa }],
-      [{ text: LANG_BUTTONS.en }, { text: LANG_BUTTONS.ur }],
-      [{ text: LANG_BUTTONS.ar }],
-    ],
-    resize_keyboard: true,
-    one_time_keyboard: true,
-  };
+  return { ...keyboard([[LANGUAGE_BUTTONS.ps,LANGUAGE_BUTTONS.fa],[LANGUAGE_BUTTONS.en,LANGUAGE_BUTTONS.ur],[LANGUAGE_BUTTONS.ar]]), one_time_keyboard:true };
 }
-
 function typeKeyboard(t) {
-  return {
-    keyboard: [
-      [{ text: t.channel }, { text: t.group }],
-      [{ text: t.bot }],
-      [{ text: t.back }],
-    ],
-    resize_keyboard: true,
-  };
+  return keyboard([[t.channel,t.group],[t.bot],[t.back]]);
 }
-
-function getLanguage(userRow) {
-  return LANGUAGES[userRow?.language] ? userRow.language : 'ps';
-}
-
+function getLang(user) { return L[user?.language] ? user.language : 'ps'; }
 async function send(chatId, text, reply_markup) {
-  const params = { chat_id: chatId, text };
-  if (reply_markup) params.reply_markup = reply_markup;
-  await api.sendMessage(params);
+  const payload = { chat_id:chatId, text };
+  if (reply_markup) payload.reply_markup = reply_markup;
+  await api.sendMessage(payload);
 }
-
 async function getOrCreateUser(from) {
-  let row = await db.select().from(users)
-    .where(eq(users.telegram_id, from.id)).get();
-
+  let row = await db.select().from(users).where(eq(users.telegram_id,from.id)).get();
   if (!row) {
     await db.insert(users).values({
-      telegram_id: from.id,
-      username: from.username ?? null,
-      first_name: from.first_name ?? 'User',
-      language: 'ps',
-      state: null,
-      draft_type: null,
-      draft_name: null,
-      created_at: new Date().toISOString(),
+      telegram_id:from.id, username:from.username ?? null, first_name:from.first_name ?? 'User',
+      language:'ps', state:null, draft_type:null, draft_name:null, draft_username:null,
+      draft_description:null, draft_title:null, draft_budget:null, created_at:new Date().toISOString()
     }).run();
-
-    row = await db.select().from(users)
-      .where(eq(users.telegram_id, from.id)).get();
+    row = await db.select().from(users).where(eq(users.telegram_id,from.id)).get();
   } else {
-    await db.update(users).set({
-      username: from.username ?? null,
-      first_name: from.first_name ?? 'User',
-    }).where(eq(users.telegram_id, from.id)).run();
+    await db.update(users).set({ username:from.username ?? null, first_name:from.first_name ?? 'User' })
+      .where(eq(users.id,row.id)).run();
+    row = { ...row, username:from.username ?? null, first_name:from.first_name ?? 'User' };
   }
-
   return row;
 }
-
-async function updateUser(userRow, values) {
-  await db.update(users).set(values).where(eq(users.id, userRow.id)).run();
-  return await db.select().from(users).where(eq(users.id, userRow.id)).get();
+async function updateUser(user, values) {
+  await db.update(users).set(values).where(eq(users.id,user.id)).run();
+  return await db.select().from(users).where(eq(users.id,user.id)).get();
+}
+async function clearDraft(user) {
+  return updateUser(user, {
+    state:null, draft_type:null, draft_name:null, draft_username:null,
+    draft_description:null, draft_title:null, draft_budget:null
+  });
+}
+async function showMain(chatId,user,prefix='') {
+  const t=L[getLang(user)];
+  await send(chatId,[prefix,t.welcome,t.menu].filter(Boolean).join('\n\n'),mainKeyboard(t));
+}
+function cleanUsername(value) {
+  const v=value.trim().replace(/^@/,'');
+  if (!/^[A-Za-z0-9_]{5,32}$/.test(v)) return undefined;
+  return '@'+v;
+}
+function cleanText(value,max=500) {
+  const v=value.trim();
+  return v.length ? v.slice(0,max) : '';
 }
 
-async function showMain(chatId, userRow, prefix = '') {
-  const t = LANGUAGES[getLanguage(userRow)];
-  await send(chatId, [prefix, t.welcome, t.menu].filter(Boolean).join('\n\n'), mainKeyboard(t));
-}
-
-function normalizeUsername(value) {
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  const withoutAt = trimmed.replace(/^@/, '');
-  if (!/^[A-Za-z0-9_]{5,32}$/.test(withoutAt)) return undefined;
-  return '@' + withoutAt;
-}
-
-export default async function (message) {
+export default async function(message) {
   if (!message?.chat?.id || !message?.from) return;
-
-  const chatId = message.chat.id;
-  const text = (message.text ?? '').trim();
-  const from = message.from;
-  const isPrivate = message.chat.type === 'private';
-
+  if (message.chat.type !== 'private') return;
+  const chatId=message.chat.id;
+  const text=(message.text ?? '').trim();
   if (!text) return;
-  if (!isPrivate) {
-    // The directory flow is intended for private chats. Avoid storing group chatter.
-    return;
+  let user=await getOrCreateUser(message.from);
+  let t=L[getLang(user)];
+
+  if (text==='/cancel') {
+    user=await clearDraft(user); t=L[getLang(user)];
+    await showMain(chatId,user,t.cancel); return;
+  }
+  if (text==='/start' || text.startsWith('/start ')) {
+    user=await clearDraft(user);
+    await showMain(chatId,user); return;
+  }
+  if (text==='/language' || text===t.language || ['🌐 ژبه','🌐 زبان','🌐 اللغة','🌐 Language'].includes(text)) {
+    await send(chatId,t.chooseLanguage,languageKeyboard()); return;
+  }
+  if (LANG_FROM_BUTTON[text]) {
+    user=await updateUser(user,{language:LANG_FROM_BUTTON[text]});
+    t=L[getLang(user)]; await showMain(chatId,user,t.languageSaved); return;
   }
 
-  let userRow = await getOrCreateUser(from);
-  let language = getLanguage(userRow);
-  let t = LANGUAGES[language];
-
-  if (text === '/cancel') {
-    userRow = await updateUser(userRow, { state: null, draft_type: null, draft_name: null });
-    t = LANGUAGES[getLanguage(userRow)];
-    await showMain(chatId, userRow, t.cancelled);
-    return;
+  const backLabels=['🏠 اصلي مینو','🏠 منوی اصلی','🏠 مرکزی مینو','🏠 Main menu','🏠 القائمة الرئيسية'];
+  if (text===t.back || backLabels.includes(text)) {
+    user=await clearDraft(user); await showMain(chatId,user); return;
   }
 
-  if (text === '/start' || text.startsWith('/start ')) {
-    if (userRow.language === 'ps' && !userRow.state) {
-      await send(chatId, '🌐 Choose your language / خپله ژبه وټاکه:', languageKeyboard());
-      return;
+  // Multi-step listing registration
+  if (user.state==='listing_name') {
+    const name=cleanText(text,120);
+    if (!name || text.startsWith('/')) { await send(chatId,t.invalidName); return; }
+    user=await updateUser(user,{draft_name:name,state:'listing_username'});
+    await send(chatId,t.askUsername,keyboard([['/skip'],[t.back]])); return;
+  }
+  if (user.state==='listing_username') {
+    let username=null;
+    if (text.toLowerCase()!=='/skip') {
+      username=cleanUsername(text);
+      if (username===undefined) { await send(chatId,t.invalidUsername); return; }
     }
-    await showMain(chatId, userRow);
-    return;
+    user=await updateUser(user,{draft_username:username,state:'listing_description'});
+    await send(chatId,t.askDescription,keyboard([['/skip'],[t.back]])); return;
   }
-
-  if (text === '/language' || text === t.language || text === '🌐 Language' || text === '🌐 ژبه' || text === '🌐 زبان' || text === '🌐 اللغة') {
-    await send(chatId, '🌐 Choose your language / خپله ژبه وټاکه:', languageKeyboard());
-    return;
-  }
-
-  if (LANGUAGE_FROM_BUTTON[text]) {
-    userRow = await updateUser(userRow, {
-      language: LANGUAGE_FROM_BUTTON[text],
-      state: null,
-      draft_type: null,
-      draft_name: null,
-    });
-    t = LANGUAGES[getLanguage(userRow)];
-    await showMain(chatId, userRow, '✅ ' + t.name);
-    return;
-  }
-
-  // Resume a multi-step registration flow.
-  if (userRow.state === 'listing_name') {
-    if (text.startsWith('/')) {
-      await send(chatId, t.nameRequired);
-      return;
-    }
-    userRow = await updateUser(userRow, { draft_name: text, state: 'listing_username' });
-    await send(chatId, t.askUsername, { keyboard: [[{ text: '/skip' }], [{ text: t.back }]], resize_keyboard: true });
-    return;
-  }
-
-  if (userRow.state === 'listing_username') {
-    let username = null;
-    if (text.toLowerCase() !== '/skip') {
-      username = normalizeUsername(text);
-      if (username === undefined) {
-        await send(chatId, t.usernameHint);
-        return;
-      }
-    }
-    userRow = await updateUser(userRow, { state: 'listing_description' });
-    // The username is stored temporarily in the state field as JSON-safe text is not needed;
-    // retain it in draft_type only would overwrite the selected listing type, so keep it in state.
-    await updateUser(userRow, { state: 'listing_description:' + (username ?? '') });
-    await send(chatId, t.askDescription, { keyboard: [[{ text: '/skip' }], [{ text: t.back }]], resize_keyboard: true });
-    return;
-  }
-
-  if (userRow.state?.startsWith('listing_description:')) {
-    const rawUsername = userRow.state.slice('listing_description:'.length);
-    const username = rawUsername || null;
-    const description = text.toLowerCase() === '/skip' ? null : text;
-    const type = userRow.draft_type;
-    const name = userRow.draft_name;
-    if (!type || !name) {
-      userRow = await updateUser(userRow, { state: null, draft_type: null, draft_name: null });
-      await showMain(chatId, userRow, t.cancelled);
-      return;
+  if (user.state==='listing_description') {
+    const description=text.toLowerCase()==='/skip' ? null : cleanText(text,1000);
+    if (!user.draft_type || !user.draft_name) {
+      user=await clearDraft(user); await showMain(chatId,user,t.cancel); return;
     }
     await db.insert(listings).values({
-      owner_id: userRow.id,
-      type,
-      name,
-      username,
-      description,
-      category: null,
-      status: 'pending',
-      created_at: new Date().toISOString(),
+      owner_id:user.id, type:user.draft_type, name:user.draft_name, username:user.draft_username ?? null,
+      description:description || null, category:null, status:'pending', created_at:new Date().toISOString()
     }).run();
-    userRow = await updateUser(userRow, { state: null, draft_type: null, draft_name: null });
-    t = LANGUAGES[getLanguage(userRow)];
-    await showMain(chatId, userRow, t.saved);
-    return;
+    user=await clearDraft(user); t=L[getLang(user)]; await showMain(chatId,user,t.saved); return;
   }
 
-  if (text === t.back || text === '🏠 اصلي مینو' || text === '🏠 منوی اصلی' || text === '🏠 مرکزی مینو') {
-    userRow = await updateUser(userRow, { state: null, draft_type: null, draft_name: null });
-    await showMain(chatId, userRow);
-    return;
+  // Multi-step advertisement request
+  if (user.state==='ad_title') {
+    const title=cleanText(text,160);
+    if (!title || text.startsWith('/')) { await send(chatId,t.invalidName); return; }
+    user=await updateUser(user,{draft_title:title,state:'ad_description'});
+    await send(chatId,t.adDescription,keyboard([['/skip'],[t.back]])); return;
   }
-
-  if (text === t.help || text === '/help') {
-    await send(chatId, t.helpText, mainKeyboard(t));
-    return;
+  if (user.state==='ad_description') {
+    const description=text.toLowerCase()==='/skip' ? null : cleanText(text,1500);
+    user=await updateUser(user,{draft_description:description || null,state:'ad_budget'});
+    await send(chatId,t.adBudget,keyboard([['/skip'],[t.back]])); return;
   }
-
-  if (text === t.account) {
-    const ownListings = await db.select().from(listings)
-      .where(eq(listings.owner_id, userRow.id)).all();
-    const listingSummary = ownListings.length
-      ? ownListings.map((item, index) => `${index + 1}. ${item.name} — ${item.status}`).join('\n')
-      : t.noItems;
-    await send(chatId,
-      `${t.accountText}\n\n🆔 Telegram ID: ${from.id}\n👤 ${from.first_name ?? ''}\n🔗 ${from.username ? '@' + from.username : '—'}\n📦 ${ownListings.length}\n\n${listingSummary}`,
-      mainKeyboard(t));
-    return;
-  }
-
-  if (text === t.register) {
-    await send(chatId, t.chooseType, typeKeyboard(t));
-    return;
-  }
-
-  if ([t.channel, t.group, t.bot].includes(text)) {
-    const type = text === t.channel ? 'channel' : text === t.group ? 'group' : 'bot';
-    userRow = await updateUser(userRow, { state: 'listing_name', draft_type: type, draft_name: null });
-    await send(chatId, t.askName, { keyboard: [[{ text: t.back }]], resize_keyboard: true });
-    return;
-  }
-
-  if (text === t.search) {
-    userRow = await updateUser(userRow, { state: 'search' });
-    await send(chatId, t.searchPrompt, { keyboard: [[{ text: t.back }]], resize_keyboard: true });
-    return;
-  }
-
-  if (userRow.state === 'search') {
-    const query = '%' + text.replace(/[%_]/g, '') + '%';
-    const matches = await db.select().from(listings)
-      .where(or(eq(listings.username, text), like(listings.name, query)))
-      .all();
-    const visible = matches.filter(item => item.status === 'approved').slice(0, 10);
-    if (!visible.length) {
-      await send(chatId, t.noResults, mainKeyboard(t));
-    } else {
-      const lines = visible.map((item, index) => {
-        const link = item.username ? '\n' + item.username : '';
-        return `${index + 1}. ${item.type}: ${item.name}${link}\n${item.description ?? ''}`;
-      });
-      await send(chatId, t.results + '\n\n' + lines.join('\n\n'), mainKeyboard(t));
+  if (user.state==='ad_budget') {
+    let budget=null;
+    if (text.toLowerCase()!=='/skip') {
+      if (!/^\d{1,10}$/.test(text)) { await send(chatId,t.invalidBudget); return; }
+      budget=Number(text);
     }
-    userRow = await updateUser(userRow, { state: null });
-    return;
+    await db.insert(ads).values({
+      owner_id:user.id, title:user.draft_title, description:user.draft_description ?? null,
+      budget, status:'pending', created_at:new Date().toISOString()
+    }).run();
+    user=await clearDraft(user); t=L[getLang(user)]; await showMain(chatId,user,t.adSaved); return;
   }
 
-  if (text === t.ads) {
-    await send(chatId, t.adsText, mainKeyboard(t));
+  if (text===t.help || text==='/help') { await send(chatId,t.helpText,mainKeyboard(t)); return; }
+  if (text===t.account) {
+    const ownListings=await db.select().from(listings).where(eq(listings.owner_id,user.id)).all();
+    const ownAds=await db.select().from(ads).where(eq(ads.owner_id,user.id)).all();
+    const listingText=ownListings.length
+      ? ownListings.slice(0,10).map((x,i)=>`${i+1}. ${x.name} — ${t.statuses[x.status] ?? x.status}`).join('\n')
+      : t.noListings;
+    const adText=ownAds.length
+      ? ownAds.slice(0,10).map((x,i)=>`${i+1}. ${x.title} — ${t.statuses[x.status] ?? x.status}`).join('\n')
+      : t.noAds;
+    await send(chatId,`${t.account}\n\n🆔 Telegram ID: ${message.from.id}\n👤 ${message.from.first_name ?? ''}\n🔗 ${message.from.username ? '@'+message.from.username : '—'}\n\n📋 ${ownListings.length} listing(s)\n${listingText}\n\n📢 ${ownAds.length} ad request(s)\n${adText}`,mainKeyboard(t));
     return;
   }
-
-  await send(chatId, t.unknown, mainKeyboard(t));
+  if (text===t.register) { await send(chatId,t.chooseType,typeKeyboard(t)); return; }
+  if ([t.channel,t.group,t.bot].includes(text)) {
+    const type=text===t.channel ? 'channel' : text===t.group ? 'group' : 'bot';
+    user=await updateUser(user,{state:'listing_name',draft_type:type,draft_name:null,draft_username:null,draft_description:null});
+    await send(chatId,t.askName,keyboard([[t.back]])); return;
+  }
+  if (text===t.search) {
+    user=await updateUser(user,{state:'search'});
+    await send(chatId,t.searchPrompt,keyboard([[t.back]])); return;
+  }
+  if (user.state==='search') {
+    const raw=text.replace(/[%_]/g,'').slice(0,80);
+    const query='%'+raw+'%';
+    const matches=await db.select().from(listings)
+      .where(or(eq(listings.username,text.startsWith('@')?text:'@'+text),like(listings.name,query)))
+      .all();
+    const visible=matches.filter(item=>item.status==='approved').slice(0,10);
+    user=await updateUser(user,{state:null});
+    if (!visible.length) { await send(chatId,t.noResults,mainKeyboard(t)); return; }
+    const lines=visible.map((item,i)=>`${i+1}. ${item.type}: ${item.name}${item.username?'\n'+item.username:''}${item.description?'\n'+item.description:''}`);
+    await send(chatId,t.results+'\n\n'+lines.join('\n\n'),mainKeyboard(t)); return;
+  }
+  if (text===t.ads) {
+    user=await updateUser(user,{state:'ad_title',draft_title:null,draft_description:null,draft_budget:null});
+    await send(chatId,t.adsIntro,keyboard([[t.back]])); return;
+  }
+  await send(chatId,t.unknown,mainKeyboard(t));
 }
