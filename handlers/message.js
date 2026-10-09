@@ -184,7 +184,7 @@ export default async function(message) {
     const allAds=await db.select().from(ads).all();
     await send(chatId,`📊 د بوټ احصائیه\n\n👥 کاروونکي: ${allUsers.length}\n📋 ټول ثبتونه: ${allListings.length} (د تایید په تمه: ${allListings.filter(x=>x.status==='pending').length})\n📢 ټول اعلانونه: ${allAds.length} (د تایید په تمه: ${allAds.filter(x=>x.status==='pending').length})`,adminKeyboard(t)); return;
   }
-  const adminAction=text.match(/^\\/(approve|reject)_(listing|ad)\\s+(\\d+)$/);
+  const adminAction = text.match(new RegExp('^/(approve|reject)_(listing|ad)\\s+(\\d+)$'));
   if (adminAction) {
     if (!admin) { await send(chatId,'⛔ دا امر یوازې مدیران کارولی شي.'); return; }
     const [,decision,kind,idText]=adminAction;
