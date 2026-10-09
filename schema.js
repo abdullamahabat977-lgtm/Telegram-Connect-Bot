@@ -7,6 +7,7 @@ export const users = table('users', {
   username: text('username'),
   first_name: text('first_name'),
   language: text('language').notNull().default('ps'),
+  is_blocked: integer('is_blocked').notNull().default(0),
   state: text('state'),
   draft_type: text('draft_type'),
   draft_name: text('draft_name'),
