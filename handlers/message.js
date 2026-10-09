@@ -1,6 +1,6 @@
 import { api, db } from 'sdk';
-import { eq, or, like } from 'sdk/db';
-import { users, listings, ads, ad_requests } from '../schema.js';
+import { eq } from 'sdk/db';
+import { users, listings, ads, ad_requests } from 'schema';
 
 const LANG = {
   ps: {
