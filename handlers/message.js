@@ -6,7 +6,7 @@ const L = {
   ps: {
     welcome:'🚀 Telegram Connect ته ښه راغلاست!\n\nچینلونه، ګروپونه او بوټونه پیدا کړه، خپل توکي ثبت کړه او د اعلان غوښتنه ولېږه.',
     menu:'👇 له لاندې مینو څخه یو انتخاب وکړه.',
-    search:'🔎 لټون', register:'➕ ثبتول', ads:'📢 اعلانونه', account:'👤 زما حساب', help:'ℹ️ مرسته', language:'🌐 ژبه', admin:'🛠️ د مديريت پينل', adminListings:'📋 د ثبتونو کتنه', adminAds:'📢 د اعلانونو کتنه', adminUsers:'👥 کاروونکي',
+    search:'🔎 لټون', register:'➕ ثبتول', ads:'📢 اعلانونه', account:'👤 زما حساب', help:'ℹ️ مرسته', language:'🌐 ژبه', admin:'🛠️ د مديريت پينل', adminListings:'📋 د ثبتونو کتنه', adminAds:'📢 د اعلانونو کتنه', adminUsers:'👥 کاروونکي', adminBroadcast:'📣 ټولو ته پیغام',
     chooseLanguage:'🌐 خپله ژبه وټاکه:', chooseType:'څه شی ثبتول غواړې؟', channel:'📢 چینل', group:'👥 ګروپ', bot:'🤖 بوټ',
     askName:'د چینل، ګروپ یا بوټ نوم ولیکه:', askUsername:'Username ولیکه، لکه @MyChannel. که نه لري، /skip ولیکه:',
     askDescription:'لنډه پېژندنه ولیکه یا /skip ولیکه:', saved:'✅ ستا ثبت د کتنې لپاره ولېږل شو.',
@@ -23,7 +23,7 @@ const L = {
   },
   fa: {
     welcome:'🚀 به Telegram Connect خوش آمدید!\n\nکانال‌ها، گروه‌ها و ربات‌ها را پیدا کنید، مورد خود را ثبت کنید و درخواست اعلان بفرستید.',
-    menu:'👇 یک گزینه را از منوی زیر انتخاب کنید.', search:'🔎 جستجو', register:'➕ ثبت', ads:'📢 اعلان‌ها', account:'👤 حساب من', help:'ℹ️ راهنما', language:'🌐 زبان', admin:'🛠️ پنل مدیریت', adminListings:'📋 بررسی موارد ثبت‌شده', adminAds:'📢 بررسی درخواست‌های اعلان', adminUsers:'👥 کاربران',
+    menu:'👇 یک گزینه را از منوی زیر انتخاب کنید.', search:'🔎 جستجو', register:'➕ ثبت', ads:'📢 اعلان‌ها', account:'👤 حساب من', help:'ℹ️ راهنما', language:'🌐 زبان', admin:'🛠️ پنل مدیریت', adminListings:'📋 بررسی موارد ثبت‌شده', adminAds:'📢 بررسی درخواست‌های اعلان', adminUsers:'👥 کاربران', adminBroadcast:'📣 پیام همگانی',
     chooseLanguage:'🌐 زبان خود را انتخاب کنید:', chooseType:'چه چیزی را ثبت می‌کنید؟', channel:'📢 کانال', group:'👥 گروه', bot:'🤖 ربات',
     askName:'نام کانال، گروه یا ربات را بنویسید:', askUsername:'Username را مانند @MyChannel بفرستید؛ اگر ندارد /skip را بفرستید:',
     askDescription:'معرفی کوتاه بنویسید یا /skip بفرستید:', saved:'✅ مورد شما برای بررسی ثبت شد.',
@@ -38,7 +38,7 @@ const L = {
   },
   en: {
     welcome:'🚀 Welcome to Telegram Connect!\n\nDiscover channels, groups and bots, submit your listing, and send ad requests.',
-    menu:'👇 Choose an option below.', search:'🔎 Search', register:'➕ Submit listing', ads:'📢 Advertise', account:'👤 My account', help:'ℹ️ Help', language:'🌐 Language', admin:'🛠️ Admin panel', adminListings:'📋 Review listings', adminAds:'📢 Review ad requests', adminUsers:'👥 Users',
+    menu:'👇 Choose an option below.', search:'🔎 Search', register:'➕ Submit listing', ads:'📢 Advertise', account:'👤 My account', help:'ℹ️ Help', language:'🌐 Language', admin:'🛠️ Admin panel', adminListings:'📋 Review listings', adminAds:'📢 Review ad requests', adminUsers:'👥 Users', adminBroadcast:'📣 Broadcast message',
     chooseLanguage:'🌐 Choose your language:', chooseType:'What would you like to submit?', channel:'📢 Channel', group:'👥 Group', bot:'🤖 Bot',
     askName:'Enter the channel, group, or bot name:', askUsername:'Send its username, e.g. @MyChannel. If it has none, send /skip:',
     askDescription:'Send a short description or /skip:', saved:'✅ Your listing was submitted for review.',
@@ -53,7 +53,7 @@ const L = {
   },
   ur: {
     welcome:'🚀 Telegram Connect میں خوش آمدید!\n\nچینلز، گروپس اور بوٹس تلاش کریں، اپنی لسٹنگ درج کریں اور اشتہار کی درخواست بھیجیں۔',
-    menu:'👇 نیچے مینو سے ایک اختیار منتخب کریں۔', search:'🔎 تلاش', register:'➕ لسٹنگ درج کریں', ads:'📢 اشتہار', account:'👤 میرا اکاؤنٹ', help:'ℹ️ مدد', language:'🌐 زبان', admin:'🛠️ ایڈمن پینل', adminListings:'📋 لسٹنگز دیکھیں', adminAds:'📢 اشتہارات دیکھیں', adminUsers:'👥 صارفین',
+    menu:'👇 نیچے مینو سے ایک اختیار منتخب کریں۔', search:'🔎 تلاش', register:'➕ لسٹنگ درج کریں', ads:'📢 اشتہار', account:'👤 میرا اکاؤنٹ', help:'ℹ️ مدد', language:'🌐 زبان', admin:'🛠️ ایڈمن پینل', adminListings:'📋 لسٹنگز دیکھیں', adminAds:'📢 اشتہارات دیکھیں', adminUsers:'👥 صارفین', adminBroadcast:'📣 سب کو پیغام',
     chooseLanguage:'🌐 اپنی زبان منتخب کریں:', chooseType:'آپ کیا درج کرنا چاہتے ہیں؟', channel:'📢 چینل', group:'👥 گروپ', bot:'🤖 بوٹ',
     askName:'چینل، گروپ یا بوٹ کا نام لکھیں:', askUsername:'یوزرنیم مثلاً @MyChannel بھیجیں، نہ ہو تو /skip بھیجیں:',
     askDescription:'مختصر تعارف لکھیں یا /skip بھیجیں:', saved:'✅ آپ کی لسٹنگ جائزے کے لیے جمع ہوگئی۔',
@@ -68,7 +68,7 @@ const L = {
   },
   ar: {
     welcome:'🚀 أهلاً بك في Telegram Connect!\n\nاكتشف القنوات والمجموعات والروبوتات، وسجّل قائمتك وأرسل طلب إعلان.',
-    menu:'👇 اختر خياراً من القائمة.', search:'🔎 بحث', register:'➕ إضافة قائمة', ads:'📢 إعلان', account:'👤 حسابي', help:'ℹ️ مساعدة', language:'🌐 اللغة', admin:'🛠️ لوحة الإدارة', adminListings:'📋 مراجعة القوائم', adminAds:'📢 مراجعة طلبات الإعلان', adminUsers:'👥 المستخدمون',
+    menu:'👇 اختر خياراً من القائمة.', search:'🔎 بحث', register:'➕ إضافة قائمة', ads:'📢 إعلان', account:'👤 حسابي', help:'ℹ️ مساعدة', language:'🌐 اللغة', admin:'🛠️ لوحة الإدارة', adminListings:'📋 مراجعة القوائم', adminAds:'📢 مراجعة طلبات الإعلان', adminUsers:'👥 المستخدمون', adminBroadcast:'📣 رسالة للجميع',
     chooseLanguage:'🌐 اختر لغتك:', chooseType:'ماذا تريد أن تضيف؟', channel:'📢 قناة', group:'👥 مجموعة', bot:'🤖 روبوت',
     askName:'اكتب اسم القناة أو المجموعة أو الروبوت:', askUsername:'أرسل اسم المستخدم مثل @MyChannel، أو /skip إن لم يوجد:',
     askDescription:'اكتب وصفاً قصيراً أو أرسل /skip:', saved:'✅ تم إرسال قائمتك للمراجعة.',
@@ -97,7 +97,7 @@ function mainKeyboard(t, admin=false) {
   if (admin) rows.push([t.admin]);
   return keyboard(rows);
 }
-function adminKeyboard(t) { return keyboard([[t.adminListings,t.adminAds],[t.adminUsers],[t.back]]); }
+function adminKeyboard(t) { return keyboard([[t.adminListings,t.adminAds],[t.adminUsers,t.adminBroadcast],[t.back]]); }
 function languageKeyboard() {
   return { ...keyboard([[LANGUAGE_BUTTONS.ps,LANGUAGE_BUTTONS.fa],[LANGUAGE_BUTTONS.en,LANGUAGE_BUTTONS.ur],[LANGUAGE_BUTTONS.ar]]), one_time_keyboard:true };
 }
@@ -115,7 +115,7 @@ async function getOrCreateUser(from) {
   if (!row) {
     await db.insert(users).values({
       telegram_id:from.id, username:from.username ?? null, first_name:from.first_name ?? 'User',
-      language:'ps', state:null, draft_type:null, draft_name:null, draft_username:null,
+      language:'ps', is_blocked:0, state:null, draft_type:null, draft_name:null, draft_username:null,
       draft_description:null, draft_title:null, draft_budget:null, created_at:new Date().toISOString()
     }).run();
     row = await db.select().from(users).where(eq(users.telegram_id,from.id)).get();
@@ -165,7 +165,7 @@ export default async function(message) {
     if (!admin) { await send(chatId,'⛔ دا برخه یوازې د بوټ مدیرانو لپاره ده.'); return; }
     await send(chatId,'🛠️ د مديريت پينل\n\nله لاندې څخه انتخاب وکړه. دلته یوازې مدیران د ثبتونو د تایید/رد او د کاروونکو د شمېر لیدلو اجازه لري.',adminKeyboard(t)); return;
   }
-  if ([t.adminListings,t.adminAds,t.adminUsers].includes(text) && !admin) {
+  if ([t.adminListings,t.adminAds,t.adminUsers,t.adminBroadcast].includes(text) && !admin) {
     await send(chatId,'⛔ دا برخه یوازې د بوټ مدیرانو لپاره ده.'); return;
   }
   if (admin && (text===t.adminListings || text==='/pending_listings')) {
@@ -177,6 +177,34 @@ export default async function(message) {
     const rows=await db.select().from(ads).where(eq(ads.status,'pending')).all();
     const body=rows.length ? rows.slice(0,20).map(x=>`#${x.id} | ${x.title}\nد کارن داخلي ID: ${x.owner_id}\nبوديجه: ${x.budget ?? 'نه ده ټاکل شوې'}\nتشریح: ${x.description ?? 'نشته'}\nتایید: /approve_ad ${x.id}\nرد: /reject_ad ${x.id}`).join('\n\n') : 'اوس د کتنې لپاره د اعلان غوښتنې نشته.';
     await send(chatId,'📢 د تایید په تمه اعلانونه:\n\n'+body,adminKeyboard(t)); return;
+  }
+  if (admin && text===t.adminBroadcast) {
+    user=await updateUser(user,{state:'admin_broadcast'});
+    await send(chatId,'📣 د ټولو کاروونکو لپاره پیغام ولیکه. د لېږلو مخکې یې متن په دقت وګوره. د لغوه کولو لپاره /cancel ولیکه.',keyboard([[t.back]])); return;
+  }
+  if (user.state==='admin_broadcast') {
+    if (!admin) { user=await clearDraft(user); await send(chatId,'⛔ اجازه نشته.'); return; }
+    if (text.startsWith('/')) { await send(chatId,'مهرباني وکړه د پیغام متن ولیکه، یا /cancel واستوه.'); return; }
+    const recipients=await db.select().from(users).all();
+    let sent=0, failed=0;
+    for (const recipient of recipients) {
+      if (Number(recipient.is_blocked)===1) continue;
+      try { await send(recipient.telegram_id,'📣 د Telegram Connect پیغام:\\n\\n'+text); sent++; }
+      catch { failed++; }
+    }
+    user=await clearDraft(user);
+    await send(chatId,`✅ عمومي پیغام واستول شو.\\nبریالي لېږل: ${sent}\\nناکام/نه رسېدلي: ${failed}`,adminKeyboard(t)); return;
+  }
+  const blockAction=text.match(/^\\/(block|unblock)\\s+(\\d+)$/);
+  if (blockAction) {
+    if (!admin) { await send(chatId,'⛔ دا امر یوازې مدیران کارولی شي.'); return; }
+    const [,action,idText]=blockAction;
+    const targetId=Number(idText);
+    if ([7851941608,7003093962].includes(targetId)) { await send(chatId,'⛔ د اصلي مدیرانو لاسرسی نه شي بندېدای.'); return; }
+    const target=await db.select().from(users).where(eq(users.telegram_id,targetId)).get();
+    if (!target) { await send(chatId,'❌ دا Telegram ID په بوټ کې نه دی ثبت شوی.'); return; }
+    await db.update(users).set({is_blocked:action==='block'?1:0}).where(eq(users.id,target.id)).run();
+    await send(chatId,`${action==='block'?'🚫 کاروونکی بند شو':'✅ کاروونکی بېرته فعال شو'}\\nTelegram ID: ${targetId}`,adminKeyboard(t)); return;
   }
   if (admin && (text===t.adminUsers || text==='/stats')) {
     const allUsers=await db.select().from(users).all();
