@@ -21,7 +21,7 @@ tgcloud/
     message.js
 ```
 
-The handler imports the schema using the current documented relative-module syntax: `import { ... } from '../schema.js'`.
+The handler imports the schema using Telegram Serverless module naming: `import { ... } from 'schema'`. Relative paths and `.js` extensions are not supported for project modules in this runtime.
 
 ## Important behavior
 
@@ -40,6 +40,6 @@ The handler imports the schema using the current documented relative-module synt
 4. Test in a private chat first: `/start`, language selection, listing submission, admin approval, ad submission, admin approval, marketplace request, and owner accept/reject.
 5. For channel publication, add the bot as an administrator with permission to post. Start with a test channel.
 
-This code has passed a JavaScript syntax check, but it has **not** been runtime-tested against your live Telegram Serverless bot or database. Do not treat it as production-tested until the migration and the tests above succeed.
+The handler import has been aligned with the official Serverless module rules and the marketplace/admin logic has been hardened. However, the complete bot has **not** been runtime-tested against your live Telegram Serverless bot or database. Do not treat it as production-tested until the migration and the tests above succeed.
 
 Official documentation: https://core.telegram.org/bots/serverless
