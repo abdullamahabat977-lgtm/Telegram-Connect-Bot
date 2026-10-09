@@ -182,7 +182,7 @@ export default async function(message) {
     user=await updateUser(user,{state:'admin_broadcast'});
     await send(chatId,'📣 د ټولو کاروونکو لپاره پیغام ولیکه. د لېږلو مخکې یې متن په دقت وګوره. د لغوه کولو لپاره /cancel ولیکه.',keyboard([[t.back]])); return;
   }
-  if (user.state==='admin_broadcast') {
+  if (user.state==='admin_broadcast' && text!=='/cancel') {
     if (!admin) { user=await clearDraft(user); await send(chatId,'⛔ اجازه نشته.'); return; }
     if (text.startsWith('/')) { await send(chatId,'مهرباني وکړه د پیغام متن ولیکه، یا /cancel واستوه.'); return; }
     const recipients=await db.select().from(users).all();
