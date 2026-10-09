@@ -1,9 +1,8 @@
 # Changelog
 
-## 0.1.0 — Initial project scaffold
-- Added Telegram Serverless-oriented project structure.
-- Added multilingual menu and user language preference flow.
-- Added initial directory listing registration and search flows.
-- Added documentation and schema draft.
+## 0.1.0 — Initial scaffold
+- Added multilingual menu and language preference flow.
+- Added initial listing registration and search flows.
+- Aligned runtime files with the documented Telegram Serverless layout.
 
-This is an initial source-code version. It has not been deployed or runtime-tested against the live bot/database.
+This initial implementation has not been deployed or runtime-tested against the live bot/database.
