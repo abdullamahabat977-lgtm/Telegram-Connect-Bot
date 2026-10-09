@@ -271,7 +271,7 @@ export default async function (message, ctx) {
   // Admin-only controls.
   if (text === '/admin' || text === t.admin) {
     if (!admin) { await send(chatId, '⛔ دا برخه یوازې د مدیرانو لپاره ده.'); return; }
-    await send(chatId, '🛠️ د مدیر پینل\n\nد لاندې برخو څخه انتخاب وکړه. د ثبتونو او اعلانونو تایید دلته کېږي.', adminKeyboard(t));
+    await send(chatId, '🛠️ د مدیر پینل\n\nد لاندې تڼیو له لارې ثبتونه او اعلانونه وڅېړه.\n\nنور امرونه:\n/approve_listing ID — د سرچینې تایید\n/reject_listing ID — د سرچینې رد\n/approve_ad ID — د اعلان تایید\n/reject_ad ID — د اعلان رد\n/block TELEGRAM_ID — د کاروونکي بندول\n/unblock TELEGRAM_ID — د بندیز لرې کول\n\nد عمومي پیغام لپاره «ټولو ته پیغام» وټاکه.', adminKeyboard(t));
     return;
   }
   if ([t.adminListings, t.adminAds, t.adminRequests, t.adminStats, t.adminBroadcast].includes(text) && !admin) {
