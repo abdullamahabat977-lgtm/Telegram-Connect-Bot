@@ -506,13 +506,11 @@ export default async function (message, ctx) {
       await showMain(chatId, user, '❌ سرچینه نور د لاسرسي وړ نه ده.');
       return;
     }
-    await db.insert(ad_requests).values({
+    const [request] = await db.insert(ad_requests).values({
       listing_id: listing.id, advertiser_id: user.id, owner_id: listing.owner_id,
       message: messageText, offered_price: user.draft_offer_price ?? 0,
       status: 'pending', created_at: new Date().toISOString()
-    }).run();
-    const created = await db.select().from(ad_requests).where(eq(ad_requests.advertiser_id, user.id)).all();
-    const request = created[created.length - 1];
+    }).returning().run();
     const owner = await db.select().from(users).where(eq(users.id, listing.owner_id)).get();
     if (owner) {
       try {
