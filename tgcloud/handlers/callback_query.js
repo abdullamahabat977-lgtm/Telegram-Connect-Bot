@@ -402,7 +402,7 @@ async function handleSettingsCallback(query, actor, data, actorId, chatId) {
       none: { ps: '✅ د اړیکې پر مهال ټولې غوښتنې بندې شوې.', en: '✅ All requests while chatting disabled.' }
     };
     const lang = actor.language === 'en' ? 'en' : 'ps';
-    await sendPrompt(chatId, messages[mode][lang] + '\\n\\n' + (lang === 'en' ? 'Connection preferences are saved. They will take effect when the matching system is implemented.' : 'تنظیم ثبت شو؛ عملي اغېز به هغه وخت ولري چې د اړیکو نښلولو سیستم فعال شي.'), { keyboard: [[{ text: '👤 د پروفایل تنظیمات' }, { text: '❤️ د پالو ملګرو تنظیمات' }], [{ text: '🔔 د اړیکې تنظیمات' }, { text: '🔙 اصلي مېنو' }]], resize_keyboard: true }, actor); return;
+    await sendPrompt(chatId, messages[mode][lang] + '\n\n' + (lang === 'en' ? 'Connection preferences are saved. They will take effect when the matching system is implemented.' : 'تنظیم ثبت شو؛ عملي اغېز به هغه وخت ولري چې د اړیکو نښلولو سیستم فعال شي.'), { keyboard: [[{ text: '👤 د پروفایل تنظیمات' }, { text: '❤️ د پالو ملګرو تنظیمات' }], [{ text: '🔔 د اړیکې تنظیمات' }, { text: '🔙 اصلي مېنو' }]], resize_keyboard: true }, actor); return;
   }
   if (p[1] === 'favorites' && p[2] === 'page') { await showFavoriteSettings(chatId, actor, Number(p[3])); return; }
   if (p[1] === 'unfavorite') {
