@@ -24,13 +24,13 @@ Random Connect — Telegram Random Chat Bot
 مهم محدودیتونه
 - د Telegram بټنونو اصلي سور، شین او نېلي رنګونه د عادي Bot API له لارې په خپل سر نه شي ټاکل کېدای.
 - دا نسخه د اصلي مېنو لپاره Reply Keyboard کاروي. د انتخابونو Inline Keyboard فعالولو لپاره باید د پروژې موجود callback_query handler هم وکارول شي؛ نوی handler نه دی جوړ شوی.
-- د تصادفي اړیکې، د پیغامونو relay، او د خبرو پر مهال د ملګري پالو کولو فعالیتونه لا نه دي جوړ شوي.
+- د تصادفي اړیکې، د پیغامونو relay، او د خبرو پر مهال د ملګري پالو کولو فعالیتونه لا نه دي جوړ شوي. د chat_sessions، user_blocks او reports جدولونه د راتلونکو پړاوونو لپاره یوازې د ډیټابیس بنسټ برابروي.
 - د غړیتوب د کتلو لپاره بوټ باید په هر اجباري ګروپ یا چینل کې د اړینې اجازې لرونکی وي.
 - GitHub ته د کوډ ثبتول په خپله ژوندی Serverless کوډ نه بدلوي. لومړی کوډ Deploy/Push کړه، بیا د Database د Migration بدلونونه په دقت وګوره او تطبیق یې کړه. هېڅ خطرناک یا د حذف بدلون مه تاییدوه تر څو یې اغېز روښانه نه وي.
 
 فایلونه
 - tgcloud/handlers/message.js — د پیغام handler.
-- tgcloud/schema.js — د کاروونکو، مدیرانو، غړیتوب ګروپونو، تنظیماتو او پالو ملګرو جدولونه.
+- tgcloud/schema.js — اته جدولونه: users، admins، required_chats، app_settings، favorites، chat_sessions، user_blocks او reports.
 
 رسمي اسناد
 https://core.telegram.org/bots/serverless
