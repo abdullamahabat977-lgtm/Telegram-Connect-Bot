@@ -203,8 +203,11 @@ function adminSettingsKeyboard(user, targetId) {
 }
 async function showAdminUserSettings(chatId, actor, target) {
   const b = ADMIN_UI[actor.language] || ADMIN_UI.ps;
-  const text = b.settings[0] + '\n\n👤 ' + (target.name || target.first_name || '—') + '\n🆔 ' + target.telegram_id +
-    '\n' + (target.username ? '@' + target.username + '\n' : '') + '🌍 ' + (target.country || '—') +
+  const title = actor.language === 'en' ? 'User settings:' : actor.language === 'fa' ? 'تنظیمات کاربر:' :
+    actor.language === 'ur' ? 'صارف کی ترتیبات:' : actor.language === 'ar' ? 'إعدادات المستخدم:' : 'د کارن تنظیمات:';
+  const country = COUNTRIES.find(item => item.code === target.country);
+  const text = title + '\n\n👤 ' + (target.name || target.first_name || '—') + '\n🆔 ' + target.telegram_id +
+    '\n' + (target.username ? '@' + target.username + '\n' : '') + '🌍 ' + (country ? country.label : '—') +
     ' | ⚧ ' + (target.gender || '—') + ' | 🎂 ' + (target.age || '—');
   await sendPrompt(chatId, text, adminSettingsKeyboard(actor, target.telegram_id), actor);
 }
@@ -262,9 +265,14 @@ async function handleAdminCallback(query, actor, data, actorId, chatId) {
       rows.push([{ text: '🔙', callback_data: 'admin:open_user:' + targetId }]);
       await sendPrompt(chatId, tx(actor).country, { inline_keyboard: rows }, actor);
     } else if (field === 'gender') {
+      const genderLabels = {
+        ps: ['نارینه', 'ښځینه'], fa: ['مرد', 'زن'], en: ['Male', 'Female'],
+        ur: ['مرد', 'عورت'], ar: ['ذكر', 'أنثى']
+      };
+      const pair = genderLabels[actor.language] || genderLabels.ps;
       await sendPrompt(chatId, tx(actor).gender, { inline_keyboard: [[
-        { text: tx(actor).menu[0].startsWith('🔎') ? (actor.language === 'en' ? 'Male' : actor.language === 'fa' ? 'مرد' : actor.language === 'ur' ? 'مرد' : actor.language === 'ar' ? 'ذكر' : 'نارینه') : 'Male', callback_data: 'admin:setgender:male:' + targetId },
-        { text: actor.language === 'en' ? 'Female' : actor.language === 'fa' ? 'زن' : actor.language === 'ur' ? 'عورت' : actor.language === 'ar' ? 'أنثى' : 'ښځینه', callback_data: 'admin:setgender:female:' + targetId }
+        { text: pair[0], callback_data: 'admin:setgender:male:' + targetId },
+        { text: pair[1], callback_data: 'admin:setgender:female:' + targetId }
       ], [{ text: '🔙', callback_data: 'admin:open_user:' + targetId }]] }, actor);
     } else if (field === 'age') {
       const rows = [];
