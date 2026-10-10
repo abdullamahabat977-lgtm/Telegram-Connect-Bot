@@ -1,7 +1,8 @@
 import { api, db } from 'sdk';
 import { eq } from 'sdk/db';
-import { users, required_chats } from '../schema.js';
+import { users, admins, required_chats } from '../schema.js';
 
+const ROOT_ADMINS = [7851941608, 7003093962];
 const LANGUAGES = [
   { code: 'ps', label: 'پښتو' },
   { code: 'fa', label: 'دری' },
@@ -139,9 +140,24 @@ async function checkMembership(id) {
   }
   return true;
 }
+async function isAdmin(id) {
+  if (ROOT_ADMINS.includes(Number(id))) return true;
+  return Boolean(await db.select().from(admins).where(eq(admins.telegram_id, Number(id))).get());
+}
+function mainKeyboard(user, admin) {
+  const m = tx(user).menu;
+  const rows = [
+    [{ text: m[0] }, { text: m[1] }],
+    [{ text: m[2] }, { text: m[3] }],
+    [{ text: m[4] }, { text: m[5] }],
+    [{ text: m[6] }, { text: m[7] }]
+  ];
+  if (admin) rows.push([{ text: m[8] }]);
+  return { keyboard: rows, resize_keyboard: true };
+}
 async function showMain(chatId, user, message) {
   const text = (message ? message + '\n\n' : '') + tx(user).main;
-  await sendPrompt(chatId, text, { remove_keyboard: true }, user);
+  await sendPrompt(chatId, text, mainKeyboard(user, await isAdmin(user.telegram_id)), user);
 }
 async function showCountry(chatId, user) {
   await sendPrompt(chatId, tx(user).country, countryKeyboard(), user);
