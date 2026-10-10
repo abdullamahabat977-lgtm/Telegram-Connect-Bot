@@ -1,56 +1,50 @@
 # Telegram Connect Bot
 
-Telegram Connect is a multilingual Telegram Serverless bot project for discovering and promoting public Telegram channels, groups, and bots.
+Multilingual Telegram Serverless bot for discovering Telegram channels, groups and bots, submitting listings, and browsing the ad marketplace.
 
-## Source files
+## Files
 
-- `schema.js`: database tables.
-- `handlers/message.js`: current message handler.
+- `schema.js` — database tables.
+- `handlers/message.js` — menus, listing flow, marketplace, and Stars wallet/top-up receipt handling.
+- `handlers/pre_checkout_query.js` — validates wallet invoices before Telegram completes checkout.
 
-For the Telegram Serverless project layout, use:
+## Telegram Stars wallet
 
-```
-tgcloud/
-  schema.js
-  handlers/
-    message.js
-```
+The bot uses Telegram Stars only (`XTR`); TON, USDT and TRX are not used.
 
-Project modules are imported by module name, for example `import { users } from 'schema'`, in accordance with Telegram Serverless module rules.
+- The main menu includes **My Stars wallet** and **Top up wallet**.
+- Top-up choices: 100, 250, 500 or 1,000 Stars.
+- Telegram's official invoice/payment flow is used. The wallet is credited only when a `successful_payment` message arrives and its payload, user, currency and amount validate.
+- The Telegram payment charge ID is stored with a unique constraint to prevent a duplicate successful payment from crediting twice.
+- The internal wallet is separate from the user's native Telegram Stars balance.
+- New channel/group listing prices are entered in whole Stars (`XTR`). Existing rows that were saved in USD are not automatically converted; review them before using them as Stars prices.
 
-## Planned Stars wallet and promotion settlement
+## Database deployment
 
-The schema now includes the **database foundation** for:
-- `wallets`: a user's internal app balance in whole Telegram Stars units, split into available and pending balances.
-- `wallet_transactions`: an auditable ledger with unique idempotency keys to prevent duplicate accounting.
-- `star_payments`: records successful Telegram Stars payments and unique Telegram payment charge IDs.
-- `promotions`: an ad placement order, approval mode, publish time, and 48-hour monitoring/settlement status.
+The wallet requires these tables in `schema.js`: `wallets`, `wallet_transactions`, `star_payments`, and `promotions`.
 
-Important distinction: the internal wallet is **not** the user's native Telegram Stars balance. The bot must first receive a successful Telegram Stars payment update and record it once, then credit the internal wallet.
+After updating the Serverless project's schema, **apply the database migration before deploying/using handlers that import the new tables**. In BotFather → your bot → Serverless → Database, review and apply the pending schema changes. Then deploy/save the handlers. Test payment behavior in Telegram's Stars test environment before accepting real payments.
 
-## Proposed promotion rules
+## Important: promotion escrow is not finished
 
-- Advertiser pays the listing price plus a 10% advertiser fee from their internal available wallet.
-- The listing owner is charged a 10% fee against the listing price; owner net proceeds are therefore 90% of the listed price.
-- The full reservation stays in pending accounting until approval, publication, and the 48-hour monitoring period complete.
-- If approval is denied or publication/monitoring fails, the advertiser's reserved amount is refunded and the owner receives no earnings.
-- If the ad survives the 48-hour monitoring period, the owner's net proceeds become available.
-- The administrator commission is planned as 20% of the bot's collected transaction fees (the advertiser fee plus owner fee), not 20% of the ad's entire price. The precise rounding rule for fractional Stars must be defined in code; only whole Stars can be credited.
-- The bot must have the required channel administrator/posting rights. If Telegram cannot reliably confirm the ad still exists or the bot's rights, settlement must be paused for admin review rather than automatically releasing funds.
+The Stars wallet top-up and payment confirmation handlers are added, but the full promotion escrow plan is **not yet complete**. In particular, the current handler does not yet:
+- reserve the advertiser's wallet for a paid promotion and apply both 10% fees;
+- verify channel type, 500-member minimum, bot admin status and posting permission during listing registration;
+- implement owner/administrator approval modes for paid promotions;
+- publish a paid promotion through a complete order workflow, refund rejected/failed promotions, or release owner earnings after 48 hours;
+- run a guaranteed scheduled 48-hour check. Telegram Serverless handlers run on updates; a dependable timer/scheduled-job mechanism must be established before promising automatic settlement.
 
-## Current implementation status — read carefully
+Do not treat paid promotion/escrow as live until these steps are implemented and tested. Never store bot tokens or private credentials in this repository.
 
-The wallet/payment/promotion tables have been added to `schema.js`. **The payment and escrow workflow is not yet implemented in `handlers/message.js`**, and the bot has not been runtime-tested with Telegram Serverless. Do not describe the Stars wallet or 48-hour settlement as live until handlers are implemented and tested.
+## Fee model agreed for the planned promotion workflow
 
-Before deploying:
-1. Review and apply the Serverless database migration for all new tables.
-2. Implement the Telegram Stars invoice flow using currency `XTR`, validate pre-checkout queries, and credit only after `successful_payment`.
-3. Add atomic/idempotent wallet ledger operations and promotion approval/publish/refund/settlement handlers.
-4. Test with Telegram's dedicated Stars test environment and a test channel before enabling real payments.
-5. Never store bot tokens, API secrets, or private credentials in this repository.
+For a 10⭐ listing price:
+- advertiser pays 11⭐ (10⭐ listing price + 1⭐ advertiser fee);
+- owner net is 9⭐ (10⭐ listing price less 1⭐ owner fee);
+- bot fees total 2⭐;
+- manager share is 20% of collected bot fees cumulatively. Fractional results such as 0.4⭐ cannot be paid as a fraction of a Star, so the implementation must accumulate and settle whole Stars.
 
-Existing marketplace/message-handler functionality may still use the earlier USD listing/ad fields; it must be reconciled with the new Stars pricing flow before production use.
+## Official references
 
-Official docs:
 - Telegram Serverless: https://core.telegram.org/bots/serverless
 - Telegram Stars payments: https://core.telegram.org/bots/payments-stars
