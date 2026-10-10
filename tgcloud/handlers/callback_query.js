@@ -331,8 +331,8 @@ async function handleAdminCallback(query, actor, data, actorId, chatId) {
     actor.state = 'admin_management_menu'; await db.update(users).set({ state: actor.state }).where(eq(users.telegram_id, actorId)).run();
     await sendPrompt(chatId, ui.managementIntro, adminManagementKeyboard(actor), actor); return;
   }
-  if (p[1] === 'users' && p[2] === 'page') { await showUserListPage(chatId, actor, Number(p[3])); return; }
-  if (p[1] === 'admins' && p[2] === 'page') { await showAdminListPage(chatId, actor, Number(p[3])); return; }
+  if (p[1] === 'users' && p[2] === 'page') { await showUserList(chatId, actor, Number(p[3])); return; }
+  if (p[1] === 'admins' && p[2] === 'page') { await showAdminList(chatId, actor, Number(p[3])); return; }
 
   let targetId = 0;
   if (p[1] === 'open_user' || p[1] === 'photo' || p[1] === 'block' || p[1] === 'unblock' || p[1] === 'send') targetId = Number(p[2]);
@@ -358,6 +358,9 @@ async function handleAdminCallback(query, actor, data, actorId, chatId) {
     await sendPrompt(chatId, actor.language === 'en' ? 'Send the whole-number amount to ' + verb + ' ' + labels[field] + ':' : labels[field] + ' ' + verb + ' لپاره مثبت صحیح عدد راولېږه:', { force_reply: true }, actor); return;
   }
   if (p[1] === 'block' || p[1] === 'unblock') {
+    if (p[1] === 'block' && await isAdmin(targetId)) {
+      await sendPrompt(chatId, actor.language === 'en' ? '⛔ Administrators cannot be blocked from this panel.' : '⛔ د بوټ مدیران د دې پینل له لارې نه شي مسدودېدای.', adminUserSettingsKeyboard(actor, targetId, target.is_blocked), actor); return;
+    }
     const value = p[1] === 'block' ? 1 : 0;
     await db.update(users).set({ is_blocked: value }).where(eq(users.telegram_id, targetId)).run();
     target.is_blocked = value;
@@ -403,6 +406,7 @@ async function handleCallback(query) {
   }
   let user = await getUser(id);
   if (!user || Number(user.is_blocked) === 1) return;
+  try { await db.update(users).set({ last_active_at: new Date().toISOString() }).where(eq(users.telegram_id, id)).run(); } catch (e) {}
   if (data.startsWith('admin:')) { await handleAdminCallback(query, user, data, id, chatId); return; }
   if (data.startsWith('settings:')) { await handleSettingsCallback(query, user, data, id, chatId); return; }
   if (!data.startsWith('reg:')) return;
