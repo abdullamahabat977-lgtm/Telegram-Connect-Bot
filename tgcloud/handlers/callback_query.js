@@ -312,79 +312,75 @@ async function handleAdminCallback(query, actor, data, actorId, chatId) {
     await sendPrompt(chatId, (ADMIN_UI[actor.language] || ADMIN_UI.ps).noAccess, mainKeyboard(actor, false), actor);
     return;
   }
-  const p = data.split(':');
-  const ui = ADMIN_UI[actor.language] || ADMIN_UI.ps;
+  const p = data.split(':'), ui = ADMIN_UI[actor.language] || ADMIN_UI.ps;
+  if (p[1] === 'main') { await showMain(chatId, actor); return; }
   if (p[1] === 'panel') {
-    actor.state = 'admin_menu';
-    await db.update(users).set({ state: 'admin_menu' }).where(eq(users.telegram_id, actorId)).run();
-    await sendPrompt(chatId, ui.intro, adminKeyboard(actor), actor);
-    return;
+    actor.state = 'admin_menu'; await db.update(users).set({ state: actor.state }).where(eq(users.telegram_id, actorId)).run();
+    await sendPrompt(chatId, ui.intro, adminKeyboard(actor), actor); return;
   }
+  if (p[1] === 'manage_admins') {
+    actor.state = 'admin_management_menu'; await db.update(users).set({ state: actor.state }).where(eq(users.telegram_id, actorId)).run();
+    await sendPrompt(chatId, ui.managementIntro, adminManagementKeyboard(actor), actor); return;
+  }
+  if (p[1] === 'users' && p[2] === 'page') { await showUserListPage(chatId, actor, Number(p[3])); return; }
+  if (p[1] === 'admins' && p[2] === 'page') { await showAdminListPage(chatId, actor, Number(p[3])); return; }
+
   let targetId = 0;
-  if (p[1] === 'open_user') targetId = Number(p[2]);
-  else if (p[1] === 'edit') targetId = Number(p[3]);
-  else if (p[1] === 'setcountry' || p[1] === 'setgender' || p[1] === 'setage') targetId = Number(p[3]);
+  if (p[1] === 'open_user' || p[1] === 'photo' || p[1] === 'block' || p[1] === 'unblock' || p[1] === 'send') targetId = Number(p[2]);
+  else if (p[1] === 'balance') targetId = Number(p[4]);
   if (!Number.isSafeInteger(targetId) || targetId <= 0) return;
   const target = await getUser(targetId);
-  if (!target) {
-    await sendPrompt(chatId, ui.userMissing, adminKeyboard(actor), actor);
-    return;
+  if (!target) { await sendPrompt(chatId, ui.userMissing, adminKeyboard(actor), actor); return; }
+
+  if (p[1] === 'open_user') { await showAdminUserSettings(chatId, actor, target); return; }
+  if (p[1] === 'photo') {
+    actor.state = 'admin_edit_user_photo:' + targetId;
+    await db.update(users).set({ state: actor.state }).where(eq(users.telegram_id, actorId)).run();
+    const prompt = actor.language === 'en' ? 'Send the new profile photo for this user.' : actor.language === 'fa' ? 'عکس جدید پروفایل کاربر را بفرستید.' : actor.language === 'ur' ? 'صارف کی نئی پروفائل تصویر بھیجیں۔' : actor.language === 'ar' ? 'أرسل صورة الملف الشخصي الجديدة لهذا المستخدم.' : 'د دې کارن نوی پروفایل عکس راولېږه.';
+    await sendPrompt(chatId, prompt, { force_reply: true }, actor); return;
   }
-  if (p[1] === 'open_user') {
-    await showAdminUserSettings(chatId, actor, target);
-    return;
+  if (p[1] === 'balance') {
+    const field = p[2], operation = p[3];
+    if (!['stars','points','likes'].includes(field) || !['add','sub'].includes(operation)) return;
+    actor.state = 'admin_adjust_balance:' + field + ':' + operation + ':' + targetId;
+    await db.update(users).set({ state: actor.state }).where(eq(users.telegram_id, actorId)).run();
+    const labels = { stars: '⭐ Stars', points: '🏆 Points', likes: '❤️ Likes' };
+    const verb = operation === 'add' ? (actor.language === 'en' ? 'add to' : 'زیاتول') : (actor.language === 'en' ? 'subtract from' : 'کمول');
+    await sendPrompt(chatId, actor.language === 'en' ? 'Send the whole-number amount to ' + verb + ' ' + labels[field] + ':' : labels[field] + ' ' + verb + ' لپاره مثبت صحیح عدد راولېږه:', { force_reply: true }, actor); return;
   }
-  if (p[1] === 'edit') {
-    const field = p[2];
-    if (field === 'country') {
-      const rows = [];
-      for (let i = 0; i < COUNTRIES.length; i += 2) {
-        const row = [{ text: COUNTRIES[i].label, callback_data: 'admin:setcountry:' + COUNTRIES[i].code + ':' + targetId }];
-        if (COUNTRIES[i + 1]) row.push({ text: COUNTRIES[i + 1].label, callback_data: 'admin:setcountry:' + COUNTRIES[i + 1].code + ':' + targetId });
-        rows.push(row);
-      }
-      rows.push([{ text: '🔙', callback_data: 'admin:open_user:' + targetId }]);
-      await sendPrompt(chatId, tx(actor).country, { inline_keyboard: rows }, actor);
-    } else if (field === 'gender') {
-      const genderLabels = {
-        ps: ['نارینه', 'ښځینه'], fa: ['مرد', 'زن'], en: ['Male', 'Female'],
-        ur: ['مرد', 'عورت'], ar: ['ذكر', 'أنثى']
-      };
-      const pair = genderLabels[actor.language] || genderLabels.ps;
-      await sendPrompt(chatId, tx(actor).gender, { inline_keyboard: [[
-        { text: pair[0], callback_data: 'admin:setgender:male:' + targetId },
-        { text: pair[1], callback_data: 'admin:setgender:female:' + targetId }
-      ], [{ text: '🔙', callback_data: 'admin:open_user:' + targetId }]] }, actor);
-    } else if (field === 'age') {
-      const rows = [];
-      for (let i = 0; i < AGES.length; i += 3) rows.push(AGES.slice(i, i + 3).map(age => ({ text: String(age), callback_data: 'admin:setage:' + age + ':' + targetId })));
-      rows.push([{ text: '🔙', callback_data: 'admin:open_user:' + targetId }]);
-      await sendPrompt(chatId, tx(actor).age, { inline_keyboard: rows }, actor);
-    } else if (field === 'name' || field === 'surname') {
-      actor.state = 'admin_edit_user_' + field + ':' + targetId;
-      await db.update(users).set({ state: actor.state }).where(eq(users.telegram_id, actorId)).run();
-      const prompt = field === 'name' ? (actor.language === 'en' ? 'Enter the new name:' : actor.language === 'fa' ? 'نام جدید را بنویسید:' : actor.language === 'ur' ? 'نیا نام لکھیں:' : actor.language === 'ar' ? 'اكتب الاسم الجديد:' : 'د کارن نوی نوم ولیکه:') :
-        (actor.language === 'en' ? 'Enter the new surname, or send /skip to clear it:' : actor.language === 'fa' ? 'نام خانوادگی جدید را بنویسید:' : actor.language === 'ur' ? 'نیا خاندانی نام لکھیں:' : actor.language === 'ar' ? 'اكتب اسم العائلة الجديد:' : 'د کارن نوی تخلص ولیکه:');
-      await sendPrompt(chatId, prompt, { force_reply: true }, actor);
+  if (p[1] === 'block' || p[1] === 'unblock') {
+    const value = p[1] === 'block' ? 1 : 0;
+    await db.update(users).set({ is_blocked: value }).where(eq(users.telegram_id, targetId)).run();
+    target.is_blocked = value;
+    await showAdminUserSettings(chatId, actor, target); return;
+  }
+  if (p[1] === 'send') {
+    actor.state = 'admin_send_user_message:' + targetId;
+    await db.update(users).set({ state: actor.state }).where(eq(users.telegram_id, actorId)).run();
+    const prompt = actor.language === 'en' ? 'Send any message, photo, video, document, sticker, voice or other Telegram content for this user.' : actor.language === 'fa' ? 'هر نوع پیام، عکس، ویدیو، فایل یا محتوای تلگرام را برای کاربر بفرستید.' : actor.language === 'ur' ? 'صارف کے لیے کوئی بھی پیغام، تصویر، ویڈیو یا فائل بھیجیں۔' : actor.language === 'ar' ? 'أرسل أي رسالة أو صورة أو فيديو أو ملف إلى المستخدم.' : 'کارن ته هر ډول پیغام، عکس، ویډیو، فایل یا نور ټیلیګرام مواد راولېږه.';
+    await sendPrompt(chatId, prompt, { force_reply: true }, actor); return;
+  }
+}
+async function handleSettingsCallback(query, actor, data, actorId, chatId) {
+  const p = data.split(':');
+  if (p[1] === 'main') { await showMain(chatId, actor); return; }
+  if (p[1] === 'open') {
+    actor.state = 'settings_menu'; await db.update(users).set({ state: actor.state }).where(eq(users.telegram_id, actorId)).run();
+    const labels = { ps: '⚙️ د تنظیماتو یوه برخه وټاکه:', fa: '⚙️ یکی از بخش‌های تنظیمات را انتخاب کنید:', en: '⚙️ Choose a settings section:', ur: '⚙️ ترتیبات کا حصہ منتخب کریں:', ar: '⚙️ اختر قسم الإعدادات:' };
+    const b = { ps: ['👤 د پروفایل تنظیمات','🖼 د عکس تنظیمات','📢 د چینل تنظیمات','❤️ د پالو ملګرو تنظیمات','🔙 اصلي مېنو'], fa: ['👤 تنظیمات پروفایل','🖼 تنظیمات عکس','📢 تنظیمات کانال','❤️ تنظیمات دوستان محبوب','🔙 منوی اصلی'], en: ['👤 Profile settings','🖼 Photo settings','📢 Channel settings','❤️ Favorite friends settings','🔙 Main menu'], ur: ['👤 پروفائل کی ترتیبات','🖼 تصویر کی ترتیبات','📢 چینل کی ترتیبات','❤️ پسندیدہ دوستوں کی ترتیبات','🔙 مرکزی مینو'], ar: ['👤 إعدادات الملف الشخصي','🖼 إعدادات الصورة','📢 إعدادات القناة','❤️ إعدادات الأصدقاء المفضلين','🔙 القائمة الرئيسية'] };
+    const pair = b[actor.language] || b.ps;
+    await sendPrompt(chatId, labels[actor.language] || labels.ps, { keyboard: [[{text:pair[0]},{text:pair[1]}],[{text:pair[2]},{text:pair[3]}],[{text:pair[4]}]], resize_keyboard:true }, actor); return;
+  }
+  if (p[1] === 'favorites' && p[2] === 'page') { await showFavoriteSettings(chatId, actor, Number(p[3])); return; }
+  if (p[1] === 'unfavorite') {
+    const targetId = Number(p[2]), page = Number(p[3]) || 0;
+    if (Number.isSafeInteger(targetId) && targetId > 0) {
+      const rows = await db.select().from(favorites).where(eq(favorites.user_telegram_id, actorId)).all();
+      const row = rows.find(item => Number(item.favorite_telegram_id) === targetId);
+      if (row) await db.delete(favorites).where(eq(favorites.id, Number(row.id))).run();
     }
-    return;
+    await showFavoriteSettings(chatId, actor, page); return;
   }
-  if (p[1] === 'setcountry') {
-    const country = COUNTRIES.find(item => item.code === p[2]);
-    if (!country) return;
-    await db.update(users).set({ country: country.code }).where(eq(users.telegram_id, targetId)).run();
-    target.country = country.code;
-  } else if (p[1] === 'setgender') {
-    if (!['male', 'female'].includes(p[2])) return;
-    await db.update(users).set({ gender: p[2] }).where(eq(users.telegram_id, targetId)).run();
-    target.gender = p[2];
-  } else if (p[1] === 'setage') {
-    const age = Number(p[2]);
-    if (!AGES.includes(age)) return;
-    await db.update(users).set({ age }).where(eq(users.telegram_id, targetId)).run();
-    target.age = age;
-  }
-  await showAdminUserSettings(chatId, actor, target);
 }
 async function handleCallback(query) {
   if (!query || !query.from || !query.message || !query.message.chat || !query.data) return;
@@ -393,15 +389,13 @@ async function handleCallback(query) {
   if (!Number.isSafeInteger(id) || id <= 0 || query.message.chat.type !== 'private') return;
   try { await api.answerCallbackQuery({ callback_query_id: query.id }); } catch (e) {}
   const data = String(query.data);
-  if ((data.startsWith('reg:') || data.startsWith('admin:')) && query.message.message_id) {
+  if ((data.startsWith('reg:') || data.startsWith('admin:') || data.startsWith('settings:')) && query.message.message_id) {
     await safeDelete(chatId, query.message.message_id);
   }
   let user = await getUser(id);
   if (!user || Number(user.is_blocked) === 1) return;
-  if (data.startsWith('admin:')) {
-    await handleAdminCallback(query, user, data, id, chatId);
-    return;
-  }
+  if (data.startsWith('admin:')) { await handleAdminCallback(query, user, data, id, chatId); return; }
+  if (data.startsWith('settings:')) { await handleSettingsCallback(query, user, data, id, chatId); return; }
   if (!data.startsWith('reg:')) return;
   const parts = data.split(':');
   const kind = parts[1];
