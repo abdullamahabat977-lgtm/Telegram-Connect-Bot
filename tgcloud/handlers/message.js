@@ -442,6 +442,16 @@ async function sendPrompt(chatId, text, markup, user) {
   return sent;
 }
 async function getUser(id) { return await db.select().from(users).where(eq(users.telegram_id, Number(id))).get(); }
+async function getSetting(key, fallback) {
+  const row = await db.select().from(app_settings).where(eq(app_settings.setting_key, key)).get();
+  const value = Number(row && row.setting_value);
+  return row && Number.isFinite(value) && value >= 0 ? value : fallback;
+}
+async function setSetting(key, value) {
+  const old = await db.select().from(app_settings).where(eq(app_settings.setting_key, key)).get();
+  if (old) await db.update(app_settings).set({ setting_value: String(value) }).where(eq(app_settings.setting_key, key)).run();
+  else await db.insert(app_settings).values({ setting_key: key, setting_value: String(value) }).run();
+}
 async function isAdmin(id) {
   if (ROOT_ADMINS.includes(Number(id))) return true;
   return Boolean(await db.select().from(admins).where(eq(admins.telegram_id, Number(id))).get());
@@ -598,24 +608,39 @@ async function showSettingsSection(chatId, user, state, text, markup) {
   await sendPrompt(chatId, text, markup, user);
 }
 async function showStats(chatId, user) {
-  const t = tx(user);
+  const t = tx(user), allUsers = await db.select().from(users).all();
+  const cutoff = Date.now() - 15 * 60 * 1000;
+  const onlineUsers = allUsers.filter(row => row.last_active_at && Date.parse(row.last_active_at) >= cutoff);
+  const favCount = await db.$count(favorites, eq(favorites.user_telegram_id, Number(user.telegram_id)));
   if (await isAdmin(user.telegram_id)) {
-    const uc = await db.$count(users);
-    const ac = await db.$count(admins);
-    const cc = await db.$count(required_chats, eq(required_chats.is_active, 1));
-    await sendPrompt(chatId, t.stats + '\n\n' + t.users + uc + '\n' + t.admins + ac + '\n' + t.channels + cc, menuKeyboard(user, true), user);
+    const allAdmins = await db.select().from(admins).all();
+    const adminIds = new Set(allAdmins.map(row => Number(row.telegram_id)).concat(ROOT_ADMINS));
+    const onlineAdmins = onlineUsers.filter(row => adminIds.has(Number(row.telegram_id))).length;
+    const channelsCount = await db.$count(required_chats, eq(required_chats.is_active, 1));
+    const referralsTotal = allUsers.reduce((sum, row) => sum + Number(row.referral_count || 0), 0);
+    const text = '📊 د بوټ بشپړې احصائیې\n━━━━━━━━━━━━━━\n\n👥 ټول کاروونکي: ' + allUsers.length +
+      '\n\n🟢 آنلاین کاروونکي (وروستۍ ۱۵ دقیقې): ' + onlineUsers.length +
+      '\n\n🛡️ ټول مدیران/کارکوونکي: ' + adminIds.size +
+      '\n\n🟢 آنلاین مدیران/کارکوونکي: ' + onlineAdmins +
+      '\n\n📢 فعال اجباري ګروپونه/چینلونه: ' + channelsCount +
+      '\n\n📨 ټول ریفرلونه: ' + referralsTotal;
+    await sendPrompt(chatId, text, menuKeyboard(user, true), user);
   } else {
-    const fc = await db.$count(favorites, eq(favorites.user_telegram_id, Number(user.telegram_id)));
-    await sendPrompt(chatId, t.stats + '\n\n' + t.referrals + Number(user.referral_count || 0) + '\n' + t.favorites + fc,
-      menuKeyboard(user, false), user);
+    const text = t.stats + '\n━━━━━━━━━━━━━━\n\n📨 ستا ریفرلونه: ' + Number(user.referral_count || 0) +
+      '\n\n❤️ پالو ملګري: ' + favCount + '\n\n⭐ ستوري: ' + Number(user.stars || 0) +
+      '\n\n🏆 نمرې: ' + Number(user.points || 0) + '\n\n❤️ لایکونه: ' + Number(user.likes || 0);
+    await sendPrompt(chatId, text, menuKeyboard(user, false), user);
   }
 }
 async function showReferral(chatId, user) {
   const t = tx(user);
   const me = await api.getMe();
   const link = 'https://t.me/' + me.username + '?start=' + String(user.telegram_id);
-  const share = 'https://t.me/share/url?url=' + encodeURIComponent(link) + '&text=' + encodeURIComponent(t.referralText);
-  await sendPrompt(chatId, t.referralTitle + '\n\n' + t.referralText + '\n\n' + link,
+  const rewardStars = await getSetting('referral_reward_stars', 15), rewardPoints = await getSetting('referral_reward_points', 5), rewardLikes = await getSetting('referral_reward_likes', 2);
+  const rewardLine = '\n\n🎁 د هر بریالي دعوت جایزه: ⭐ ' + rewardStars + ' ستوري، 🏆 ' + rewardPoints + ' نمرې، ❤️ ' + rewardLikes + ' لایکونه.';
+  const shareText = t.referralText + rewardLine + '\n\n🔗 ' + link;
+  const share = 'https://t.me/share/url?text=' + encodeURIComponent(shareText);
+  await sendPrompt(chatId, t.referralTitle + '\n\n' + t.referralText + rewardLine + '\n\n🔗 ' + link,
     { inline_keyboard: [[{ text: t.share, url: share }]] }, user);
 }
 function listWords(user) {
@@ -680,19 +705,31 @@ async function processMessage(message) {
       language: 'ps', country: null, gender: null, age: null, name: null, surname: null,
       profile_photo_id: null, channel_username: null, stars: 0, points: 0, likes: 0,
       state: 'choose_language', is_blocked: 0, referrer_id: referrer, referral_count: 0,
-      last_prompt_id: 0, created_at: new Date().toISOString()
+      last_prompt_id: 0, last_active_at: new Date().toISOString(), connection_request_mode: 'all', created_at: new Date().toISOString()
     }).run();
     user = await getUser(id);
     if (referrer) {
       const parent = await getUser(referrer);
-      if (parent) await db.update(users).set({ referral_count: Number(parent.referral_count || 0) + 1 })
-        .where(eq(users.telegram_id, referrer)).run();
+      if (parent) {
+        const rewardStars = await getSetting('referral_reward_stars', 15);
+        const rewardPoints = await getSetting('referral_reward_points', 5);
+        const rewardLikes = await getSetting('referral_reward_likes', 2);
+        await db.update(users).set({
+          referral_count: Number(parent.referral_count || 0) + 1,
+          stars: Number(parent.stars || 0) + rewardStars,
+          points: Number(parent.points || 0) + rewardPoints,
+          likes: Number(parent.likes || 0) + rewardLikes
+        }).where(eq(users.telegram_id, referrer)).run();
+        const rewardText = '🎉 یو کس ستا د دعوتي لینک له لارې بوټ ته راغی!\n\nستا د ریفرل جایزه:\n⭐ +' + rewardStars + ' ستوري\n\n🏆 +' + rewardPoints + ' نمرې\n\n❤️ +' + rewardLikes + ' لایکونه';
+        try { await api.sendMessage({ chat_id: referrer, text: rewardText }); } catch (e) {}
+      }
     }
   } else {
-    await db.update(users).set({ username: message.from.username || null, first_name: message.from.first_name || null })
+    await db.update(users).set({ username: message.from.username || null, first_name: message.from.first_name || null, last_active_at: new Date().toISOString() })
       .where(eq(users.telegram_id, id)).run();
   }
   if (!user) return;
+  if (Number(user.is_blocked) !== 1) { try { await db.update(users).set({ last_active_at: new Date().toISOString() }).where(eq(users.telegram_id, id)).run(); } catch (e) {} }
   if (Number(user.is_blocked) === 1) {
     await sendPrompt(chatId, tx(user).blocked, { remove_keyboard: true }, user);
     return;
