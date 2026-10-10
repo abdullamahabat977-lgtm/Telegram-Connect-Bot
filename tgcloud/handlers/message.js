@@ -762,7 +762,7 @@ async function processMessage(message) {
     else if (user.state === 'settings_favorites_menu') await sendPrompt(chatId, '❤️ ' + tx(user).settings, favoriteSettingsKeyboard(user), user);
     else if (user.state === 'waiting_profile_photo') await sendPrompt(chatId, user.language === 'en' ? 'Send the profile photo now.' : 'اوس د پروفایل عکس راولېږه.', { force_reply: true }, user);
     else if (user.state === 'waiting_profile_channel') await sendPrompt(chatId, user.language === 'en' ? 'Send a public channel @username or t.me/username.' : 'د عام چینل @username یا لینک راولېږه.', { force_reply: true }, user);
-    else if (user.state === 'admin_menu' || user.state.startsWith('waiting_') || user.state.startsWith('admin_edit_user_') || user.state.startsWith('admin_adjust_balance:') || user.state.startsWith('admin_send_user_message:')) {
+    else if (user.state === 'admin_menu' || user.state.startsWith('waiting_') || user.state.startsWith('admin_edit_user_') || user.state.startsWith('admin_adjust_balance:') || user.state.startsWith('admin_send_user_message:') || user.state.startsWith('admin_set_referral_reward:')) {
       user.state = 'admin_menu'; await db.update(users).set({ state: 'admin_menu' }).where(eq(users.telegram_id, id)).run();
       await sendPrompt(chatId, tx(user).adminIntro, adminKeyboard(user), user);
     } else await showMain(chatId, user);
@@ -805,6 +805,17 @@ async function processMessage(message) {
     await db.update(users).set({ profile_photo_id: photoId }).where(eq(users.telegram_id, targetId)).run();
     user.state = 'admin_menu'; await db.update(users).set({ state: 'admin_menu' }).where(eq(users.telegram_id, id)).run();
     const target = await getUser(targetId); if (target) await showAdminUserSettings(chatId, user, target); return;
+  }
+  const rewardMatch = String(user.state || '').match(/^admin_set_referral_reward:(stars|points|likes)$/);
+  if (rewardMatch) {
+    const field = rewardMatch[1], amount = Number(input);
+    if (!(await isAdmin(id))) { user.state = 'ready'; await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, tx(user).noAccess, menuKeyboard(user, false), user); return; }
+    if (!Number.isSafeInteger(amount) || amount < 0 || amount > 1000000) { await sendPrompt(chatId, '⚠️ صفر یا مثبت صحیح عدد ولیکه.', { force_reply: true }, user); return; }
+    await setSetting('referral_reward_' + field, amount);
+    user.state = 'admin_menu'; await db.update(users).set({ state: 'admin_menu' }).where(eq(users.telegram_id, id)).run();
+    const stars = await getSetting('referral_reward_stars', 15), points = await getSetting('referral_reward_points', 5), likes = await getSetting('referral_reward_likes', 2);
+    await sendPrompt(chatId, '✅ د ریفرل جایزې ثبت شوې:\n\n⭐ ستوري: ' + stars + '\n\n🏆 نمرې: ' + points + '\n\n❤️ لایکونه: ' + likes,
+      { inline_keyboard: [[{ text: '⭐ ستوري', callback_data: 'admin:reward:stars' }, { text: '🏆 نمرې', callback_data: 'admin:reward:points' }], [{ text: '❤️ لایکونه', callback_data: 'admin:reward:likes' }], [{ text: '🔙 اډمین پینل', callback_data: 'admin:panel' }]] }, user); return;
   }
   const balanceMatch = String(user.state || '').match(/^admin_adjust_balance:(stars|points|likes):(add|sub):(\d+)$/);
   if (balanceMatch) {
