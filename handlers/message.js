@@ -213,9 +213,9 @@ async function showMarket(chatId, user) {
   const channels = rows.filter(x => x.type === 'channel' || x.type === 'group').slice(0, 12);
   const approvedAds = (await db.select().from(ads).where(eq(ads.status, 'approved')).all()).slice(0, 8);
   const listingBody = channels.map(x =>
-    `#${x.id} | ${x.type === 'channel' ? '📢' : '👥'} ${x.name}\n${x.username ?? 'لینک نشته'}\nکټګوري: ${x.category ?? '—'} | ژبه: ${x.language ?? '—'}\nد اعلان بیه: ${x.ad_price === null || x.ad_price === undefined ? 'نه ده ټاکل شوې' : x.ad_price + ' ' + (x.currency ?? 'USD')}\nد غوښتنې لپاره: /request_ad ${x.id}`
+    "" + x.id + " | " + (x.type === 'channel' ? '📢' : '👥') + " " + x.name + "\n" + (x.username ?? 'لینک نشته') + "\nکټګوري: " + (x.category ?? '—') + " | ژبه: " + (x.language ?? '—') + "\nد اعلان بیه: " + (x.ad_price === null || x.ad_price === undefined ? 'نه ده ټاکل شوې' : x.ad_price + ' ' + (x.currency ?? 'USD')) + "\nد غوښتنې لپاره: /request_ad " + x.id
   ).join('\n\n');
-  const adBody = approvedAds.map(x => `📢 ${x.title}\n${x.description ?? ''}${x.url ? `\n🔗 ${x.url}` : ''}`).join('\n\n');
+  const adBody = approvedAds.map(x => "📢 " + x.title + "\n" + (x.description ?? '') + (x.url ? "\n🔗 " + x.url : '')).join('\n\n');
   const body = [
     channels.length ? '📣 د اعلان لپاره چینلونه او ګروپونه:\n\n' + listingBody : 'اوس تایید شوي چینلونه یا ګروپونه نشته.',
     approvedAds.length ? '⭐ تایید شوي اعلانونه:\n\n' + adBody : 'اوس په بازار کې تایید شوي اعلانونه نشته.'
