@@ -312,6 +312,21 @@ async function checkMembership(id) {
   }
   return true;
 }
+function matchLanguage(input) {
+  const cleanInput = String(input || '').normalize('NFC').trim().toLowerCase();
+  const aliases = {
+    ps: ['پښتو', 'pashto', 'ps'],
+    fa: ['دری', 'دري', 'dari', 'fa', 'persian'],
+    en: ['english', 'en'],
+    ur: ['اردو', 'urdu', 'ur'],
+    ar: ['العربية', 'عربي', 'arabic', 'ar']
+  };
+  return LANGUAGES.find(function (item) {
+    return [item.label].concat(aliases[item.code] || []).some(function (name) {
+      return String(name).normalize('NFC').trim().toLowerCase() === cleanInput;
+    });
+  }) || null;
+}
 async function showLanguage(chatId, user) { await sendPrompt(chatId, tx(user).lang, languageKeyboard(), user); }
 async function showCountry(chatId, user) { await sendPrompt(chatId, tx(user).country, countryKeyboard(), user); }
 async function showGender(chatId, user) { await sendPrompt(chatId, tx(user).gender, genderKeyboard(user), user); }
@@ -456,32 +471,25 @@ async function processMessage(message) {
     return;
   }
 
-  if (user.state === 'choose_language') {
-    const cleanInput = String(input || '').normalize('NFC').trim();
-    const languageNames = {
-      ps: ['پښتو', 'pashto', 'ps'],
-      fa: ['دری', 'دري', 'dari', 'fa', 'persian'],
-      en: ['English', 'english', 'en'],
-      ur: ['اردو', 'urdu', 'ur'],
-      ar: ['العربية', 'عربي', 'arabic', 'ar']
-    };
-    const selected = LANGUAGES.find(function (item) {
-      return String(item.label).normalize('NFC').trim().toLowerCase() === cleanInput.toLowerCase() ||
-        languageNames[item.code].some(function (name) {
-          return String(name).normalize('NFC').trim().toLowerCase() === cleanInput.toLowerCase();
-        });
-    });
-    if (!selected) { await showLanguage(chatId, user); return; }
+  const selectedLanguage = matchLanguage(input);
+  if (selectedLanguage && (user.state === 'choose_language' || user.state === 'ready' ||
+      user.state === 'check_membership' || user.state === 'choose_country' ||
+      user.state === 'choose_gender' || user.state === 'choose_age' ||
+      user.state === 'enter_name' || user.state === 'enter_surname')) {
     const nextState = user.country ? 'ready' : 'check_membership';
-    await db.update(users).set({ language: selected.code, state: nextState })
+    await db.update(users).set({ language: selectedLanguage.code, state: nextState })
       .where(eq(users.telegram_id, id)).run();
-    user.language = selected.code;
+    user.language = selectedLanguage.code;
     user.state = nextState;
     if (nextState === 'ready') {
       await showMain(chatId, user, tx(user).saved);
     } else {
       await showMembership(chatId, user);
     }
+    return;
+  }
+  if (user.state === 'choose_language') {
+    await showLanguage(chatId, user);
     return;
   }
   if (user.state === 'check_membership') {
