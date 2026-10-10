@@ -331,6 +331,14 @@ async function handleAdminCallback(query, actor, data, actorId, chatId) {
     actor.state = 'admin_management_menu'; await db.update(users).set({ state: actor.state }).where(eq(users.telegram_id, actorId)).run();
     await sendPrompt(chatId, ui.managementIntro, adminManagementKeyboard(actor), actor); return;
   }
+  if (p[1] === 'reward') {
+    const field = p[2];
+    if (!['stars','points','likes'].includes(field)) return;
+    actor.state = 'admin_set_referral_reward:' + field;
+    await db.update(users).set({ state: actor.state }).where(eq(users.telegram_id, actorId)).run();
+    const label = { stars: '⭐ Stars', points: '🏆 Points', likes: '❤️ Likes' }[field];
+    await sendPrompt(chatId, 'Send the new whole-number amount for ' + label + ' per successful referral. Zero is allowed.', { force_reply: true }, actor); return;
+  }
   if (p[1] === 'users' && p[2] === 'page') { await showUserList(chatId, actor, Number(p[3])); return; }
   if (p[1] === 'admins' && p[2] === 'page') { await showAdminList(chatId, actor, Number(p[3])); return; }
 
@@ -382,6 +390,19 @@ async function handleSettingsCallback(query, actor, data, actorId, chatId) {
     const b = { ps: ['👤 د پروفایل تنظیمات','🖼 د عکس تنظیمات','📢 د چینل تنظیمات','❤️ د پالو ملګرو تنظیمات','🔙 اصلي مېنو'], fa: ['👤 تنظیمات پروفایل','🖼 تنظیمات عکس','📢 تنظیمات کانال','❤️ تنظیمات دوستان محبوب','🔙 منوی اصلی'], en: ['👤 Profile settings','🖼 Photo settings','📢 Channel settings','❤️ Favorite friends settings','🔙 Main menu'], ur: ['👤 پروفائل کی ترتیبات','🖼 تصویر کی ترتیبات','📢 چینل کی ترتیبات','❤️ پسندیدہ دوستوں کی ترتیبات','🔙 مرکزی مینو'], ar: ['👤 إعدادات الملف الشخصي','🖼 إعدادات الصورة','📢 إعدادات القناة','❤️ إعدادات الأصدقاء المفضلين','🔙 القائمة الرئيسية'] };
     const pair = b[actor.language] || b.ps;
     await sendPrompt(chatId, labels[actor.language] || labels.ps, { keyboard: [[{text:pair[0]},{text:pair[1]}],[{text:pair[2]},{text:pair[3]}],[{text:pair[4]}]], resize_keyboard:true }, actor); return;
+  }
+  if (p[1] === 'connection') {
+    const mode = p[2];
+    if (!['all','followed','none'].includes(mode)) return;
+    await db.update(users).set({ connection_request_mode: mode, state: 'settings_menu' }).where(eq(users.telegram_id, actorId)).run();
+    actor.connection_request_mode = mode; actor.state = 'settings_menu';
+    const messages = {
+      all: { ps: '✅ د اړیکې پر مهال د ټولو کسانو غوښتنې انتخاب شوې.', en: '✅ Requests from everyone selected.' },
+      followed: { ps: '✅ د اړیکې پر مهال یوازې د پالو ملګرو غوښتنې انتخاب شوې.', en: '✅ Requests from followed friends only selected.' },
+      none: { ps: '✅ د اړیکې پر مهال ټولې غوښتنې بندې شوې.', en: '✅ All requests while chatting disabled.' }
+    };
+    const lang = actor.language === 'en' ? 'en' : 'ps';
+    await sendPrompt(chatId, messages[mode][lang] + '\\n\\n' + (lang === 'en' ? 'Connection preferences are saved. They will take effect when the matching system is implemented.' : 'تنظیم ثبت شو؛ عملي اغېز به هغه وخت ولري چې د اړیکو نښلولو سیستم فعال شي.'), { keyboard: [[{ text: '👤 د پروفایل تنظیمات' }, { text: '❤️ د پالو ملګرو تنظیمات' }], [{ text: '🔔 د اړیکې تنظیمات' }, { text: '🔙 اصلي مېنو' }]], resize_keyboard: true }, actor); return;
   }
   if (p[1] === 'favorites' && p[2] === 'page') { await showFavoriteSettings(chatId, actor, Number(p[3])); return; }
   if (p[1] === 'unfavorite') {
