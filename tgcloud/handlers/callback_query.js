@@ -251,7 +251,7 @@ async function handleCallback(query) {
     return;
   }
 
-  if (kind === 'skip_surname' && user.state === 'enter_surname') {
+  if (kind === 'skip_surname' && ['enter_surname', 'settings_surname'].includes(user.state)) {
     await db.update(users).set({ surname: null, state: 'ready' }).where(eq(users.telegram_id, id)).run();
     user.surname = null;
     user.state = 'ready';
