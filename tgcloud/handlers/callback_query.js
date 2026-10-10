@@ -387,9 +387,9 @@ async function handleSettingsCallback(query, actor, data, actorId, chatId) {
   if (p[1] === 'open') {
     actor.state = 'settings_menu'; await db.update(users).set({ state: actor.state }).where(eq(users.telegram_id, actorId)).run();
     const labels = { ps: '⚙️ د تنظیماتو یوه برخه وټاکه:', fa: '⚙️ یکی از بخش‌های تنظیمات را انتخاب کنید:', en: '⚙️ Choose a settings section:', ur: '⚙️ ترتیبات کا حصہ منتخب کریں:', ar: '⚙️ اختر قسم الإعدادات:' };
-    const b = { ps: ['👤 د پروفایل تنظیمات','🖼 د عکس تنظیمات','📢 د چینل تنظیمات','❤️ د پالو ملګرو تنظیمات','🔙 اصلي مېنو'], fa: ['👤 تنظیمات پروفایل','🖼 تنظیمات عکس','📢 تنظیمات کانال','❤️ تنظیمات دوستان محبوب','🔙 منوی اصلی'], en: ['👤 Profile settings','🖼 Photo settings','📢 Channel settings','❤️ Favorite friends settings','🔙 Main menu'], ur: ['👤 پروفائل کی ترتیبات','🖼 تصویر کی ترتیبات','📢 چینل کی ترتیبات','❤️ پسندیدہ دوستوں کی ترتیبات','🔙 مرکزی مینو'], ar: ['👤 إعدادات الملف الشخصي','🖼 إعدادات الصورة','📢 إعدادات القناة','❤️ إعدادات الأصدقاء المفضلين','🔙 القائمة الرئيسية'] };
+    const b = { ps: ['👤 د پروفایل تنظیمات','❤️ د پالو ملګرو تنظیمات','🔔 د اړیکې تنظیمات','🔙 اصلي مېنو'], fa: ['👤 تنظیمات پروفایل','❤️ تنظیمات دوستان محبوب','🔔 تنظیمات ارتباط','🔙 منوی اصلی'], en: ['👤 Profile settings','❤️ Favorite friends settings','🔔 Connection settings','🔙 Main menu'], ur: ['👤 پروفائل کی ترتیبات','❤️ پسندیدہ دوستوں کی ترتیبات','🔔 رابطے کی ترتیبات','🔙 مرکزی مینو'], ar: ['👤 إعدادات الملف الشخصي','❤️ إعدادات الأصدقاء المفضلين','🔔 إعدادات الاتصال','🔙 القائمة الرئيسية'] };
     const pair = b[actor.language] || b.ps;
-    await sendPrompt(chatId, labels[actor.language] || labels.ps, { keyboard: [[{text:pair[0]},{text:pair[1]}],[{text:pair[2]},{text:pair[3]}],[{text:pair[4]}]], resize_keyboard:true }, actor); return;
+    await sendPrompt(chatId, labels[actor.language] || labels.ps, { keyboard: [[{text:pair[0]}],[{text:pair[1]}],[{text:pair[2]}],[{text:pair[3]}]], resize_keyboard:true }, actor); return;
   }
   if (p[1] === 'connection') {
     const mode = p[2];
