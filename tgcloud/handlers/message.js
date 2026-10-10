@@ -424,7 +424,7 @@ async function processMessage(message) {
     await sendPrompt(chatId, tx(user).blocked, { remove_keyboard: true }, user);
     return;
   }
-  await safeDelete(chatId, message.message_id);
+  // Keep user messages visible; only replace the bot's previous prompt.
   const protectedStates = ['admin_menu', 'admin_channels_menu', 'waiting_admin_id', 'waiting_remove_admin_id', 'waiting_channel_details', 'waiting_remove_channel_id', 'waiting_broadcast'];
   if (protectedStates.includes(user.state) && !(await isAdmin(id))) {
     await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, id)).run();
@@ -459,15 +459,14 @@ async function processMessage(message) {
   if (user.state === 'choose_language') {
     const selected = LANGUAGES.find(function (item) { return item.label === input; });
     if (!selected) { await showLanguage(chatId, user); return; }
-    await db.update(users).set({ language: selected.code }).where(eq(users.telegram_id, id)).run();
+    const nextState = user.country ? 'ready' : 'check_membership';
+    await db.update(users).set({ language: selected.code, state: nextState })
+      .where(eq(users.telegram_id, id)).run();
     user.language = selected.code;
-    if (user.country) {
-      await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, id)).run();
-      user.state = 'ready';
+    user.state = nextState;
+    if (nextState === 'ready') {
       await showMain(chatId, user, tx(user).saved);
     } else {
-      await db.update(users).set({ state: 'check_membership' }).where(eq(users.telegram_id, id)).run();
-      user.state = 'check_membership';
       await showMembership(chatId, user);
     }
     return;
