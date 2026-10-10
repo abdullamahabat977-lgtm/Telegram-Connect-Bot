@@ -1,12 +1,12 @@
 import { api, db } from 'sdk';
-import { eq } from 'sdk/db';
-import { users, listings, ads, ad_requests } from 'schema';
+import { eq, sql } from 'sdk/db';
+import { users, listings, ads, ad_requests, wallets, wallet_transactions, star_payments } from 'schema';
 
 const LANG = {
   ps: {
     welcome: '🚀 Telegram Connect ته ښه راغلاست!\n\nچینلونه، ګروپونه او بوټونه پیدا کړه، خپل خدمت ثبت کړه او د اعلانونو بازار وکاروه.',
     menu: '👇 له لاندې مینو څخه یو انتخاب وکړه.',
-    search: '🔎 لټون', register: '➕ ثبتول', ads: '📢 اعلان جوړول', market: '💼 د اعلانونو بازار',
+    search: '🔎 لټون', register: '➕ ثبتول', ads: '📢 اعلان جوړول', market: '💼 د اعلانونو بازار', wallet: '⭐ زما Stars والټ', topup: '➕ والټ چارج',
     account: '👤 زما حساب', help: 'ℹ️ مرسته', language: '🌐 ژبه', admin: '🛠️ د مدیر پینل',
     chooseType: 'څه شی ثبتول غواړې؟', channel: '📢 چینل', group: '👥 ګروپ', bot: '🤖 بوټ',
     askName: 'د چینل، ګروپ یا بوټ نوم ولیکه:', askUsername: 'عامه یوزرنیم ولیکه، لکه @MyChannel. که نه لري /skip ولیکه:',
@@ -33,7 +33,7 @@ const LANG = {
   fa: {
     welcome: '🚀 به Telegram Connect خوش آمدید!\n\nکانال‌ها، گروه‌ها و ربات‌ها را پیدا کنید، خدمات خود را ثبت کنید و از بازار تبلیغات استفاده کنید.',
     menu: '👇 یک گزینه را انتخاب کنید.', search: '🔎 جستجو', register: '➕ ثبت', ads: '📢 ساخت تبلیغ',
-    market: '💼 بازار تبلیغات', account: '👤 حساب من', help: 'ℹ️ راهنما', language: '🌐 زبان', admin: '🛠️ پنل مدیریت',
+    market: '💼 بازار تبلیغات', account: '👤 حساب من', help: 'ℹ️ راهنما', language: '🌐 زبان', admin: '🛠️ پنل مدیریت', wallet: '⭐ کیف پول Stars', topup: '➕ شارژ کیف پول',
     chooseType: 'چه چیزی را ثبت می‌کنید؟', channel: '📢 کانال', group: '👥 گروه', bot: '🤖 ربات',
     askName: 'نام کانال، گروه یا ربات را بنویسید:', askUsername: 'یوزرنیم عمومی مانند @MyChannel را بفرستید؛ اگر ندارد /skip:',
     askDescription: 'معرفی کوتاه بنویسید یا /skip:', askCategory: 'دسته‌بندی را بنویسید؛ مانند آموزش، فناوری، اخبار یا تجارت:',
@@ -57,7 +57,7 @@ const LANG = {
   en: {
     welcome: '🚀 Welcome to Telegram Connect!\n\nDiscover channels, groups and bots, submit your listing, and use the advertising marketplace.',
     menu: '👇 Choose an option below.', search: '🔎 Search', register: '➕ Submit listing', ads: '📢 Create an ad',
-    market: '💼 Ad marketplace', account: '👤 My account', help: 'ℹ️ Help', language: '🌐 Language', admin: '🛠️ Admin panel',
+    market: '💼 Ad marketplace', account: '👤 My account', help: 'ℹ️ Help', language: '🌐 Language', admin: '🛠️ Admin panel', wallet: '⭐ My Stars wallet', topup: '➕ Top up wallet',
     chooseType: 'What would you like to submit?', channel: '📢 Channel', group: '👥 Group', bot: '🤖 Bot',
     askName: 'Enter the channel, group, or bot name:', askUsername: 'Send its public username, e.g. @MyChannel. If none, send /skip:',
     askDescription: 'Enter a short description or send /skip:', askCategory: 'Enter a category, e.g. education, technology, news, or business:',
@@ -82,7 +82,7 @@ const LANG = {
   ur: {
     welcome: '🚀 Telegram Connect میں خوش آمدید!\n\nچینلز، گروپس اور بوٹس تلاش کریں، اپنی لسٹنگ درج کریں اور اشتہارات کا بازار استعمال کریں۔',
     menu: '👇 نیچے سے ایک اختیار منتخب کریں۔', search: '🔎 تلاش', register: '➕ لسٹنگ درج کریں', ads: '📢 اشتہار بنائیں',
-    market: '💼 اشتہارات کا بازار', account: '👤 میرا اکاؤنٹ', help: 'ℹ️ مدد', language: '🌐 زبان', admin: '🛠️ ایڈمن پینل',
+    market: '💼 اشتہارات کا بازار', account: '👤 میرا اکاؤنٹ', help: 'ℹ️ مدد', language: '🌐 زبان', admin: '🛠️ ایڈمن پینل', wallet: '⭐ میرا Stars والٹ', topup: '➕ والٹ میں Stars ڈالیں',
     chooseType: 'کیا درج کرنا چاہتے ہیں؟', channel: '📢 چینل', group: '👥 گروپ', bot: '🤖 بوٹ',
     askName: 'چینل، گروپ یا بوٹ کا نام لکھیں:', askUsername: 'عوامی یوزرنیم مثلاً @MyChannel بھیجیں؛ نہ ہو تو /skip:',
     askDescription: 'مختصر تعارف لکھیں یا /skip:', askCategory: 'زمرہ لکھیں، مثلاً تعلیم، ٹیکنالوجی، خبریں یا کاروبار:',
@@ -138,7 +138,7 @@ function keyboard(rows, extra = {}) {
 }
 function isAdmin(id) { return ADMINS.includes(Number(id)); }
 function mainKeyboard(t, admin = false) {
-  const rows = [[t.search, t.register], [t.ads, t.market], [t.account, t.help], [t.language]];
+  const rows = [[t.search, t.register], [t.ads, t.market], [t.wallet, t.topup], [t.account, t.help], [t.language]];
   if (admin) rows.push([t.admin]);
   return keyboard(rows);
 }
@@ -225,10 +225,28 @@ async function showMarket(chatId, user) {
 export default async function (message, ctx) {
   if (!message?.chat?.id || !message?.from || message.chat.type !== 'private') return;
   const chatId = message.chat.id;
+  let user = await getOrCreateUser(message.from);
+  if (message.successful_payment) {
+    const p = message.successful_payment;
+    const m = /^wallet:(\d+):(\d+):([A-Za-z0-9_-]{6,40})$/.exec(String(p.invoice_payload || ''));
+    if (!m || p.currency !== 'XTR' || Number(m[1]) !== Number(user.id) || Number(m[2]) !== Number(p.total_amount)) {
+      await send(chatId, '⚠️ د تادیې معلومات ونه پېژندل شول. پیسې مه بیا ورکوئ؛ له مدیر سره اړیکه ونیسئ.'); return;
+    }
+    const amount = Number(p.total_amount), chargeId = String(p.telegram_payment_charge_id || '');
+    if (!chargeId || !Number.isSafeInteger(amount) || amount < 1) { await send(chatId, '⚠️ د تادیې رسید ناسم دی؛ مدیر ته خبر ورکړه.'); return; }
+    try {
+      await db.insert(star_payments).values({ user_id: user.id, telegram_payment_charge_id: chargeId, provider_payment_charge_id: p.provider_payment_charge_id || null, invoice_payload: p.invoice_payload, currency: p.currency, total_amount: amount, status: 'successful', created_at: new Date().toISOString() }).run();
+    } catch (e) { await send(chatId, 'ℹ️ دا تادیه مخکې ثبت شوې ده؛ ستا والټ بیا چارج نه کېږي.'); return; }
+    await db.insert(wallets).values({ user_id: user.id, available_stars: 0, pending_stars: 0, updated_at: new Date().toISOString() }).onConflictDoUpdate({ target: wallets.user_id, set: { updated_at: new Date().toISOString() } }).run();
+    await db.update(wallets).set({ available_stars: sql`${wallets.available_stars} + ${amount}`, updated_at: new Date().toISOString() }).where(eq(wallets.user_id, user.id)).run();
+    await db.insert(wallet_transactions).values({ user_id: user.id, promotion_id: null, transaction_type: 'topup', bucket: 'available', amount_stars: amount, idempotency_key: 'topup:' + chargeId, note: 'Telegram Stars payment', created_at: new Date().toISOString() }).run();
+    const w = await db.select().from(wallets).where(eq(wallets.user_id, user.id)).get();
+    await send(chatId, '✅ تادیه بریالۍ شوه!\n➕ ورزیات شول: ' + amount + ' ⭐\n💰 موجود بیلانس: ' + (w?.available_stars ?? amount) + ' ⭐', mainKeyboard(LANG[langOf(user)], isAdmin(user.telegram_id)));
+    return;
+  }
   const text = (message.text ?? '').trim();
   if (!text) return;
-
-  let user = await getOrCreateUser(message.from);
+  user = await getOrCreateUser(message.from);
   let t = LANG[langOf(user)];
   const admin = isAdmin(message.from.id);
 
@@ -522,6 +540,23 @@ export default async function (message, ctx) {
     }
     user = await clearFlow(user);
     await showMain(chatId, user, '✅ د اعلان غوښتنه د چینل مالک ته ولېږل شوه. وروستۍ معامله او پیسې باید د دواړو لورو ترمنځ په خپلواکه توګه تایید شي.');
+    return;
+  }
+
+  if (text === t.wallet || text === '/wallet') {
+    const w = await db.select().from(wallets).where(eq(wallets.user_id, user.id)).get();
+    await send(chatId, '⭐ ستا داخلي Stars والټ\n\n💰 د کارولو وړ: ' + (w?.available_stars ?? 0) + ' ⭐\n⏳ په انتظار کې: ' + (w?.pending_stars ?? 0) + ' ⭐\n\nدا د Telegram اصلي Stars بیلانس نه دی؛ د چارج لپاره د Telegram رسمي تادیه وکاروه.', keyboard([[t.topup], [t.back]])); return;
+  }
+  if (text === t.topup || text === '/topup') {
+    await send(chatId, '⭐ د والټ د چارج اندازه وټاکه. تادیه د Telegram رسمي Stars کړکۍ کې کېږي:', keyboard([['⭐ 100 Stars', '⭐ 250 Stars'], ['⭐ 500 Stars', '⭐ 1000 Stars'], [t.wallet], [t.back]])); return;
+  }
+  const choice = /^⭐\s*(100|250|500|1000)\s*Stars$/i.exec(text);
+  if (choice) {
+    const amount = Number(choice[1]);
+    const payload = 'wallet:' + user.id + ':' + amount + ':' + Date.now().toString(36);
+    try {
+      await api.sendInvoice({ chat_id: chatId, title: 'Telegram Connect wallet ' + amount + ' Stars', description: 'Add ' + amount + ' Telegram Stars to your internal Telegram Connect wallet.', payload, currency: 'XTR', prices: [{ label: amount + ' Stars wallet credit', amount }] });
+    } catch (e) { await send(chatId, '❌ د Stars تادیې رسید جوړ نه شو. کوډ خپور شوی او د Telegram Stars تادیات فعال دي که نه، وګوره.'); }
     return;
   }
 
