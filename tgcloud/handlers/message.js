@@ -693,7 +693,8 @@ async function processMessage(message) {
     if (input.startsWith('/') && !(field === 'surname' && input === '/skip')) { await sendPrompt(chatId, tx(user).cancel, adminKeyboard(user), user); return; }
     if ((field === 'name' && (input.length < 2 || input.length > 60)) || input.length > 60) { await sendPrompt(chatId, tx(user).nameInvalid, adminKeyboard(user), user); return; }
     await db.update(users).set({ [field]: field === 'surname' && input === '/skip' ? null : (input || null) }).where(eq(users.telegram_id, targetId)).run();
-    await sendPrompt(chatId, tx(user).saved, adminKeyboard(user), user);
+    const updatedTarget = await getUser(targetId);
+    await showAdminUserSettings(chatId, user, updatedTarget);
     return;
   }
   if (user.state === 'waiting_channel_details') {
