@@ -212,23 +212,36 @@ function menuKeyboard(user, admin) {
   return keyboard(rows);
 }
 function languageKeyboard() {
-  return keyboard([[{ text: 'پښتو' }, { text: 'دری' }], [{ text: 'English' }, { text: 'اردو' }], [{ text: 'العربية' }]], { one_time_keyboard: true });
+  return { inline_keyboard: [
+    [{ text: 'پښتو', callback_data: 'reg:lang:ps' }, { text: 'دری', callback_data: 'reg:lang:fa' }],
+    [{ text: 'English', callback_data: 'reg:lang:en' }, { text: 'اردو', callback_data: 'reg:lang:ur' }],
+    [{ text: 'العربية', callback_data: 'reg:lang:ar' }]
+  ] };
 }
 function countryKeyboard() {
   const rows = [];
   for (let i = 0; i < COUNTRIES.length; i += 2) {
-    const row = [{ text: COUNTRIES[i].label }];
-    if (COUNTRIES[i + 1]) row.push({ text: COUNTRIES[i + 1].label });
+    const row = [{ text: COUNTRIES[i].label, callback_data: 'reg:country:' + COUNTRIES[i].code }];
+    if (COUNTRIES[i + 1]) row.push({ text: COUNTRIES[i + 1].label, callback_data: 'reg:country:' + COUNTRIES[i + 1].code });
     rows.push(row);
   }
-  return keyboard(rows, { one_time_keyboard: true });
+  return { inline_keyboard: rows };
 }
 function ageKeyboard() {
   const rows = [];
-  for (let i = 0; i < AGES.length; i += 3) rows.push(AGES.slice(i, i + 3).map(function (age) { return { text: String(age) }; }));
-  return keyboard(rows, { one_time_keyboard: true });
+  for (let i = 0; i < AGES.length; i += 3) {
+    rows.push(AGES.slice(i, i + 3).map(function (age) {
+      return { text: String(age), callback_data: 'reg:age:' + String(age) };
+    }));
+  }
+  return { inline_keyboard: rows };
 }
-function genderKeyboard(user) { return keyboard([[{ text: tx(user).male }, { text: tx(user).female }]], { one_time_keyboard: true }); }
+function genderKeyboard(user) {
+  return { inline_keyboard: [[
+    { text: tx(user).male, callback_data: 'reg:gender:male' },
+    { text: tx(user).female, callback_data: 'reg:gender:female' }
+  ]] };
+}
 function settingsKeyboard(user) {
   const b = tx(user).settingsButtons;
   return keyboard([[{ text: b[0] }, { text: b[1] }], [{ text: b[2] }, { text: b[3] }], [{ text: b[4] }, { text: b[5] }]]);
@@ -297,8 +310,7 @@ async function showMembership(chatId, user) {
   const chats = await getRequiredChats();
   let text = t.membership + '\n\n';
   for (const chat of chats) text += '• ' + chat.title + '\n' + chat.invite_link + '\n\n';
-  text += '\n' + t.joined;
-  await sendPrompt(chatId, text, keyboard([[{ text: t.joined }]], { one_time_keyboard: true }), user);
+  await sendPrompt(chatId, text, { inline_keyboard: [[{ text: t.joined, callback_data: 'reg:membership:check' }]] }, user);
 }
 async function checkMembership(id) {
   const chats = await getRequiredChats();
@@ -332,7 +344,9 @@ async function showCountry(chatId, user) { await sendPrompt(chatId, tx(user).cou
 async function showGender(chatId, user) { await sendPrompt(chatId, tx(user).gender, genderKeyboard(user), user); }
 async function showAge(chatId, user) { await sendPrompt(chatId, tx(user).age, ageKeyboard(), user); }
 async function showName(chatId, user) { await sendPrompt(chatId, tx(user).name, { force_reply: true }, user); }
-async function showSurname(chatId, user) { await sendPrompt(chatId, tx(user).surname, keyboard([[{ text: tx(user).skip }]], { one_time_keyboard: true }), user); }
+async function showSurname(chatId, user) {
+  await sendPrompt(chatId, tx(user).surname, { inline_keyboard: [[{ text: tx(user).skip, callback_data: 'reg:skip_surname' }]] }, user);
+}
 async function showMain(chatId, user, text) {
   await sendPrompt(chatId, (text ? text + '\n\n' : '') + tx(user).main, menuKeyboard(user, await isAdmin(user.telegram_id)), user);
 }
