@@ -83,7 +83,10 @@ async function safeDelete(chatId, messageId) {
   try { await api.deleteMessage({ chat_id: chatId, message_id: Number(messageId) }); } catch (e) {}
 }
 async function sendPrompt(chatId, text, markup, user) {
-  if (user && Number(user.last_prompt_id) > 0) await safeDelete(chatId, user.last_prompt_id);
+  const registrationStates = ['choose_language', 'check_membership', 'choose_country', 'choose_gender', 'choose_age', 'enter_name', 'enter_surname'];
+  if (user && registrationStates.includes(user.state) && Number(user.last_prompt_id) > 0) {
+    await safeDelete(chatId, user.last_prompt_id);
+  }
   const sent = await api.sendMessage({ chat_id: chatId, text: text, reply_markup: markup });
   if (user && sent && sent.message_id) {
     await db.update(users).set({ last_prompt_id: sent.message_id })
