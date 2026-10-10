@@ -730,7 +730,7 @@ async function processMessage(message) {
     const targetId = Number(adminPhotoMatch[1]);
     if (!Array.isArray(message.photo) || !message.photo.length) { await sendPrompt(chatId, user.language === 'en' ? 'Please send a photo to set as the user profile picture.' : 'د کارن د پروفایل لپاره عکس راولېږه.', { force_reply: true }, user); return; }
     const photoId = message.photo[message.photo.length - 1].file_id;
-    await db.update(users).set({ profile_photo_id: photoId, state: 'admin_menu' }).where(eq(users.telegram_id, targetId)).run();
+    await db.update(users).set({ profile_photo_id: photoId }).where(eq(users.telegram_id, targetId)).run();
     user.state = 'admin_menu'; await db.update(users).set({ state: 'admin_menu' }).where(eq(users.telegram_id, id)).run();
     const target = await getUser(targetId); if (target) await showAdminUserSettings(chatId, user, target); return;
   }
@@ -851,26 +851,24 @@ async function processMessage(message) {
 
   if (user.state === 'waiting_admin_id') {
     const adminId = Number(input);
-    const back = async (message) => { user.state = 'admin_menu'; await db.update(users).set({ state: 'admin_menu' }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, message, adminKeyboard(user), user); };
+    const back = async (message) => { user.state = 'admin_management_menu'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, message + '\n' + tx(user).adminManagementIntro, adminManagementKeyboard(user), user); };
     if (!Number.isSafeInteger(adminId) || adminId <= 0) { await back(tx(user).badId); return; }
     if (ROOT_ADMINS.includes(adminId) || await isAdmin(adminId)) { await back(tx(user).adminExists); return; }
     const target = await getUser(adminId);
     if (!target) { await back(tx(user).userNotFound); return; }
     await db.insert(admins).values({ telegram_id: adminId, created_at: new Date().toISOString() }).run();
-    await back(tx(user).adminAdded);
-    return;
+    await back(tx(user).adminAdded); return;
   }
   if (user.state === 'waiting_remove_admin_id') {
     const adminId = Number(input);
-    const back = async (message) => { user.state = 'admin_menu'; await db.update(users).set({ state: 'admin_menu' }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, message, adminKeyboard(user), user); };
+    const back = async (message) => { user.state = 'admin_management_menu'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, message + '\n' + tx(user).adminManagementIntro, adminManagementKeyboard(user), user); };
     if (!Number.isSafeInteger(adminId) || adminId <= 0) { await back(tx(user).badId); return; }
     if (ROOT_ADMINS.includes(adminId)) { await back(tx(user).rootAdmin); return; }
     if (!await getUser(adminId)) { await back(tx(user).userNotFound); return; }
     const existing = await db.select().from(admins).where(eq(admins.telegram_id, adminId)).get();
     if (!existing) { await back(tx(user).adminNotFound); return; }
     await db.delete(admins).where(eq(admins.telegram_id, adminId)).run();
-    await back(tx(user).adminRemoved);
-    return;
+    await back(tx(user).adminRemoved); return;
   }
   if (user.state === 'waiting_user_settings_id') {
     const targetId = Number(input);
@@ -930,23 +928,14 @@ async function processMessage(message) {
     await sendPrompt(chatId, tx(user).channelRemoved, channelKeyboard(user), user); return;
   }
   if (user.state === 'waiting_broadcast') {
-    if (action === 'cancel') {
-      await db.update(users).set({ state: 'admin_menu' }).where(eq(users.telegram_id, id)).run();
-      user.state = 'admin_menu';
-      await sendPrompt(chatId, tx(user).cancel, adminKeyboard(user), user);
-      return;
-    }
-    const recipients = await db.select({ telegram_id: users.telegram_id }).from(users).all();
-    let sent = 0;
-    let failed = 0;
+    if (action === 'cancel') { await db.update(users).set({ state: 'admin_menu' }).where(eq(users.telegram_id, id)).run(); user.state = 'admin_menu'; await sendPrompt(chatId, tx(user).cancel, adminKeyboard(user), user); return; }
+    const recipients = await db.select({ telegram_id: users.telegram_id }).from(users).all(); let sent = 0, failed = 0;
     for (const recipient of recipients) {
-      try { await api.sendMessage({ chat_id: Number(recipient.telegram_id), text: input }); sent += 1; }
+      try { await api.copyMessage({ chat_id: Number(recipient.telegram_id), from_chat_id: chatId, message_id: message.message_id }); sent += 1; }
       catch (e) { failed += 1; }
     }
-    await db.update(users).set({ state: 'admin_menu' }).where(eq(users.telegram_id, id)).run();
-    user.state = 'admin_menu';
-    await sendPrompt(chatId, tx(user).broadcastDone + sent + tx(user).broadcastFailed + failed, adminKeyboard(user), user);
-    return;
+    await db.update(users).set({ state: 'admin_menu' }).where(eq(users.telegram_id, id)).run(); user.state = 'admin_menu';
+    await sendPrompt(chatId, tx(user).broadcastDone + sent + tx(user).broadcastFailed + failed, adminKeyboard(user), user); return;
   }
 
   if (user.state === 'settings_menu') {
@@ -983,40 +972,41 @@ async function processMessage(message) {
   }
 
   if (user.state === 'admin_menu') {
-    if (!(await isAdmin(id))) {
-      await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, id)).run();
-      user.state = 'ready';
-      await sendPrompt(chatId, tx(user).noAccess, menuKeyboard(user, false), user);
-      return;
-    }
+    if (!(await isAdmin(id))) { user.state = 'ready'; await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, tx(user).noAccess, menuKeyboard(user, false), user); return; }
     const i = tx(user).adminButtons.indexOf(input);
-    const field = i >= 0 ? ['adminAdd', 'adminRemove', 'channels', 'broadcast', 'adminsList', 'userSettings', 'usersList', 'back'][i] : action;
-    if (field === 'adminAdd') {
-      user.state = 'waiting_admin_id';
-      await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run();
-      await sendPrompt(chatId, tx(user).askAdmin, { force_reply: true }, user);
-    } else if (field === 'adminRemove') {
-      user.state = 'waiting_remove_admin_id';
-      await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run();
-      await sendPrompt(chatId, tx(user).askRemoveAdmin, { force_reply: true }, user);
+    const field = i >= 0 ? ['adminManagement','channels','broadcast','userSettings','usersList','back'][i] : action;
+    if (field === 'adminManagement') {
+      user.state = 'admin_management_menu'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run();
+      await sendPrompt(chatId, tx(user).adminManagementIntro, adminManagementKeyboard(user), user);
     } else if (field === 'channels') {
-      user.state = 'admin_channels_menu';
-      await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run();
+      user.state = 'admin_channels_menu'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run();
       await sendPrompt(chatId, tx(user).channelIntro, channelKeyboard(user), user);
     } else if (field === 'broadcast') {
-      user.state = 'waiting_broadcast';
-      await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run();
+      user.state = 'waiting_broadcast'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run();
       await sendPrompt(chatId, tx(user).askBroadcast, keyboard([[{ text: tx(user).cancel }]]), user);
-    } else if (field === 'adminsList') await showAdminList(chatId, user);
-    else if (field === 'userSettings') {
-      user.state = 'waiting_user_settings_id';
-      await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run();
+    } else if (field === 'userSettings') {
+      user.state = 'waiting_user_settings_id'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run();
       await sendPrompt(chatId, tx(user).askUserSettings, { force_reply: true }, user);
-    } else if (field === 'usersList') await showUserList(chatId, user);
+    } else if (field === 'usersList') await showUserList(chatId, user, 0);
     else await showMain(chatId, user);
     return;
   }
-
+  if (user.state === 'admin_management_menu') {
+    const i = tx(user).adminManagementButtons.indexOf(input);
+    const field = i >= 0 ? ['adminAdd','adminRemove','adminsList','back'][i] : action;
+    if (field === 'adminAdd') {
+      user.state = 'waiting_admin_id'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run();
+      await sendPrompt(chatId, tx(user).askAdmin, { force_reply: true }, user);
+    } else if (field === 'adminRemove') {
+      user.state = 'waiting_remove_admin_id'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run();
+      await sendPrompt(chatId, tx(user).askRemoveAdmin, { force_reply: true }, user);
+    } else if (field === 'adminsList') await showAdminList(chatId, user, 0);
+    else {
+      user.state = 'admin_menu'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run();
+      await sendPrompt(chatId, tx(user).adminIntro, adminKeyboard(user), user);
+    }
+    return;
+  }
   if (user.state === 'admin_channels_menu') {
     if (!(await isAdmin(id))) {
       await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, id)).run();
