@@ -249,7 +249,7 @@ async function showAdminListPage(chatId, actor, page) {
   for (const row of items) {
     const profile = await getUser(row.telegram_id);
     const name = profile ? [profile.name || profile.first_name || 'Admin', profile.surname || ''].filter(Boolean).join(' ') : 'Admin';
-    text += '👤 ' + name + '\n🆔 ' + row.telegram_id + '\n🔗 ' + (profile && profile.username ? '@' + profile.username : '—') + '\n\n';
+    text += '👤 نوم: ' + name + '\n\n🆔 Telegram ID: ' + row.telegram_id + '\n\n🔗 Username: ' + (profile && profile.username ? '@' + profile.username : '—') + '\n\n━━━━━━━━━━━━━━\n\n';
     rows.push([{ text: w.copy + ' ' + row.telegram_id, copy_text: { text: String(row.telegram_id) } }]);
   }
   const nav = [];
@@ -269,9 +269,9 @@ async function showUserListPage(chatId, actor, page) {
   for (const item of items) {
     const name = [item.name || item.first_name || 'User', item.surname || ''].filter(Boolean).join(' ');
     const favCount = await db.$count(favorites, eq(favorites.user_telegram_id, Number(item.telegram_id)));
-    text += '👤 ' + name + '\n🆔 ' + item.telegram_id + '\n🔗 ' + (item.username ? '@' + item.username : '—') +
-      '\n📨 ' + w.ref + ': ' + Number(item.referral_count || 0) + '  👥 ' + w.fav + ': ' + favCount +
-      '\n⭐ ' + w.stars + ': ' + Number(item.stars || 0) + '  🏆 ' + w.points + ': ' + Number(item.points || 0) + '  ❤️ ' + w.likes + ': ' + Number(item.likes || 0) + '\n\n';
+    text += '👤 نوم: ' + name + '\n\n🆔 Telegram ID: ' + item.telegram_id + '\n\n🔗 Username: ' + (item.username ? '@' + item.username : '—') +
+      '\n\n📨 ' + w.ref + ': ' + Number(item.referral_count || 0) + '\n\n👥 ' + w.fav + ': ' + favCount +
+      '\n\n⭐ ' + w.stars + ': ' + Number(item.stars || 0) + '\n\n🏆 ' + w.points + ': ' + Number(item.points || 0) + '\n\n❤️ ' + w.likes + ': ' + Number(item.likes || 0) + '\n\n━━━━━━━━━━━━━━\n\n';
     rows.push([{ text: '⚙️ ' + name.slice(0, 28), callback_data: 'admin:open_user:' + item.telegram_id },
       { text: w.copy, copy_text: { text: String(item.telegram_id) } }]);
   }
