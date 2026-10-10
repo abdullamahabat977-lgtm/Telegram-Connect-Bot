@@ -36,13 +36,13 @@ const T = {
     menu: ['🔎 ملګری پیدا کړه', '👥 پالو ملګري', '🎲 ناڅاپي اړیکه', '📨 ملګری رابلل', '👤 زما پروفایل', '🌍 د ژبې بدلول', '⚙️ تنظیمات', '📊 احصائیې', '🛡️ د اډمین پینل'],
     settings: "⚙️ د تنظیماتو یوه برخه وټاکه:",
     profileSettingsTitle: "👤 د پروفایل تنظیمات: یوه برخه وټاکه:",
-    settingsButtons: ["👤 د پروفایل تنظیمات","🖼 د عکس تنظیمات","📢 د چینل تنظیمات","❤️ د پالو ملګرو تنظیمات","🔙 اصلي مېنو"],
-    profileSettingsButtons: ["🌍 هېواد بدلول","👤 جنسیت بدلول","🎂 عمر بدلول","✍️ نوم بدلول","📝 تخلص بدلول","🔙 تنظیمات"],
+    settingsButtons: ["👤 د پروفایل تنظیمات","❤️ د پالو ملګرو تنظیمات","🔔 د اړیکې تنظیمات","🔙 اصلي مېنو"],
+    profileSettingsButtons: ["🌍 هېواد بدلول","👤 جنسیت بدلول","🎂 عمر بدلول","✍️ نوم بدلول","📝 تخلص بدلول","🖼 د عکس تنظیمات","📢 د چینل تنظیمات","🔙 تنظیمات"],
     photoSettingsButtons: ["📷 عکس ثبتول/بدلول","🗑 عکس حذفول","🔙 تنظیمات"],
     channelSettingsButtons: ["📢 عام چینل ثبتول/بدلول","🗑 چینل حذفول","🔙 تنظیمات"],
     favoriteSettingsButtons: ["❤️ د پالو ملګرو لېست","🔙 تنظیمات"],
     male: 'نارینه', female: 'ښځینه', admin: '🛡️ د اډمین پینل', adminIntro: 'د اډمین پینل ته ښه راغلاست:',
-    adminButtons: ["👥 د مدیرانو تنظیمات","📢 د غړیتوب ګروپونه","📣 ډله‌ییز اعلان","⚙️ د کارن تنظیمات","👥 د کاروونکو لېست","🔙 اصلي مېنو"],
+    adminButtons: ["👥 د مدیرانو تنظیمات","📢 د غړیتوب ګروپونه","📣 ډله‌ییز اعلان","⚙️ د کارن تنظیمات","👥 د کاروونکو لېست","🔙 اصلي مېنو","🎁 د ریفرل جایزې"],
     adminManagementIntro: "👥 د مدیرانو اداره:",
     adminManagementButtons: ["➕ مدیر زیاتول","➖ مدیر لرې کول","📋 د مدیرانو لېست","🔙 اډمین پینل"],
     askUserSettings: 'د کارن ټیلیګرام عددي ID راولېږه:', userNotFound: 'دا کارن له بوټ سره نه دی یوځای شوی. لومړی باید /start یې کړی وي.',
@@ -80,13 +80,13 @@ const T = {
     menu: ['🔎 پیدا کردن دوست', '👥 دوستان محبوب', '🎲 ارتباط تصادفی', '📨 دعوت از دوست', '👤 پروفایل من', '🌍 تغییر زبان', '⚙️ تنظیمات', '📊 آمار', '🛡️ پنل مدیریت'],
     settings: "⚙️ یکی از بخش‌های تنظیمات را انتخاب کنید:",
     profileSettingsTitle: "👤 تنظیمات پروفایل: یک بخش را انتخاب کنید:",
-    settingsButtons: ["👤 تنظیمات پروفایل","🖼 تنظیمات عکس","📢 تنظیمات کانال","❤️ تنظیمات دوستان محبوب","🔙 منوی اصلی"],
-    profileSettingsButtons: ["🌍 تغییر کشور","👤 تغییر جنسیت","🎂 تغییر سن","✍️ تغییر نام","📝 تغییر نام خانوادگی","🔙 تنظیمات"],
+    settingsButtons: ["👤 تنظیمات پروفایل","❤️ تنظیمات دوستان محبوب","🔔 تنظیمات ارتباط","🔙 منوی اصلی"],
+    profileSettingsButtons: ["🌍 تغییر کشور","👤 تغییر جنسیت","🎂 تغییر سن","✍️ تغییر نام","📝 تغییر نام خانوادگی","🖼 تنظیمات عکس","📢 تنظیمات کانال","🔙 تنظیمات"],
     photoSettingsButtons: ["📷 ثبت/تغییر عکس","🗑 حذف عکس","🔙 تنظیمات"],
     channelSettingsButtons: ["📢 ثبت/تغییر کانال عمومی","🗑 حذف کانال","🔙 تنظیمات"],
     favoriteSettingsButtons: ["❤️ فهرست دوستان محبوب","🔙 تنظیمات"],
     male: 'مرد', female: 'زن', admin: '🛡️ پنل مدیریت', adminIntro: 'به پنل مدیریت خوش آمدید:',
-    adminButtons: ["👥 مدیریت مدیران","📢 عضویت اجباری","📣 پیام همگانی","⚙️ تنظیمات کاربر","👥 فهرست کاربران","🔙 منوی اصلی"],
+    adminButtons: ["👥 مدیریت مدیران","📢 عضویت اجباری","📣 پیام همگانی","⚙️ تنظیمات کاربر","👥 فهرست کاربران","🔙 منوی اصلی","🎁 پاداش دعوت"],
     adminManagementIntro: "👥 مدیریت مدیران:",
     adminManagementButtons: ["➕ افزودن مدیر","➖ حذف مدیر","📋 فهرست مدیران","🔙 پنل مدیریت"],
     askUserSettings: 'شناسه عددی تلگرام کاربر را بفرستید:', userNotFound: 'این کاربر هنوز ربات را شروع نکرده است. ابتدا باید /start را زده باشد.',
@@ -123,13 +123,13 @@ const T = {
     menu: ['🔎 Find a friend', '👥 Favorite friends', '🎲 Random connection', '📨 Invite a friend', '👤 My profile', '🌍 Change language', '⚙️ Settings', '📊 Statistics', '🛡️ Admin panel'],
     settings: "⚙️ Choose a settings section:",
     profileSettingsTitle: "👤 Profile settings: choose a field to edit:",
-    settingsButtons: ["👤 Profile settings","🖼 Photo settings","📢 Channel settings","❤️ Favorite friends settings","🔙 Main menu"],
-    profileSettingsButtons: ["🌍 Change country","👤 Change gender","🎂 Change age","✍️ Change name","📝 Change surname","🔙 Settings"],
+    settingsButtons: ["👤 Profile settings","❤️ Favorite friends settings","🔔 Connection settings","🔙 Main menu"],
+    profileSettingsButtons: ["🌍 Change country","👤 Change gender","🎂 Change age","✍️ Change name","📝 Change surname","🖼 Photo settings","📢 Channel settings","🔙 Settings"],
     photoSettingsButtons: ["📷 Set/change photo","🗑 Remove photo","🔙 Settings"],
     channelSettingsButtons: ["📢 Set/change public channel","🗑 Remove channel","🔙 Settings"],
     favoriteSettingsButtons: ["❤️ Favorite friends list","🔙 Settings"],
     male: 'Male', female: 'Female', admin: '🛡️ Admin panel', adminIntro: 'Welcome to the admin panel:',
-    adminButtons: ["👥 Admin management","📢 Required membership","📣 Broadcast","⚙️ User settings","👥 User list","🔙 Main menu"],
+    adminButtons: ["👥 Admin management","📢 Required membership","📣 Broadcast","⚙️ User settings","👥 User list","🔙 Main menu","🎁 Referral rewards"],
     adminManagementIntro: "👥 Admin management:",
     adminManagementButtons: ["➕ Add admin","➖ Remove admin","📋 Admin list","🔙 Admin panel"],
     askUserSettings: 'Send the user Telegram numeric ID:', userNotFound: 'This user has not started the bot. They must send /start first.',
@@ -166,13 +166,13 @@ const T = {
     menu: ['🔎 دوست تلاش کریں', '👥 پسندیدہ دوست', '🎲 اچانک رابطہ', '📨 دوست کو بلائیں', '👤 میرا پروفائل', '🌍 زبان تبدیل کریں', '⚙️ ترتیبات', '📊 اعدادوشمار', '🛡️ ایڈمن پینل'],
     settings: "⚙️ ترتیبات کا حصہ منتخب کریں:",
     profileSettingsTitle: "👤 پروفائل کی ترتیبات: تبدیل کرنے کے لیے حصہ منتخب کریں:",
-    settingsButtons: ["👤 پروفائل کی ترتیبات","🖼 تصویر کی ترتیبات","📢 چینل کی ترتیبات","❤️ پسندیدہ دوستوں کی ترتیبات","🔙 مرکزی مینو"],
-    profileSettingsButtons: ["🌍 ملک تبدیل کریں","👤 جنس تبدیل کریں","🎂 عمر تبدیل کریں","✍️ نام تبدیل کریں","📝 خاندانی نام تبدیل کریں","🔙 ترتیبات"],
+    settingsButtons: ["👤 پروفائل کی ترتیبات","❤️ پسندیدہ دوستوں کی ترتیبات","🔔 رابطے کی ترتیبات","🔙 مرکزی مینو"],
+    profileSettingsButtons: ["🌍 ملک تبدیل کریں","👤 جنس تبدیل کریں","🎂 عمر تبدیل کریں","✍️ نام تبدیل کریں","📝 خاندانی نام تبدیل کریں","🖼 تصویر کی ترتیبات","📢 چینل کی ترتیبات","🔙 ترتیبات"],
     photoSettingsButtons: ["📷 تصویر لگائیں/بدلیں","🗑 تصویر حذف کریں","🔙 ترتیبات"],
     channelSettingsButtons: ["📢 عوامی چینل لگائیں/بدلیں","🗑 چینل حذف کریں","🔙 ترتیبات"],
     favoriteSettingsButtons: ["❤️ پسندیدہ دوستوں کی فہرست","🔙 ترتیبات"],
     male: 'مرد', female: 'عورت', admin: '🛡️ ایڈمن پینل', adminIntro: 'ایڈمن پینل میں خوش آمدید:',
-    adminButtons: ["👥 ایڈمن مینجمنٹ","📢 لازمی رکنیت","📣 سب کو پیغام","⚙️ صارف کی ترتیبات","👥 صارفین کی فہرست","🔙 مرکزی مینو"],
+    adminButtons: ["👥 ایڈمن مینجمنٹ","📢 لازمی رکنیت","📣 سب کو پیغام","⚙️ صارف کی ترتیبات","👥 صارفین کی فہرست","🔙 مرکزی مینو","🎁 دعوتی انعامات"],
     adminManagementIntro: "👥 ایڈمن مینجمنٹ:",
     adminManagementButtons: ["➕ ایڈمن شامل کریں","➖ ایڈمن ہٹائیں","📋 ایڈمنز کی فہرست","🔙 ایڈمن پینل"],
     askUserSettings: 'صارف کا ٹیلیگرام عددی ID بھیجیں:', userNotFound: 'اس صارف نے ابھی بوٹ شروع نہیں کیا۔ اسے پہلے /start کرنا ہوگا۔',
@@ -209,13 +209,13 @@ const T = {
     menu: ['🔎 ابحث عن صديق', '👥 الأصدقاء المفضلون', '🎲 اتصال عشوائي', '📨 دعوة صديق', '👤 ملفي الشخصي', '🌍 تغيير اللغة', '⚙️ الإعدادات', '📊 الإحصائيات', '🛡️ لوحة الإدارة'],
     settings: "⚙️ اختر قسم الإعدادات:",
     profileSettingsTitle: "👤 إعدادات الملف الشخصي: اختر ما تريد تعديله:",
-    settingsButtons: ["👤 إعدادات الملف الشخصي","🖼 إعدادات الصورة","📢 إعدادات القناة","❤️ إعدادات الأصدقاء المفضلين","🔙 القائمة الرئيسية"],
-    profileSettingsButtons: ["🌍 تغيير البلد","👤 تغيير الجنس","🎂 تغيير العمر","✍️ تغيير الاسم","📝 تغيير اسم العائلة","🔙 الإعدادات"],
+    settingsButtons: ["👤 إعدادات الملف الشخصي","❤️ إعدادات الأصدقاء المفضلين","🔔 إعدادات الاتصال","🔙 القائمة الرئيسية"],
+    profileSettingsButtons: ["🌍 تغيير البلد","👤 تغيير الجنس","🎂 تغيير العمر","✍️ تغيير الاسم","📝 تغيير اسم العائلة","🖼 إعدادات الصورة","📢 إعدادات القناة","🔙 الإعدادات"],
     photoSettingsButtons: ["📷 إضافة/تغيير الصورة","🗑 حذف الصورة","🔙 الإعدادات"],
     channelSettingsButtons: ["📢 إضافة/تغيير قناة عامة","🗑 حذف القناة","🔙 الإعدادات"],
     favoriteSettingsButtons: ["❤️ قائمة الأصدقاء المفضلين","🔙 الإعدادات"],
     male: 'ذكر', female: 'أنثى', admin: '🛡️ لوحة الإدارة', adminIntro: 'مرحبًا بك في لوحة الإدارة:',
-    adminButtons: ["👥 إدارة المديرين","📢 العضوية الإلزامية","📣 رسالة جماعية","⚙️ إعدادات المستخدم","👥 قائمة المستخدمين","🔙 القائمة الرئيسية"],
+    adminButtons: ["👥 إدارة المديرين","📢 العضوية الإلزامية","📣 رسالة جماعية","⚙️ إعدادات المستخدم","👥 قائمة المستخدمين","🔙 القائمة الرئيسية","🎁 مكافآت الدعوة"],
     adminManagementIntro: "👥 إدارة المديرين:",
     adminManagementButtons: ["➕ إضافة مدير","➖ إزالة مدير","📋 قائمة المديرين","🔙 لوحة الإدارة"],
     askUserSettings: 'أرسل رقم Telegram الخاص بالمستخدم:', userNotFound: 'هذا المستخدم لم يبدأ البوت بعد. يجب أن يرسل /start أولاً.',
@@ -258,7 +258,7 @@ function menuKeyboard(user, admin) {
     [{ text: m[4] }, { text: m[5] }],
     [{ text: m[6] }, { text: m[7] }]
   ];
-  if (admin) rows.push([{ text: m[8] }]);
+  if (admin) { rows.push([{ text: m[8] }]); if (tx(user).adminButtons[6]) rows.push([{ text: tx(user).adminButtons[6] }]); }
   return keyboard(rows);
 }
 function languageKeyboard() {
@@ -294,11 +294,11 @@ function genderKeyboard(user) {
 }
 function settingsKeyboard(user) {
   const b = tx(user).settingsButtons;
-  return keyboard([[{ text: b[0] }, { text: b[1] }], [{ text: b[2] }, { text: b[3] }], [{ text: b[4] }]]);
+  return keyboard([[{ text: b[0] }, { text: b[1] }], [{ text: b[2] }, { text: b[3] }]]);
 }
 function profileSettingsKeyboard(user) {
   const b = tx(user).profileSettingsButtons;
-  return keyboard([[{ text: b[0] }, { text: b[1] }], [{ text: b[2] }, { text: b[3] }], [{ text: b[4] }, { text: b[5] }]]);
+  return keyboard([[{ text: b[0] }, { text: b[1] }], [{ text: b[2] }, { text: b[3] }], [{ text: b[4] }, { text: b[5] }], [{ text: b[6] }, { text: b[7] }]]);
 }
 function photoSettingsKeyboard(user) {
   const b = tx(user).photoSettingsButtons;
@@ -387,8 +387,9 @@ function actionFor(input) {
       ['language', m[5]], ['settings', m[6]], ['stats', m[7]], ['admin', m[8]], ['joined', t.joined],
       ['country', t.profileSettingsButtons[0]], ['gender', t.profileSettingsButtons[1]], ['age', t.profileSettingsButtons[2]],
       ['name', t.profileSettingsButtons[3]], ['surname', t.profileSettingsButtons[4]],
-      ['profileSettings', t.settingsButtons[0]], ['photoSettings', t.settingsButtons[1]],
-      ['channelSettings', t.settingsButtons[2]], ['favoriteSettings', t.settingsButtons[3]],
+      ['photoSettings', t.profileSettingsButtons[5]], ['channelSettings', t.profileSettingsButtons[6]],
+      ['profileSettings', t.settingsButtons[0]], ['favoriteSettings', t.settingsButtons[1]],
+      ['connectionSettings', t.settingsButtons[2]], ['rewardSettings', t.adminButtons[6]],
       ['adminManagement', t.adminButtons[0]], ['channels', t.adminButtons[1]], ['broadcast', t.adminButtons[2]],
       ['userSettings', t.adminButtons[3]], ['usersList', t.adminButtons[4]],
       ['adminAdd', t.adminManagementButtons[0]], ['adminRemove', t.adminManagementButtons[1]],
@@ -397,7 +398,7 @@ function actionFor(input) {
       ['channelSet', t.channelSettingsButtons[0]], ['channelRemoveProfile', t.channelSettingsButtons[1]],
       ['favoritesList', t.favoriteSettingsButtons[0]]
     ];
-    const backLabels = [t.settingsButtons[4], t.profileSettingsButtons[5], t.photoSettingsButtons[2],
+    const backLabels = [t.settingsButtons[3], t.profileSettingsButtons[7], t.photoSettingsButtons[2],
       t.channelSettingsButtons[2], t.favoriteSettingsButtons[1], t.adminManagementButtons[3]];
     for (const label of backLabels) if (label === input) return 'back';
     for (const pair of pairs) if (pair[1] === input) return pair[0];
