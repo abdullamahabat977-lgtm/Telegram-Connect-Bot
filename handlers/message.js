@@ -392,7 +392,7 @@ export default async function (message, ctx) {
     }
     const owner = await db.select().from(users).where(eq(users.id, row.owner_id)).get();
     if (owner) { try { await send(owner.telegram_id, `✅ ستا اعلان تایید شو.\n${publication}`); } catch {} }
-    await send(chatId, `✅ اعلان #${id} تایید شو.\n${publication}`, adminKeyboard(t));
+    await send(chatId, "✅ اعلان #" + id + " تایید شو.\n" + publication, adminKeyboard(t));
     return;
   }
 
