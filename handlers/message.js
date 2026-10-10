@@ -11,7 +11,7 @@ const LANG = {
     chooseType: 'څه شی ثبتول غواړې؟', channel: '📢 چینل', group: '👥 ګروپ', bot: '🤖 بوټ',
     askName: 'د چینل، ګروپ یا بوټ نوم ولیکه:', askUsername: 'عامه یوزرنیم ولیکه، لکه @MyChannel. که نه لري /skip ولیکه:',
     askDescription: 'لنډه پېژندنه ولیکه یا /skip ولیکه:', askCategory: 'کټګوري ولیکه، لکه زده‌کړه، ټکنالوژي، خبرونه یا سوداګري:',
-    askLanguage: 'د سرچینې ژبه ولیکه، لکه پښتو، دري یا English:', askPrice: 'د اعلان بیه په USD کې ولیکه. که وړیا وي یا بیه نه ټاکې، 0 ولیکه:',
+    askLanguage: 'د سرچینې ژبه ولیکه، لکه پښتو، دري یا English:', askPrice: 'د اعلان بیه په بشپړو Telegram Stars (⭐) کې ولیکه. که وړیا وي، 0 ولیکه:',
     listingSaved: '✅ ثبت دې د مدیر د کتنې لپاره ولېږل شو.',
     searchPrompt: 'د نوم، یوزرنیم یا کټګورۍ له مخې لټون وکړه:', noResults: '🔎 تایید شوې پایله ونه موندل شوه.',
     results: '🔎 د لټون پایلې:', adsIntro: '📢 د اعلان سرلیک ولیکه:', adDescription: 'د اعلان متن ولیکه:',
@@ -37,7 +37,7 @@ const LANG = {
     chooseType: 'چه چیزی را ثبت می‌کنید؟', channel: '📢 کانال', group: '👥 گروه', bot: '🤖 ربات',
     askName: 'نام کانال، گروه یا ربات را بنویسید:', askUsername: 'یوزرنیم عمومی مانند @MyChannel را بفرستید؛ اگر ندارد /skip:',
     askDescription: 'معرفی کوتاه بنویسید یا /skip:', askCategory: 'دسته‌بندی را بنویسید؛ مانند آموزش، فناوری، اخبار یا تجارت:',
-    askLanguage: 'زبان منبع را بنویسید؛ مانند دری، پشتو یا English:', askPrice: 'قیمت تبلیغ را به USD بنویسید؛ رایگان یا نامشخص = 0:',
+    askLanguage: 'زبان منبع را بنویسید؛ مانند دری، پشتو یا English:', askPrice: 'قیمت تبلیغ را به Telegram Stars (⭐) بنویسید؛ رایگان = 0:',
     listingSaved: '✅ مورد شما برای بررسی مدیر ارسال شد.', searchPrompt: 'نام، یوزرنیم یا دسته‌بندی را برای جستجو بنویسید:',
     noResults: '🔎 نتیجه تأییدشده‌ای پیدا نشد.', results: '🔎 نتایج جستجو:', adsIntro: '📢 عنوان تبلیغ را بنویسید:',
     adDescription: 'متن تبلیغ را بنویسید:', adBudget: 'بودجه را به USD بنویسید؛ اگر مشخص نیست 0:',
@@ -61,7 +61,7 @@ const LANG = {
     chooseType: 'What would you like to submit?', channel: '📢 Channel', group: '👥 Group', bot: '🤖 Bot',
     askName: 'Enter the channel, group, or bot name:', askUsername: 'Send its public username, e.g. @MyChannel. If none, send /skip:',
     askDescription: 'Enter a short description or send /skip:', askCategory: 'Enter a category, e.g. education, technology, news, or business:',
-    askLanguage: 'Enter the source language, e.g. English, Pashto, or Dari:', askPrice: 'Set the ad price in USD. Use 0 if free or not set:',
+    askLanguage: 'Enter the source language, e.g. English, Pashto, or Dari:', askPrice: 'Set the ad price in whole Telegram Stars (⭐). Use 0 if free:',
     listingSaved: '✅ Your listing was submitted for admin review.', searchPrompt: 'Search by name, username, or category:',
     noResults: '🔎 No approved result found.', results: '🔎 Search results:', adsIntro: '📢 Enter the ad title:',
     adDescription: 'Enter the ad text:', adBudget: 'Enter the budget in USD; use 0 if undecided:',
@@ -86,7 +86,7 @@ const LANG = {
     chooseType: 'کیا درج کرنا چاہتے ہیں؟', channel: '📢 چینل', group: '👥 گروپ', bot: '🤖 بوٹ',
     askName: 'چینل، گروپ یا بوٹ کا نام لکھیں:', askUsername: 'عوامی یوزرنیم مثلاً @MyChannel بھیجیں؛ نہ ہو تو /skip:',
     askDescription: 'مختصر تعارف لکھیں یا /skip:', askCategory: 'زمرہ لکھیں، مثلاً تعلیم، ٹیکنالوجی، خبریں یا کاروبار:',
-    askLanguage: 'ذریعے کی زبان لکھیں:', askPrice: 'اشتہار کی قیمت USD میں لکھیں؛ مفت یا نامعلوم کے لیے 0:',
+    askLanguage: 'ذریعے کی زبان لکھیں:', askPrice: 'اشتہار کی قیمت مکمل Telegram Stars (⭐) میں لکھیں؛ مفت کے لیے 0:',
     listingSaved: '✅ لسٹنگ ایڈمن جائزے کے لیے بھیج دی گئی۔', searchPrompt: 'نام، یوزرنیم یا زمرے سے تلاش کریں:',
     noResults: '🔎 کوئی منظور شدہ نتیجہ نہیں ملا۔', results: '🔎 تلاش کے نتائج:', adsIntro: '📢 اشتہار کا عنوان لکھیں:',
     adDescription: 'اشتہار کا متن لکھیں:', adBudget: 'بجٹ USD میں لکھیں؛ نامعلوم ہو تو 0:',
@@ -298,7 +298,7 @@ export default async function (message, ctx) {
   }
   if (admin && (text === t.adminListings || text === '/pending_listings')) {
     const rows = (await db.select().from(listings).where(eq(listings.status, 'pending')).all()).slice(0, 15);
-    const body = rows.length ? rows.map(x => `#${x.id} | ${x.type} | ${x.name}\nمالک داخلي ID: ${x.owner_id}\nلینک: ${x.username ?? 'نشته'}\nبیه: ${x.ad_price ?? 0} ${x.currency ?? 'USD'}\nتایید: /approve_listing ${x.id}\nرد: /reject_listing ${x.id}`).join('\n\n') : 'د کتنې لپاره ثبت نشته.';
+    const body = rows.length ? rows.map(x => `#${x.id} | ${x.type} | ${x.name}\nمالک داخلي ID: ${x.owner_id}\nلینک: ${x.username ?? 'نشته'}\nبیه: ${x.ad_price ?? 0} ${x.currency ?? 'XTR'}\nتایید: /approve_listing ${x.id}\nرد: /reject_listing ${x.id}`).join('\n\n') : 'د کتنې لپاره ثبت نشته.';
     await send(chatId, '📋 د تایید په تمه ثبتونه:\n\n' + body, adminKeyboard(t));
     return;
   }
@@ -409,7 +409,7 @@ export default async function (message, ctx) {
       }
       if (listing.owner_id === user.id) { await send(chatId, 'دا ستا خپله سرچینه ده؛ خپل ځان ته غوښتنه نه شې لېږلای.'); return; }
       user = await updateUser(user, { state: 'offer_price', draft_offer_listing_id: listing.id, draft_offer_price: null });
-      await send(chatId, `🤝 د ${listing.name} لپاره د اعلان د بیې وړاندیز په USD کې ولیکه؛ که د مالک له بیې سره خبرې کول غواړې، 0 ولیکه:`, keyboard([[t.back]]));
+      await send(chatId, `🤝 د ${listing.name} لپاره د اعلان د بیې وړاندیز په ⭐ کې ولیکه؛ که د مالک له بیې سره خبرې کول غواړې، 0 ولیکه:`, keyboard([[t.back]]));
       return;
     }
     const request = await db.select().from(ad_requests).where(eq(ad_requests.id, id)).get();
@@ -463,7 +463,7 @@ export default async function (message, ctx) {
     await db.insert(listings).values({
       owner_id: user.id, type: user.draft_type, name: user.draft_name, username: user.draft_username ?? null,
       description: user.draft_description ?? null, category: user.draft_category ?? null,
-      language: user.draft_language ?? langOf(user), ad_price: Number(text), currency: 'USD',
+      language: user.draft_language ?? langOf(user), ad_price: Number(text), currency: 'XTR',
       status: 'pending', created_at: new Date().toISOString()
     }).run();
     user = await clearFlow(user);
@@ -535,7 +535,7 @@ export default async function (message, ctx) {
     const owner = await db.select().from(users).where(eq(users.id, listing.owner_id)).get();
     if (owner) {
       try {
-        await send(owner.telegram_id, `🤝 د اعلان نوې غوښتنه #${request.id}\nسرچینه: ${listing.name}\nوړاندیز: ${request.offered_price} USD\nپیغام: ${request.message ?? '—'}\n\nمنل: /accept_offer ${request.id}\nردول: /reject_offer ${request.id}`);
+        await send(owner.telegram_id, `🤝 د اعلان نوې غوښتنه #${request.id}\nسرچینه: ${listing.name}\nوړاندیز: ${request.offered_price} ⭐\nپیغام: ${request.message ?? '—'}\n\nمنل: /accept_offer ${request.id}\nردول: /reject_offer ${request.id}`);
       } catch {}
     }
     user = await clearFlow(user);
@@ -578,7 +578,7 @@ export default async function (message, ctx) {
     ).slice(0, 10);
     user = await updateUser(user, { state: null });
     if (!found.length) { await send(chatId, t.noResults, mainKeyboard(t, admin)); return; }
-    const body = found.map(x => `#${x.id} | ${x.type} | ${x.name}\n${x.username ?? 'لینک نشته'}\nکټګوري: ${x.category ?? '—'} | ژبه: ${x.language ?? '—'}\n${x.description ?? ''}${x.ad_price !== null && x.ad_price !== undefined && ['channel', 'group'].includes(x.type) ? `\nد اعلان بیه: ${x.ad_price} ${x.currency ?? 'USD'}\nغوښتنه: /request_ad ${x.id}` : ''}`).join('\n\n');
+    const body = found.map(x => `#${x.id} | ${x.type} | ${x.name}\n${x.username ?? 'لینک نشته'}\nکټګوري: ${x.category ?? '—'} | ژبه: ${x.language ?? '—'}\n${x.description ?? ''}${x.ad_price !== null && x.ad_price !== undefined && ['channel', 'group'].includes(x.type) ? `\nد اعلان بیه: ${x.ad_price} ${x.currency ?? 'XTR'}\nغوښتنه: /request_ad ${x.id}` : ''}`).join('\n\n');
     await send(chatId, t.results + '\n\n' + body, mainKeyboard(t, admin)); return;
   }
   if (text === t.market) { await showMarket(chatId, user); return; }
