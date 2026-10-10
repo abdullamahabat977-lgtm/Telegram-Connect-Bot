@@ -457,7 +457,8 @@ async function processMessage(message) {
   }
 
   if (user.state === 'choose_language') {
-    const selected = LANGUAGES.find(function (item) { return item.label === input; });
+    const cleanInput = String(input || '').normalize('NFC').trim();
+    const selected = LANGUAGES.find(function (item) { return String(item.label).normalize('NFC').trim() === cleanInput; });
     if (!selected) { await showLanguage(chatId, user); return; }
     const nextState = user.country ? 'ready' : 'check_membership';
     await db.update(users).set({ language: selected.code, state: nextState })
