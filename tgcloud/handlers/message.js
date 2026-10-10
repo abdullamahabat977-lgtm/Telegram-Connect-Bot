@@ -375,12 +375,33 @@ async function ensureDefaults() {
   }
 }
 async function getRequiredChats() { return await db.select().from(required_chats).where(eq(required_chats.is_active, 1)).all(); }
+function requiredChatInfo(chat) {
+  const stored = String(chat.title || '');
+  if (stored.startsWith('channel::')) return { type: 'channel', title: stored.slice(9) };
+  if (stored.startsWith('group::')) return { type: 'group', title: stored.slice(7) };
+  return { type: String(chat.chat_id) === '-1004419974496' ? 'channel' : 'group', title: stored };
+}
+function requiredChatButtonTitle(chat, user) {
+  const info = requiredChatInfo(chat);
+  const labels = { ps: ['چینل ته ګډون', 'ګروپ ته ګډون'], fa: ['عضویت در کانال', 'عضویت در گروه'], en: ['Join channel', 'Join group'], ur: ['چینل میں شامل ہوں', 'گروپ میں شامل ہوں'], ar: ['الانضمام إلى القناة', 'الانضمام إلى المجموعة'] };
+  const pair = labels[user.language] || labels.ps;
+  return (info.type === 'channel' ? pair[0] : pair[1]) + (info.title ? ': ' + info.title : '');
+}
+function channelError(user, kind) {
+  const messages = {
+    ps: { invalid: '⚠️ ID ناسم دی یا بوټ لاسرسی نه لري.', member: '⚠️ بوټ په دې ګروپ/چینل کې غړی نه دی.', admin: '⚠️ بوټ باید په ګروپ/چینل کې مدیر وي.', link: '⚠️ د ګډون لینک پیدا یا جوړ نه شو.' },
+    fa: { invalid: '⚠️ شناسه نادرست است یا ربات دسترسی ندارد.', member: '⚠️ ربات عضو این گروه/کانال نیست.', admin: '⚠️ ربات باید مدیر باشد.', link: '⚠️ لینک عضویت پیدا یا ساخته نشد.' },
+    en: { invalid: '⚠️ Invalid ID or the bot cannot access this chat.', member: '⚠️ The bot is not a member of this group/channel.', admin: '⚠️ The bot must be an administrator.', link: '⚠️ Could not find or create a join link.' },
+    ur: { invalid: '⚠️ ID غلط ہے یا بوٹ کو رسائی نہیں۔', member: '⚠️ بوٹ اس گروپ/چینل کا رکن نہیں۔', admin: '⚠️ بوٹ کو ایڈمن ہونا چاہیے۔', link: '⚠️ شمولیت کا لنک نہیں ملا۔' },
+    ar: { invalid: '⚠️ المعرّف غير صحيح أو لا يوجد وصول.', member: '⚠️ البوت ليس عضوًا في المجموعة/القناة.', admin: '⚠️ يجب أن يكون البوت مشرفًا.', link: '⚠️ تعذّر العثور على رابط الانضمام.' }
+  };
+  return (messages[user.language] || messages.ps)[kind];
+}
 async function showMembership(chatId, user) {
-  const t = tx(user);
-  const chats = await getRequiredChats();
-  let text = t.membership + '\n\n';
-  for (const chat of chats) text += '• ' + chat.title + '\n' + chat.invite_link + '\n\n';
-  await sendPrompt(chatId, text, { inline_keyboard: [[{ text: t.joined, callback_data: 'reg:membership:check' }]] }, user);
+  const t = tx(user), chats = await getRequiredChats(), rows = [];
+  for (const chat of chats) if (chat.invite_link) rows.push([{ text: requiredChatButtonTitle(chat, user).slice(0, 60), url: chat.invite_link }]);
+  rows.push([{ text: t.joined, callback_data: 'reg:membership:check' }]);
+  await sendPrompt(chatId, t.membership, { inline_keyboard: rows }, user);
 }
 async function checkMembership(id) {
   const chats = await getRequiredChats();
@@ -481,7 +502,7 @@ async function showChannelList(chatId, user) {
   const list = await getRequiredChats();
   let text = t.channelButtons[2] + '\n\n';
   if (!list.length) text += t.channelEmpty;
-  else for (const row of list) text += '• ' + row.title + '\nID: ' + row.chat_id + '\n' + row.invite_link + '\n\n';
+  else for (const row of list) { const info = requiredChatInfo(row); text += (info.type === 'channel' ? '📢 ' : '👥 ') + info.title + '\nID: ' + row.chat_id + '\n' + row.invite_link + '\n\n'; }
   await sendPrompt(chatId, text, channelKeyboard(user), user);
 }
 async function completeProfile(chatId, user, extra) {
@@ -698,35 +719,37 @@ async function processMessage(message) {
     return;
   }
   if (user.state === 'waiting_channel_details') {
-    const parts = input.split('|').map(function (part) { return part.trim(); });
-    if (parts.length < 3 || !parts[0] || !/^https:\/\/t\.me\//i.test(parts[1]) || !parts[2]) {
-      await sendPrompt(chatId, tx(user).channelFormat, channelKeyboard(user), user);
-      return;
-    }
-    const existing = await db.select().from(required_chats).where(eq(required_chats.chat_id, parts[0])).get();
-    if (existing) {
-      await db.update(users).set({ state: 'admin_channels_menu' }).where(eq(users.telegram_id, id)).run();
-      user.state = 'admin_channels_menu';
-      await sendPrompt(chatId, tx(user).channelExists, channelKeyboard(user), user);
-      return;
-    }
-    await db.insert(required_chats).values({
-      chat_id: parts[0], invite_link: parts[1], title: parts.slice(2).join(' | '),
-      is_active: 1, created_at: new Date().toISOString()
-    }).run();
-    await db.update(users).set({ state: 'admin_channels_menu' }).where(eq(users.telegram_id, id)).run();
-    user.state = 'admin_channels_menu';
-    await sendPrompt(chatId, tx(user).channelAdded, channelKeyboard(user), user);
-    return;
+    const requestedId = input.trim();
+    const backToChannels = async (message) => { user.state = 'admin_channels_menu'; await db.update(users).set({ state: 'admin_channels_menu' }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, message, channelKeyboard(user), user); };
+    if (!requestedId || !Number.isSafeInteger(Number(requestedId))) { await backToChannels(tx(user).channelFormat); return; }
+    const existing = await db.select().from(required_chats).where(eq(required_chats.chat_id, requestedId)).get();
+    if (existing) { await backToChannels(tx(user).channelExists); return; }
+    let chat;
+    try { chat = await api.getChat({ chat_id: requestedId }); } catch (e) { await backToChannels(channelError(user, 'invalid')); return; }
+    if (!chat || !['group', 'supergroup', 'channel'].includes(chat.type)) { await backToChannels(channelError(user, 'invalid')); return; }
+    let bot;
+    try { bot = await api.getMe({}); } catch (e) { await backToChannels(channelError(user, 'invalid')); return; }
+    let botMember;
+    try { botMember = await api.getChatMember({ chat_id: requestedId, user_id: Number(bot.id) }); } catch (e) { await backToChannels(channelError(user, 'member')); return; }
+    const botStatus = botMember && botMember.status;
+    if (!['creator', 'administrator', 'member', 'restricted'].includes(botStatus)) { await backToChannels(channelError(user, 'member')); return; }
+    if (!['creator', 'administrator'].includes(botStatus)) { await backToChannels(channelError(user, 'admin')); return; }
+    let inviteLink = chat.invite_link || (chat.username ? 'https://t.me/' + chat.username : '');
+    if (!inviteLink) { try { const invite = await api.createChatInviteLink({ chat_id: requestedId }); inviteLink = invite && invite.invite_link ? invite.invite_link : ''; } catch (e) {} }
+    if (!inviteLink.startsWith('https://t.me/')) { await backToChannels(channelError(user, 'link')); return; }
+    const chatType = chat.type === 'channel' ? 'channel' : 'group';
+    const title = String(chat.title || chat.first_name || chat.username || requestedId).replace(/^(channel|group)::/, '');
+    await db.insert(required_chats).values({ chat_id: requestedId, invite_link: inviteLink, title: chatType + '::' + title, is_active: 1, created_at: new Date().toISOString() }).run();
+    await backToChannels(tx(user).channelAdded); return;
   }
   if (user.state === 'waiting_remove_channel_id') {
-    const existing = await db.select().from(required_chats).where(eq(required_chats.chat_id, input)).get();
-    if (!existing) { await sendPrompt(chatId, tx(user).channelMissing, channelKeyboard(user), user); return; }
-    await db.delete(required_chats).where(eq(required_chats.chat_id, input)).run();
+    const requestedId = input.trim(); user.state = 'admin_channels_menu';
     await db.update(users).set({ state: 'admin_channels_menu' }).where(eq(users.telegram_id, id)).run();
-    user.state = 'admin_channels_menu';
-    await sendPrompt(chatId, tx(user).channelRemoved, channelKeyboard(user), user);
-    return;
+    if (!requestedId || !Number.isSafeInteger(Number(requestedId))) { await sendPrompt(chatId, tx(user).channelFormat, channelKeyboard(user), user); return; }
+    const existing = await db.select().from(required_chats).where(eq(required_chats.chat_id, requestedId)).get();
+    if (!existing) { await sendPrompt(chatId, tx(user).channelMissing, channelKeyboard(user), user); return; }
+    await db.delete(required_chats).where(eq(required_chats.chat_id, requestedId)).run();
+    await sendPrompt(chatId, tx(user).channelRemoved, channelKeyboard(user), user); return;
   }
   if (user.state === 'waiting_broadcast') {
     if (action === 'cancel') {
