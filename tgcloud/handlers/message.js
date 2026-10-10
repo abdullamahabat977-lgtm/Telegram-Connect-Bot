@@ -481,7 +481,7 @@ async function processMessage(message) {
       await db.update(users).set({ state: 'choose_country' }).where(eq(users.telegram_id, id)).run();
       user.state = 'choose_country';
       await showCountry(chatId, user);
-    } else await sendPrompt(chatId, tx(user).membershipFail, keyboard([[{ text: tx(user).joined }]]), user);
+    } else await sendPrompt(chatId, tx(user).membershipFail, { inline_keyboard: [[{ text: tx(user).joined, callback_data: 'reg:membership:check' }]] }, user);
     return;
   }
 
@@ -512,7 +512,7 @@ async function processMessage(message) {
       await db.update(users).set({ state: 'choose_country' }).where(eq(users.telegram_id, id)).run();
       user.state = 'choose_country';
       await showCountry(chatId, user);
-    } else await sendPrompt(chatId, tx(user).membershipFail, keyboard([[{ text: tx(user).joined }]]), user);
+    } else await sendPrompt(chatId, tx(user).membershipFail, { inline_keyboard: [[{ text: tx(user).joined, callback_data: 'reg:membership:check' }]] }, user);
     return;
   }
   if (user.state === 'choose_country' || user.state === 'settings_country') {
