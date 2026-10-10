@@ -823,7 +823,10 @@ async function processMessage(message) {
     if (!Number.isSafeInteger(amount) || amount <= 0 || amount > 1000000000) { await sendPrompt(chatId, user.language === 'en' ? 'Send a positive whole number.' : 'مثبت صحیح عدد راولېږه.', { force_reply: true }, user); return; }
     const target = await getUser(targetId); if (!target) { user.state = 'admin_menu'; await db.update(users).set({ state: 'admin_menu' }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, tx(user).userNotFound, adminKeyboard(user), user); return; }
     const oldValue = Number(target[field] || 0), nextValue = operation === 'add' ? oldValue + amount : Math.max(0, oldValue - amount);
-    await db.update(users).set({ [field]: nextValue }).where(eq(users.telegram_id, targetId)).run(); target[field] = nextValue;
+    if (field === 'stars') await db.update(users).set({ stars: nextValue }).where(eq(users.telegram_id, targetId)).run();
+    else if (field === 'points') await db.update(users).set({ points: nextValue }).where(eq(users.telegram_id, targetId)).run();
+    else await db.update(users).set({ likes: nextValue }).where(eq(users.telegram_id, targetId)).run();
+    target[field] = nextValue;
     user.state = 'admin_menu'; await db.update(users).set({ state: 'admin_menu' }).where(eq(users.telegram_id, id)).run(); await showAdminUserSettings(chatId, user, target); return;
   }
   const sendToUserMatch = String(user.state || '').match(/^admin_send_user_message:(\d+)$/);
