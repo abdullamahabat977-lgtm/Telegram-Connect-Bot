@@ -668,7 +668,7 @@ async function processMessage(message) {
     if (ROOT_ADMINS.includes(adminId)) { await back(tx(user).rootAdmin); return; }
     if (!await getUser(adminId)) { await back(tx(user).userNotFound); return; }
     const existing = await db.select().from(admins).where(eq(admins.telegram_id, adminId)).get();
-    if (!existing) { await back(tx(user).userNotFound); return; }
+    if (!existing) { await back(tx(user).adminNotFound); return; }
     await db.delete(admins).where(eq(admins.telegram_id, adminId)).run();
     await back(tx(user).adminRemoved);
     return;
