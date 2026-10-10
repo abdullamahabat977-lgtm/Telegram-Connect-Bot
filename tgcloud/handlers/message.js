@@ -48,7 +48,7 @@ const T = {
     askRemoveChannel: 'د لرې کېدونکي ګروپ یا چینل chat_id راولېږه:',
     askBroadcast: '📣 د اعلان متن راولېږه. د لغوه کولو لپاره د لغوه بټن کېکاږه.',
     cancel: '❌ لغوه کول', badId: '⚠️ سم عددي ID راولېږه.', adminAdded: '✅ مدیر اضافه شو.',
-    adminExists: 'ℹ️ دا کس له مخکې مدیر دی.', adminRemoved: '✅ مدیر لرې شو.',
+    adminExists: 'ℹ️ دا کس له مخکې مدیر دی.', adminNotFound: '⚠️ دا کس اډمین نه دی.', adminRemoved: '✅ مدیر لرې شو.',
     rootAdmin: '⛔ اصلي مدیران نه شي لرې کېدای.', channelAdded: '✅ ګروپ یا چینل اضافه شو.',
     channelExists: 'ℹ️ دا ID له مخکې شته.', channelRemoved: '✅ ګروپ یا چینل لرې شو.',
     channelMissing: '⚠️ دا ID ونه موندل شو.', channelEmpty: 'د غړیتوب لېست تش دی.',
@@ -85,7 +85,7 @@ const T = {
     askRemoveChannel: 'chat_id گروه یا کانال را برای حذف بفرستید:',
     askBroadcast: '📣 متن پیام همگانی را بفرستید. برای لغو دکمه لغو را بزنید.',
     cancel: '❌ لغو', badId: '⚠️ شناسه عددی معتبر بفرستید.', adminAdded: '✅ مدیر اضافه شد.',
-    adminExists: 'ℹ️ این شخص از قبل مدیر است.', adminRemoved: '✅ مدیر حذف شد.',
+    adminExists: 'ℹ️ این شخص از قبل مدیر است.', adminNotFound: '⚠️ این شخص مدیر نیست.', adminRemoved: '✅ مدیر حذف شد.',
     rootAdmin: '⛔ مدیران اصلی قابل حذف نیستند.', channelAdded: '✅ گروه یا کانال اضافه شد.',
     channelExists: 'ℹ️ این شناسه از قبل وجود دارد.', channelRemoved: '✅ گروه یا کانال حذف شد.',
     channelMissing: '⚠️ شناسه پیدا نشد.', channelEmpty: 'فهرست عضویت اجباری خالی است.',
@@ -121,7 +121,7 @@ const T = {
     askRemoveChannel: 'Send the chat_id of the group/channel to remove:',
     askBroadcast: '📣 Send the broadcast text. Press Cancel to stop.',
     cancel: '❌ Cancel', badId: '⚠️ Send a valid numeric ID.', adminAdded: '✅ Admin added.',
-    adminExists: 'ℹ️ This person is already an admin.', adminRemoved: '✅ Admin removed.',
+    adminExists: 'ℹ️ This person is already an admin.', adminNotFound: '⚠️ This user is not an admin.', adminRemoved: '✅ Admin removed.',
     rootAdmin: '⛔ The original admins cannot be removed.', channelAdded: '✅ Group or channel added.',
     channelExists: 'ℹ️ This ID already exists.', channelRemoved: '✅ Group or channel removed.',
     channelMissing: '⚠️ ID not found.', channelEmpty: 'The required-membership list is empty.',
@@ -157,7 +157,7 @@ const T = {
     askRemoveChannel: 'ہٹانے کے لیے گروپ یا چینل کا chat_id بھیجیں:',
     askBroadcast: '📣 سب کو بھیجنے والا پیغام لکھیں۔ منسوخ کرنے کے لیے بٹن دبائیں۔',
     cancel: '❌ منسوخ', badId: '⚠️ درست عددی ID بھیجیں۔', adminAdded: '✅ ایڈمن شامل ہوگیا۔',
-    adminExists: 'ℹ️ یہ شخص پہلے ہی ایڈمن ہے۔', adminRemoved: '✅ ایڈمن ہٹا دیا گیا۔',
+    adminExists: 'ℹ️ یہ شخص پہلے ہی ایڈمن ہے۔', adminNotFound: '⚠️ یہ صارف ایڈمن نہیں ہے۔', adminRemoved: '✅ ایڈمن ہٹا دیا گیا۔',
     rootAdmin: '⛔ اصل ایڈمنز کو نہیں ہٹایا جاسکتا۔', channelAdded: '✅ گروپ یا چینل شامل ہوگیا۔',
     channelExists: 'ℹ️ یہ ID پہلے سے موجود ہے۔', channelRemoved: '✅ گروپ یا چینل ہٹا دیا گیا۔',
     channelMissing: '⚠️ ID نہیں ملا۔', channelEmpty: 'لازمی رکنیت کی فہرست خالی ہے۔',
@@ -193,7 +193,7 @@ const T = {
     askRemoveChannel: 'أرسل chat_id للمجموعة أو القناة التي تريد إزالتها:',
     askBroadcast: '📣 أرسل نص الرسالة الجماعية. اضغط إلغاء للتوقف.',
     cancel: '❌ إلغاء', badId: '⚠️ أرسل معرفًا رقميًا صحيحًا.', adminAdded: '✅ تمت إضافة المدير.',
-    adminExists: 'ℹ️ هذا الشخص مدير بالفعل.', adminRemoved: '✅ تمت إزالة المدير.',
+    adminExists: 'ℹ️ هذا الشخص مدير بالفعل.', adminNotFound: '⚠️ هذا المستخدم ليس مديراً.', adminRemoved: '✅ تمت إزالة المدير.',
     rootAdmin: '⛔ لا يمكن إزالة المديرين الأصليين.', channelAdded: '✅ تمت إضافة المجموعة أو القناة.',
     channelExists: 'ℹ️ هذا المعرف موجود بالفعل.', channelRemoved: '✅ تمت إزالة المجموعة أو القناة.',
     channelMissing: '⚠️ لم يتم العثور على المعرف.', channelEmpty: 'قائمة العضوية الإلزامية فارغة.',
@@ -668,9 +668,9 @@ async function processMessage(message) {
     user.state = 'admin_menu';
     await db.update(users).set({ state: 'admin_menu' }).where(eq(users.telegram_id, id)).run();
     if (!target) { await sendPrompt(chatId, tx(user).userNotFound, adminKeyboard(user), user); return; }
-    if (input.startsWith('/')) { await sendPrompt(chatId, tx(user).cancel, adminKeyboard(user), user); return; }
-    if ((field === 'name' && input.length < 2) || input.length > 60) { await sendPrompt(chatId, tx(user).nameInvalid, adminKeyboard(user), user); return; }
-    await db.update(users).set({ [field]: input || null }).where(eq(users.telegram_id, targetId)).run();
+    if (input.startsWith('/') && !(field === 'surname' && input === '/skip')) { await sendPrompt(chatId, tx(user).cancel, adminKeyboard(user), user); return; }
+    if ((field === 'name' && (input.length < 2 || input.length > 60)) || input.length > 60) { await sendPrompt(chatId, tx(user).nameInvalid, adminKeyboard(user), user); return; }
+    await db.update(users).set({ [field]: field === 'surname' && input === '/skip' ? null : (input || null) }).where(eq(users.telegram_id, targetId)).run();
     await sendPrompt(chatId, tx(user).saved, adminKeyboard(user), user);
     return;
   }
