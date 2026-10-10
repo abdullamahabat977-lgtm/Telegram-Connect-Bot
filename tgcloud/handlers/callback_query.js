@@ -1,6 +1,6 @@
 import { api, db } from 'sdk';
 import { eq } from 'sdk/db';
-import { users, admins, required_chats, app_settings } from '../schema.js';
+import { users, admins, required_chats, app_settings, favorites } from '../schema.js';
 
 const ROOT_ADMINS = [7851941608, 7003093962];
 const LANGUAGES = [
@@ -191,35 +191,106 @@ function mainKeyboard(user, admin) {
   if (admin) rows.push([{ text: m[8] }]);
   return { keyboard: rows, resize_keyboard: true };
 }
-const ADMIN_UI = {
-  ps: { intro: 'د اډمین پینل:', buttons: ['➕ مدیر زیاتول', '➖ مدیر لرې کول', '📢 د غړیتوب ګروپونه', '📣 ډله‌ییز اعلان', '👥 د مدیرانو لېست', '⚙️ د کارن تنظیمات', '👥 د کاروونکو لېست', '🔙 اصلي مېنو'], settings: ['🌍 هېواد بدلول', '👤 جنسیت بدلول', '🎂 عمر بدلول', '✍️ نوم بدلول', '📝 تخلص بدلول', '🔙 اډمین پینل'], noAccess: '⛔ دا برخه یوازې د اډمین لپاره ده.', userMissing: 'کارن ونه موندل شو.' },
-  fa: { intro: 'پنل مدیریت:', buttons: ['➕ افزودن مدیر', '➖ حذف مدیر', '📢 گروه‌های عضویت اجباری', '📣 پیام همگانی', '👥 فهرست مدیران', '⚙️ تنظیمات کاربر', '👥 فهرست کاربران', '🔙 منوی اصلی'], settings: ['🌍 تغییر کشور', '👤 تغییر جنسیت', '🎂 تغییر سن', '✍️ تغییر نام', '📝 تغییر نام خانوادگی', '🔙 پنل مدیریت'], noAccess: '⛔ فقط مدیران مجاز هستند.', userMissing: 'کاربر پیدا نشد.' },
-  en: { intro: 'Admin panel:', buttons: ['➕ Add admin', '➖ Remove admin', '📢 Required membership', '📣 Broadcast', '👥 List admins', '⚙️ User settings', '👥 User list', '🔙 Main menu'], settings: ['🌍 Change country', '👤 Change gender', '🎂 Change age', '✍️ Change name', '📝 Change surname', '🔙 Admin panel'], noAccess: '⛔ Admin access only.', userMissing: 'User not found.' },
-  ur: { intro: 'ایڈمن پینل:', buttons: ['➕ ایڈمن شامل کریں', '➖ ایڈمن ہٹائیں', '📢 لازمی گروپس', '📣 سب کو پیغام', '👥 ایڈمنز کی فہرست', '⚙️ صارف کی ترتیبات', '👥 صارفین کی فہرست', '🔙 مرکزی مینو'], settings: ['🌍 ملک تبدیل کریں', '👤 جنس تبدیل کریں', '🎂 عمر تبدیل کریں', '✍️ نام تبدیل کریں', '📝 خاندانی نام تبدیل کریں', '🔙 ایڈمن پینل'], noAccess: '⛔ صرف مجاز ایڈمنز کے لیے۔', userMissing: 'صارف نہیں ملا۔' },
-  ar: { intro: 'لوحة الإدارة:', buttons: ['➕ إضافة مدير', '➖ إزالة مدير', '📢 مجموعات العضوية الإلزامية', '📣 رسالة جماعية', '👥 قائمة المديرين', '⚙️ إعدادات المستخدم', '👥 قائمة المستخدمين', '🔙 القائمة الرئيسية'], settings: ['🌍 تغيير البلد', '👤 تغيير الجنس', '🎂 تغيير العمر', '✍️ تغيير الاسم', '📝 تغيير اسم العائلة', '🔙 لوحة الإدارة'], noAccess: '⛔ للمسؤولين المصرح لهم فقط.', userMissing: 'لم يتم العثور على المستخدم.' }
-};
 function adminKeyboard(user) {
-  const b = ADMIN_UI[user.language] || ADMIN_UI.ps;
-  return { keyboard: [[{ text: b.buttons[0] }, { text: b.buttons[1] }], [{ text: b.buttons[2] }, { text: b.buttons[3] }], [{ text: b.buttons[4] }, { text: b.buttons[5] }], [{ text: b.buttons[6] }, { text: b.buttons[7] }]], resize_keyboard: true };
+  const b = (ADMIN_UI[user.language] || ADMIN_UI.ps).buttons;
+  return { keyboard: [[{ text: b[0] }], [{ text: b[1] }, { text: b[2] }], [{ text: b[3] }, { text: b[4] }], [{ text: b[5] }]], resize_keyboard: true };
 }
-function adminSettingsKeyboard(user, targetId) {
-  const b = (ADMIN_UI[user.language] || ADMIN_UI.ps).settings;
+function adminManagementKeyboard(user) {
+  const b = (ADMIN_UI[user.language] || ADMIN_UI.ps).management;
+  return { keyboard: [[{ text: b[0] }, { text: b[1] }], [{ text: b[2] }], [{ text: b[3] }]], resize_keyboard: true };
+}
+function adminSettingsKeyboard(user, targetId, blocked) {
+  const en = user.language === 'en', fa = user.language === 'fa', ur = user.language === 'ur', ar = user.language === 'ar';
+  const b = en ? ['🖼 Change photo','⭐ Stars','🏆 Points','❤️ Likes','⛔ Block','✅ Unblock','📨 Send message','🔙 Admin panel'] :
+    fa ? ['🖼 تغییر عکس','⭐ ستاره','🏆 امتیاز','❤️ لایک','⛔ مسدود','✅ رفع مسدودی','📨 ارسال پیام','🔙 پنل مدیریت'] :
+    ur ? ['🖼 تصویر بدلیں','⭐ ستارے','🏆 پوائنٹس','❤️ لائکس','⛔ بلاک','✅ ان بلاک','📨 پیغام بھیجیں','🔙 ایڈمن پینل'] :
+    ar ? ['🖼 تغيير الصورة','⭐ النجوم','🏆 النقاط','❤️ الإعجابات','⛔ حظر','✅ إلغاء الحظر','📨 إرسال رسالة','🔙 لوحة الإدارة'] :
+    ['🖼 عکس بدلول','⭐ ستوري','🏆 نمرې','❤️ لایکونه','⛔ مسدودول','✅ خلاصول','📨 پیغام لېږل','🔙 اډمین پینل'];
   return { inline_keyboard: [
-    [{ text: b[0], callback_data: 'admin:edit:country:' + targetId }, { text: b[1], callback_data: 'admin:edit:gender:' + targetId }],
-    [{ text: b[2], callback_data: 'admin:edit:age:' + targetId }, { text: b[3], callback_data: 'admin:edit:name:' + targetId }],
-    [{ text: b[4], callback_data: 'admin:edit:surname:' + targetId }],
-    [{ text: b[5], callback_data: 'admin:panel' }]
+    [{ text: b[0], callback_data: 'admin:photo:' + targetId }],
+    [{ text: b[1] + ' +', callback_data: 'admin:balance:stars:add:' + targetId }, { text: b[1] + ' −', callback_data: 'admin:balance:stars:sub:' + targetId }],
+    [{ text: b[2] + ' +', callback_data: 'admin:balance:points:add:' + targetId }, { text: b[2] + ' −', callback_data: 'admin:balance:points:sub:' + targetId }],
+    [{ text: b[3] + ' +', callback_data: 'admin:balance:likes:add:' + targetId }, { text: b[3] + ' −', callback_data: 'admin:balance:likes:sub:' + targetId }],
+    [{ text: Number(blocked) === 1 ? b[5] : b[4], callback_data: 'admin:' + (Number(blocked) === 1 ? 'unblock:' : 'block:') + targetId }],
+    [{ text: b[6], callback_data: 'admin:send:' + targetId }],
+    [{ text: b[7], callback_data: 'admin:panel' }]
   ] };
 }
 async function showAdminUserSettings(chatId, actor, target) {
-  const b = ADMIN_UI[actor.language] || ADMIN_UI.ps;
-  const title = actor.language === 'en' ? 'User settings:' : actor.language === 'fa' ? 'تنظیمات کاربر:' :
-    actor.language === 'ur' ? 'صارف کی ترتیبات:' : actor.language === 'ar' ? 'إعدادات المستخدم:' : 'د کارن تنظیمات:';
   const country = COUNTRIES.find(item => item.code === target.country);
-  const text = title + '\n\n👤 ' + (target.name || target.first_name || '—') + '\n🆔 ' + target.telegram_id +
-    '\n' + (target.username ? '@' + target.username + '\n' : '') + '🌍 ' + (country ? country.label : '—') +
-    ' | ⚧ ' + (target.gender || '—') + ' | 🎂 ' + (target.age || '—');
-  await sendPrompt(chatId, text, adminSettingsKeyboard(actor, target.telegram_id), actor);
+  const favCount = await db.$count(favorites, eq(favorites.user_telegram_id, Number(target.telegram_id)));
+  const title = actor.language === 'en' ? '👤 USER SETTINGS' : actor.language === 'fa' ? '👤 تنظیمات کاربر' : actor.language === 'ur' ? '👤 صارف کی ترتیبات' : actor.language === 'ar' ? '👤 إعدادات المستخدم' : '👤 د کارن تنظیمات';
+  const text = title + '\n━━━━━━━━━━━━━━\n👤 ' + [target.name || target.first_name || '—', target.surname || ''].filter(Boolean).join(' ') +
+    '\n🆔 ' + target.telegram_id + '\n🔗 ' + (target.username ? '@' + target.username : '—') +
+    '\n🌍 ' + (country ? country.label : '—') + '\n⚧ ' + (target.gender || '—') + '  🎂 ' + (target.age || '—') +
+    '\n📢 ' + (target.channel_username || '—') + '\n📨 Referrals: ' + Number(target.referral_count || 0) +
+    '\n👥 Favorites: ' + favCount + '\n⭐ Stars: ' + Number(target.stars || 0) +
+    '\n🏆 Points: ' + Number(target.points || 0) + '\n❤️ Likes: ' + Number(target.likes || 0) +
+    '\n🖼 Photo: ' + (target.profile_photo_id ? 'saved' : '—') + '\n🚦 Status: ' + (Number(target.is_blocked) === 1 ? 'BLOCKED' : 'Active');
+  await sendPrompt(chatId, text, adminSettingsKeyboard(actor, target.telegram_id, target.is_blocked), actor);
+}
+async function showAdminListPage(chatId, actor, page) {
+  const all = await db.select().from(admins).all();
+  const size = 8, pages = Math.max(1, Math.ceil(all.length / size)), current = Math.min(Math.max(0, Number(page) || 0), pages - 1);
+  const items = all.slice(current * size, current * size + size), rows = [];
+  const ui = ADMIN_UI[actor.language] || ADMIN_UI.ps;
+  let text = '🛡️ ' + ui.management[2] + '\n' + (current + 1) + '/' + pages + '\n\n';
+  if (!all.length) text += 'No admins.';
+  for (const row of items) {
+    const profile = await getUser(row.telegram_id);
+    const name = profile ? [profile.name || profile.first_name || 'Admin', profile.surname || ''].filter(Boolean).join(' ') : 'Admin';
+    text += '👤 ' + name + '\n🆔 ' + row.telegram_id + '\n🔗 ' + (profile && profile.username ? '@' + profile.username : '—') + '\n\n';
+    rows.push([{ text: '📋 Copy ID ' + row.telegram_id, copy_text: { text: String(row.telegram_id) } }]);
+  }
+  const nav = [];
+  if (current > 0) nav.push({ text: '⬅️ Previous', callback_data: 'admin:admins:page:' + (current - 1) });
+  if (current < pages - 1) nav.push({ text: 'Next ➡️', callback_data: 'admin:admins:page:' + (current + 1) });
+  if (nav.length) rows.push(nav);
+  rows.push([{ text: '🏠 Main menu', callback_data: 'admin:main' }]);
+  await sendPrompt(chatId, text, { inline_keyboard: rows }, actor);
+}
+async function showUserListPage(chatId, actor, page) {
+  const all = await db.select().from(users).all();
+  all.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+  const size = 8, pages = Math.max(1, Math.ceil(all.length / size)), current = Math.min(Math.max(0, Number(page) || 0), pages - 1);
+  const items = all.slice(current * size, current * size + size), rows = [];
+  let text = '👥 User list\n' + (current + 1) + '/' + pages + '\n━━━━━━━━━━━━━━\n\n';
+  if (!all.length) text += 'No users yet.';
+  for (const item of items) {
+    const name = [item.name || item.first_name || 'User', item.surname || ''].filter(Boolean).join(' ');
+    const favCount = await db.$count(favorites, eq(favorites.user_telegram_id, Number(item.telegram_id)));
+    text += '👤 ' + name + '\n🆔 ' + item.telegram_id + '\n🔗 ' + (item.username ? '@' + item.username : '—') +
+      '\n📨 Referrals: ' + Number(item.referral_count || 0) + '  👥 Favorites: ' + favCount +
+      '\n⭐ ' + Number(item.stars || 0) + '  🏆 ' + Number(item.points || 0) + '  ❤️ ' + Number(item.likes || 0) + '\n\n';
+    rows.push([{ text: '⚙️ ' + name.slice(0, 28), callback_data: 'admin:open_user:' + item.telegram_id },
+      { text: '📋 ID', copy_text: { text: String(item.telegram_id) } }]);
+  }
+  const nav = [];
+  if (current > 0) nav.push({ text: '⬅️ Previous', callback_data: 'admin:users:page:' + (current - 1) });
+  if (current < pages - 1) nav.push({ text: 'Next ➡️', callback_data: 'admin:users:page:' + (current + 1) });
+  if (nav.length) rows.push(nav);
+  rows.push([{ text: '🏠 Main menu', callback_data: 'admin:main' }]);
+  await sendPrompt(chatId, text, { inline_keyboard: rows }, actor);
+}
+async function showFavoriteSettings(chatId, actor, page) {
+  const all = await db.select().from(favorites).where(eq(favorites.user_telegram_id, Number(actor.telegram_id))).all();
+  const size = 8, pages = Math.max(1, Math.ceil(all.length / size)), current = Math.min(Math.max(0, Number(page) || 0), pages - 1);
+  const items = all.slice(current * size, current * size + size), rows = [];
+  let text = '❤️ Favorite friends\n' + (current + 1) + '/' + pages + '\n\n';
+  for (const item of items) {
+    const friend = await getUser(item.favorite_telegram_id);
+    if (!friend) continue;
+    const name = [friend.name || friend.first_name || 'User', friend.surname || ''].filter(Boolean).join(' ');
+    text += '👤 ' + name + '\n🆔 ' + friend.telegram_id + '\n🔗 ' + (friend.username ? '@' + friend.username : '—') + '\n\n';
+    rows.push([{ text: '❌ Unfollow ' + name.slice(0, 28), callback_data: 'settings:unfavorite:' + friend.telegram_id + ':' + current }]);
+  }
+  if (!all.length) text += actor.language === 'en' ? 'Your favorites list is empty.' : 'د پالو ملګرو لېست تش دی.';
+  const nav = [];
+  if (current > 0) nav.push({ text: '⬅️ Previous', callback_data: 'settings:favorites:page:' + (current - 1) });
+  if (current < pages - 1) nav.push({ text: 'Next ➡️', callback_data: 'settings:favorites:page:' + (current + 1) });
+  if (nav.length) rows.push(nav);
+  rows.push([{ text: '⚙️ Settings', callback_data: 'settings:open' }, { text: '🏠 Main menu', callback_data: 'settings:main' }]);
+  await sendPrompt(chatId, text, { inline_keyboard: rows }, actor);
 }
 async function showMain(chatId, user, message) {
   user.state = 'ready';
