@@ -46,7 +46,7 @@ const T = {
     adminManagementButtons: ["➕ مدیر زیاتول","➖ مدیر لرې کول","📋 د مدیرانو لېست","🔙 اډمین پینل"],
     askUserSettings: 'د کارن ټیلیګرام عددي ID راولېږه:', userNotFound: 'دا کارن له بوټ سره نه دی یوځای شوی. لومړی باید /start یې کړی وي.',
     userSettingsTitle: 'د ټاکلي کارن تنظیمات:', userListTitle: '👥 د کاروونکو لېست:', userListEmpty: 'تر اوسه هېڅ کارن نشته.',
-    userSettingButtons: ["🖼 Profile photo","⭐ Stars","🏆 Points","❤️ Likes","⛔ Block/unblock","📨 Send message","🔙 Admin panel"],
+    userSettingButtons: ["🖼 عکس بدلول","⭐ ستوري","🏆 نمرې","❤️ لایکونه","⛔ مسدودول","📨 پیغام لېږل","🔙 اډمین پینل"],
     channelIntro: '📢 د اجباري غړیتوب اداره:',
     channelButtons: ['➕ ګروپ یا چینل زیاتول', '➖ ګروپ یا چینل لرې کول', '📋 د ګروپونو لېست', '🔙 اصلي مېنو'],
     askAdmin: 'د نوي مدیر ټیلیګرام عددي ID راولېږه:', askRemoveAdmin: 'د لرې کېدونکي مدیر عددي ID راولېږه:',
@@ -89,7 +89,7 @@ const T = {
     adminManagementButtons: ["➕ افزودن مدیر","➖ حذف مدیر","📋 فهرست مدیران","🔙 پنل مدیریت"],
     askUserSettings: 'شناسه عددی تلگرام کاربر را بفرستید:', userNotFound: 'این کاربر هنوز ربات را شروع نکرده است. ابتدا باید /start را زده باشد.',
     userSettingsTitle: 'تنظیمات کاربر انتخاب‌شده:', userListTitle: '👥 فهرست کاربران:', userListEmpty: 'هنوز کاربری وجود ندارد.',
-    userSettingButtons: ["🖼 Profile photo","⭐ Stars","🏆 Points","❤️ Likes","⛔ Block/unblock","📨 Send message","🔙 Admin panel"],
+    userSettingButtons: ["🖼 تغییر عکس","⭐ ستاره","🏆 امتیاز","❤️ لایک","⛔ مسدود/رفع","📨 ارسال پیام","🔙 پنل مدیریت"],
     channelIntro: '📢 مدیریت عضویت اجباری:',
     channelButtons: ['➕ افزودن گروه یا کانال', '➖ حذف گروه یا کانال', '📋 فهرست گروه‌ها', '🔙 منوی اصلی'],
     askAdmin: 'شناسه عددی تلگرام مدیر جدید را بفرستید:', askRemoveAdmin: 'شناسه عددی مدیر را برای حذف بفرستید:',
@@ -131,7 +131,7 @@ const T = {
     adminManagementButtons: ["➕ Add admin","➖ Remove admin","📋 Admin list","🔙 Admin panel"],
     askUserSettings: 'Send the user Telegram numeric ID:', userNotFound: 'This user has not started the bot. They must send /start first.',
     userSettingsTitle: 'Settings for the selected user:', userListTitle: '👥 User list:', userListEmpty: 'No users yet.',
-    userSettingButtons: ["🖼 Profile photo","⭐ Stars","🏆 Points","❤️ Likes","⛔ Block/unblock","📨 Send message","🔙 Admin panel"],
+    userSettingButtons: ["🖼 Change photo","⭐ Stars","🏆 Points","❤️ Likes","⛔ Block/unblock","📨 Send message","🔙 Admin panel"],
     channelIntro: '📢 Required membership management:',
     channelButtons: ['➕ Add group/channel', '➖ Remove group/channel', '📋 List groups', '🔙 Main menu'],
     askAdmin: 'Send the new admin Telegram numeric ID:', askRemoveAdmin: 'Send the numeric ID of the admin to remove:',
@@ -173,7 +173,7 @@ const T = {
     adminManagementButtons: ["➕ ایڈمن شامل کریں","➖ ایڈمن ہٹائیں","📋 ایڈمنز کی فہرست","🔙 ایڈمن پینل"],
     askUserSettings: 'صارف کا ٹیلیگرام عددی ID بھیجیں:', userNotFound: 'اس صارف نے ابھی بوٹ شروع نہیں کیا۔ اسے پہلے /start کرنا ہوگا۔',
     userSettingsTitle: 'منتخب صارف کی ترتیبات:', userListTitle: '👥 صارفین کی فہرست:', userListEmpty: 'ابھی کوئی صارف نہیں۔',
-    userSettingButtons: ["🖼 Profile photo","⭐ Stars","🏆 Points","❤️ Likes","⛔ Block/unblock","📨 Send message","🔙 Admin panel"],
+    userSettingButtons: ["🖼 تصویر بدلیں","⭐ ستارے","🏆 پوائنٹس","❤️ لائکس","⛔ بلاک/ان بلاک","📨 پیغام بھیجیں","🔙 ایڈمن پینل"],
     channelIntro: '📢 لازمی رکنیت کا انتظام:',
     channelButtons: ['➕ گروپ یا چینل شامل کریں', '➖ گروپ یا چینل ہٹائیں', '📋 گروپس کی فہرست', '🔙 مرکزی مینو'],
     askAdmin: 'نئے ایڈمن کا ٹیلیگرام عددی ID بھیجیں:', askRemoveAdmin: 'ہٹانے والے ایڈمن کا عددی ID بھیجیں:',
@@ -215,7 +215,7 @@ const T = {
     adminManagementButtons: ["➕ إضافة مدير","➖ إزالة مدير","📋 قائمة المديرين","🔙 لوحة الإدارة"],
     askUserSettings: 'أرسل رقم Telegram الخاص بالمستخدم:', userNotFound: 'هذا المستخدم لم يبدأ البوت بعد. يجب أن يرسل /start أولاً.',
     userSettingsTitle: 'إعدادات المستخدم المحدد:', userListTitle: '👥 قائمة المستخدمين:', userListEmpty: 'لا يوجد مستخدمون بعد.',
-    userSettingButtons: ["🖼 Profile photo","⭐ Stars","🏆 Points","❤️ Likes","⛔ Block/unblock","📨 Send message","🔙 Admin panel"],
+    userSettingButtons: ["🖼 تغيير الصورة","⭐ النجوم","🏆 النقاط","❤️ الإعجابات","⛔ حظر/إلغاء الحظر","📨 إرسال رسالة","🔙 لوحة الإدارة"],
     channelIntro: '📢 إدارة العضوية الإلزامية:',
     channelButtons: ['➕ إضافة مجموعة أو قناة', '➖ إزالة مجموعة أو قناة', '📋 قائمة المجموعات', '🔙 القائمة الرئيسية'],
     askAdmin: 'أرسل رقم معرف تيليجرام للمدير الجديد:', askRemoveAdmin: 'أرسل رقم معرف المدير الذي تريد إزالته:',
@@ -330,8 +330,21 @@ function adminUserSettingsKeyboard(user, targetId, blocked) {
 async function showAdminUserSettings(chatId, adminUser, target) {
   const country = COUNTRIES.find(item => item.code === target.country);
   const favCount = await db.$count(favorites, eq(favorites.user_telegram_id, Number(target.telegram_id)));
-  const title = adminUser.language === 'en' ? '👤 USER SETTINGS' : adminUser.language === 'fa' ? '👤 تنظیمات کاربر' : adminUser.language === 'ur' ? '👤 صارف کی ترتیبات' : adminUser.language === 'ar' ? '👤 إعدادات المستخدم' : '👤 د کارن تنظیمات';
-  const text = title + '\n━━━━━━━━━━━━━━\n' + '👤 ' + [target.name || target.first_name || '—', target.surname || ''].filter(Boolean).join(' ') + '\n🆔 ' + target.telegram_id + '\n🔗 ' + (target.username ? '@' + target.username : '—') + '\n🌍 ' + (country ? country.label : '—') + '\n⚧ ' + (target.gender || '—') + '  🎂 ' + (target.age || '—') + '\n📢 ' + (target.channel_username || '—') + '\n📨 Referrals: ' + Number(target.referral_count || 0) + '\n👥 Favorites: ' + favCount + '\n⭐ Stars: ' + Number(target.stars || 0) + '\n🏆 Points: ' + Number(target.points || 0) + '\n❤️ Likes: ' + Number(target.likes || 0) + '\n🖼 Photo: ' + (target.profile_photo_id ? 'saved' : '—') + '\n🚦 Status: ' + (Number(target.is_blocked) === 1 ? 'BLOCKED' : 'Active');
+  const labels = {
+    ps: { title:'👤 د کارن تنظیمات', referrals:'رابلل شوي', favorites:'پالو ملګري', stars:'ستوري', points:'نمرې', likes:'لایکونه', photo:'عکس', status:'حالت', blocked:'مسدود', active:'فعال' },
+    fa: { title:'👤 تنظیمات کاربر', referrals:'دعوت‌شده', favorites:'دوستان محبوب', stars:'ستاره', points:'امتیاز', likes:'لایک', photo:'عکس', status:'وضعیت', blocked:'مسدود', active:'فعال' },
+    en: { title:'👤 USER SETTINGS', referrals:'Referrals', favorites:'Favorites', stars:'Stars', points:'Points', likes:'Likes', photo:'Photo', status:'Status', blocked:'Blocked', active:'Active' },
+    ur: { title:'👤 صارف کی ترتیبات', referrals:'مدعو دوست', favorites:'پسندیدہ دوست', stars:'ستارے', points:'پوائنٹس', likes:'لائکس', photo:'تصویر', status:'حالت', blocked:'بلاک', active:'فعال' },
+    ar: { title:'👤 إعدادات المستخدم', referrals:'الإحالات', favorites:'الأصدقاء المفضلون', stars:'النجوم', points:'النقاط', likes:'الإعجابات', photo:'الصورة', status:'الحالة', blocked:'محظور', active:'نشط' }
+  };
+  const l = labels[adminUser.language] || labels.ps;
+  const text = l.title + '\n━━━━━━━━━━━━━━\n👤 ' + [target.name || target.first_name || '—', target.surname || ''].filter(Boolean).join(' ') +
+    '\n🆔 ' + target.telegram_id + '\n🔗 ' + (target.username ? '@' + target.username : '—') +
+    '\n🌍 ' + (country ? country.label : '—') + '\n⚧ ' + (target.gender || '—') + '  🎂 ' + (target.age || '—') +
+    '\n📢 ' + (target.channel_username || '—') + '\n📨 ' + l.referrals + ': ' + Number(target.referral_count || 0) +
+    '\n👥 ' + l.favorites + ': ' + favCount + '\n⭐ ' + l.stars + ': ' + Number(target.stars || 0) +
+    '\n🏆 ' + l.points + ': ' + Number(target.points || 0) + '\n❤️ ' + l.likes + ': ' + Number(target.likes || 0) +
+    '\n🖼 ' + l.photo + ': ' + (target.profile_photo_id ? '✓' : '—') + '\n🚦 ' + l.status + ': ' + (Number(target.is_blocked) === 1 ? l.blocked : l.active);
   await sendPrompt(chatId, text, adminUserSettingsKeyboard(adminUser, target.telegram_id, target.is_blocked), adminUser);
 }
 async function showUserList(chatId, user, page) {
@@ -517,7 +530,7 @@ async function showProfile(chatId, user) {
   const l = LANGUAGES.find(item => item.code === user.language) || LANGUAGES[0];
   const genderLabel = user.gender === 'male' ? t.male : (user.gender === 'female' ? t.female : t.notSet);
   const fullName = [user.name || user.first_name || t.notSet, user.surname || ''].filter(Boolean).join(' ');
-  const text = '👤 PROFILE CARD\n━━━━━━━━━━━━━━\n' + fullName +
+  const text = t.profile + '\n━━━━━━━━━━━━━━\n' + fullName +
     '\n🌍 ' + (c ? c.label : t.notSet) + '\n⚧ ' + genderLabel + '  🎂 ' + (user.age || t.notSet) +
     '\n🗣️ ' + l.label + '\n📢 ' + (user.channel_username || t.notSet) +
     '\n📨 ' + Number(user.referral_count || 0) + '  👥 ' +
