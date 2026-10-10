@@ -276,7 +276,10 @@ async function safeDelete(chatId, messageId) {
   try { await api.deleteMessage({ chat_id: chatId, message_id: messageId }); } catch (e) {}
 }
 async function sendPrompt(chatId, text, markup, user) {
-  if (user && Number(user.last_prompt_id) > 0) await safeDelete(chatId, Number(user.last_prompt_id));
+  const registrationStates = ['choose_language', 'check_membership', 'choose_country', 'choose_gender', 'choose_age', 'enter_name', 'enter_surname'];
+  if (user && registrationStates.includes(user.state) && Number(user.last_prompt_id) > 0) {
+    await safeDelete(chatId, Number(user.last_prompt_id));
+  }
   const sent = await api.sendMessage({ chat_id: chatId, text: text, reply_markup: markup });
   if (user && sent && sent.message_id) {
     await db.update(users).set({ last_prompt_id: sent.message_id }).where(eq(users.telegram_id, Number(user.telegram_id))).run();
@@ -381,7 +384,7 @@ async function showStats(chatId, user) {
     const uc = await db.$count(users);
     const ac = await db.$count(admins);
     const cc = await db.$count(required_chats, eq(required_chats.is_active, 1));
-    await sendPrompt(chatId, t.stats + '\n\n' + t.users + uc + '\n' + t.admins + ac + '\n' + t.channels + cc, adminKeyboard(user), user);
+    await sendPrompt(chatId, t.stats + '\n\n' + t.users + uc + '\n' + t.admins + ac + '\n' + t.channels + cc, menuKeyboard(user, true), user);
   } else {
     const fc = await db.$count(favorites, eq(favorites.user_telegram_id, Number(user.telegram_id)));
     await sendPrompt(chatId, t.stats + '\n\n' + t.referrals + Number(user.referral_count || 0) + '\n' + t.favorites + fc,
