@@ -35,6 +35,7 @@ const T = {
     ready: '🎉 ستا پروفایل جوړ شو!', blocked: '⛔ ستا حساب محدود شوی دی.',
     menu: ['🔎 ملګری پیدا کړه', '👥 پالو ملګري', '🎲 ناڅاپي اړیکه', '📨 ملګری رابلل', '👤 زما پروفایل', '🌍 د ژبې بدلول', '⚙️ تنظیمات', '📊 احصائیې', '🛡️ د اډمین پینل'],
     settings: "⚙️ د تنظیماتو یوه برخه وټاکه:",
+    profileSettingsTitle: "👤 د پروفایل تنظیمات: یوه برخه وټاکه:",
     settingsButtons: ["👤 د پروفایل تنظیمات","🖼 د عکس تنظیمات","📢 د چینل تنظیمات","❤️ د پالو ملګرو تنظیمات","🔙 اصلي مېنو"],
     profileSettingsButtons: ["🌍 هېواد بدلول","👤 جنسیت بدلول","🎂 عمر بدلول","✍️ نوم بدلول","📝 تخلص بدلول","🔙 تنظیمات"],
     photoSettingsButtons: ["📷 عکس ثبتول/بدلول","🗑 عکس حذفول","🔙 تنظیمات"],
@@ -78,6 +79,7 @@ const T = {
     ready: '🎉 پروفایل شما آماده شد!', blocked: '⛔ حساب شما محدود شده است.',
     menu: ['🔎 پیدا کردن دوست', '👥 دوستان محبوب', '🎲 ارتباط تصادفی', '📨 دعوت از دوست', '👤 پروفایل من', '🌍 تغییر زبان', '⚙️ تنظیمات', '📊 آمار', '🛡️ پنل مدیریت'],
     settings: "⚙️ یکی از بخش‌های تنظیمات را انتخاب کنید:",
+    profileSettingsTitle: "👤 تنظیمات پروفایل: یک بخش را انتخاب کنید:",
     settingsButtons: ["👤 تنظیمات پروفایل","🖼 تنظیمات عکس","📢 تنظیمات کانال","❤️ تنظیمات دوستان محبوب","🔙 منوی اصلی"],
     profileSettingsButtons: ["🌍 تغییر کشور","👤 تغییر جنسیت","🎂 تغییر سن","✍️ تغییر نام","📝 تغییر نام خانوادگی","🔙 تنظیمات"],
     photoSettingsButtons: ["📷 ثبت/تغییر عکس","🗑 حذف عکس","🔙 تنظیمات"],
@@ -120,6 +122,7 @@ const T = {
     ready: '🎉 Your profile is ready!', blocked: '⛔ Your account is restricted.',
     menu: ['🔎 Find a friend', '👥 Favorite friends', '🎲 Random connection', '📨 Invite a friend', '👤 My profile', '🌍 Change language', '⚙️ Settings', '📊 Statistics', '🛡️ Admin panel'],
     settings: "⚙️ Choose a settings section:",
+    profileSettingsTitle: "👤 Profile settings: choose a field to edit:",
     settingsButtons: ["👤 Profile settings","🖼 Photo settings","📢 Channel settings","❤️ Favorite friends settings","🔙 Main menu"],
     profileSettingsButtons: ["🌍 Change country","👤 Change gender","🎂 Change age","✍️ Change name","📝 Change surname","🔙 Settings"],
     photoSettingsButtons: ["📷 Set/change photo","🗑 Remove photo","🔙 Settings"],
@@ -162,6 +165,7 @@ const T = {
     ready: '🎉 آپ کا پروفائل تیار ہے!', blocked: '⛔ آپ کا اکاؤنٹ محدود ہے۔',
     menu: ['🔎 دوست تلاش کریں', '👥 پسندیدہ دوست', '🎲 اچانک رابطہ', '📨 دوست کو بلائیں', '👤 میرا پروفائل', '🌍 زبان تبدیل کریں', '⚙️ ترتیبات', '📊 اعدادوشمار', '🛡️ ایڈمن پینل'],
     settings: "⚙️ ترتیبات کا حصہ منتخب کریں:",
+    profileSettingsTitle: "👤 پروفائل کی ترتیبات: تبدیل کرنے کے لیے حصہ منتخب کریں:",
     settingsButtons: ["👤 پروفائل کی ترتیبات","🖼 تصویر کی ترتیبات","📢 چینل کی ترتیبات","❤️ پسندیدہ دوستوں کی ترتیبات","🔙 مرکزی مینو"],
     profileSettingsButtons: ["🌍 ملک تبدیل کریں","👤 جنس تبدیل کریں","🎂 عمر تبدیل کریں","✍️ نام تبدیل کریں","📝 خاندانی نام تبدیل کریں","🔙 ترتیبات"],
     photoSettingsButtons: ["📷 تصویر لگائیں/بدلیں","🗑 تصویر حذف کریں","🔙 ترتیبات"],
@@ -204,6 +208,7 @@ const T = {
     ready: '🎉 ملفك الشخصي جاهز!', blocked: '⛔ حسابك مقيّد.',
     menu: ['🔎 ابحث عن صديق', '👥 الأصدقاء المفضلون', '🎲 اتصال عشوائي', '📨 دعوة صديق', '👤 ملفي الشخصي', '🌍 تغيير اللغة', '⚙️ الإعدادات', '📊 الإحصائيات', '🛡️ لوحة الإدارة'],
     settings: "⚙️ اختر قسم الإعدادات:",
+    profileSettingsTitle: "👤 إعدادات الملف الشخصي: اختر ما تريد تعديله:",
     settingsButtons: ["👤 إعدادات الملف الشخصي","🖼 إعدادات الصورة","📢 إعدادات القناة","❤️ إعدادات الأصدقاء المفضلين","🔙 القائمة الرئيسية"],
     profileSettingsButtons: ["🌍 تغيير البلد","👤 تغيير الجنس","🎂 تغيير العمر","✍️ تغيير الاسم","📝 تغيير اسم العائلة","🔙 الإعدادات"],
     photoSettingsButtons: ["📷 إضافة/تغيير الصورة","🗑 حذف الصورة","🔙 الإعدادات"],
@@ -713,7 +718,7 @@ async function processMessage(message) {
     else if (user.state === 'admin_channels_menu') await sendPrompt(chatId, tx(user).channelIntro, channelKeyboard(user), user);
     else if (user.state === 'admin_management_menu') await sendPrompt(chatId, tx(user).adminManagementIntro, adminManagementKeyboard(user), user);
     else if (user.state === 'settings_menu') await sendPrompt(chatId, tx(user).settings, settingsKeyboard(user), user);
-    else if (user.state === 'profile_settings_menu') await sendPrompt(chatId, tx(user).settings, profileSettingsKeyboard(user), user);
+    else if (user.state === 'profile_settings_menu') await sendPrompt(chatId, tx(user).profileSettingsTitle, profileSettingsKeyboard(user), user);
     else if (user.state === 'settings_photo_menu') await sendPrompt(chatId, '🖼 ' + tx(user).settings, photoSettingsKeyboard(user), user);
     else if (user.state === 'settings_channel_menu') await sendPrompt(chatId, '📢 ' + tx(user).settings, channelSettingsKeyboard(user), user);
     else if (user.state === 'settings_favorites_menu') await sendPrompt(chatId, '❤️ ' + tx(user).settings, favoriteSettingsKeyboard(user), user);
@@ -968,9 +973,9 @@ async function processMessage(message) {
   }
 
   if (user.state === 'settings_menu') {
-    if (action === 'profileSettings') { user.state = 'profile_settings_menu'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, tx(user).settings, profileSettingsKeyboard(user), user); return; }
-    if (action === 'photoSettings') { user.state = 'settings_photo_menu'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, user.language === 'en' ? '🖼 Profile photo settings:' : user.language === 'fa' ? '🖼 تنظیمات عکس پروفایل:' : user.language === 'ur' ? '🖼 پروفائل تصویر کی ترتیبات:' : user.language === 'ar' ? '🖼 إعدادات صورة الملف الشخصي:' : '🖼 د پروفایل عکس تنظیمات:', photoSettingsKeyboard(user), user); return; }
-    if (action === 'channelSettings') { user.state = 'settings_channel_menu'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, user.language === 'en' ? '📢 Public channel settings:' : user.language === 'fa' ? '📢 تنظیمات کانال عمومی:' : user.language === 'ur' ? '📢 عوامی چینل کی ترتیبات:' : user.language === 'ar' ? '📢 إعدادات القناة العامة:' : '📢 د عام چینل تنظیمات:', channelSettingsKeyboard(user), user); return; }
+    if (action === 'profileSettings') { user.state = 'profile_settings_menu'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, tx(user).profileSettingsTitle, profileSettingsKeyboard(user), user); return; }
+    if (action === 'photoSettings') { user.state = 'settings_photo_menu'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, (user.profile_photo_id ? '✅ ' : '➖ ') + (user.language === 'en' ? 'Profile photo settings:' : user.language === 'fa' ? 'تنظیمات عکس پروفایل:' : user.language === 'ur' ? 'پروفائل تصویر کی ترتیبات:' : user.language === 'ar' ? 'إعدادات صورة الملف الشخصي:' : 'د پروفایل عکس تنظیمات:'), photoSettingsKeyboard(user), user); return; }
+    if (action === 'channelSettings') { user.state = 'settings_channel_menu'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, (user.channel_username ? user.channel_username + '\n' : '➖ ') + (user.language === 'en' ? 'Public channel settings:' : user.language === 'fa' ? 'تنظیمات کانال عمومی:' : user.language === 'ur' ? 'عوامی چینل کی ترتیبات:' : user.language === 'ar' ? 'إعدادات القناة العامة:' : 'د عام چینل تنظیمات:'), channelSettingsKeyboard(user), user); return; }
     if (action === 'favoriteSettings') { user.state = 'settings_favorites_menu'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, user.language === 'en' ? '❤️ Manage favorite friends:' : user.language === 'fa' ? '❤️ مدیریت دوستان محبوب:' : user.language === 'ur' ? '❤️ پسندیدہ دوستوں کا انتظام:' : user.language === 'ar' ? '❤️ إدارة الأصدقاء المفضلين:' : '❤️ د پالو ملګرو تنظیمات:', favoriteSettingsKeyboard(user), user); return; }
     await showMain(chatId, user); return;
   }
