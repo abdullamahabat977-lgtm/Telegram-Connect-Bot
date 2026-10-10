@@ -275,9 +275,10 @@ function adminUserSettingsKeyboard(user, targetId) {
   ] };
 }
 async function showAdminUserSettings(chatId, adminUser, target) {
+  const country = COUNTRIES.find(item => item.code === target.country);
   const text = tx(adminUser).userSettingsTitle + '\n\n' + '👤 ' + (target.name || target.first_name || '—') +
     '\n🆔 ' + target.telegram_id + '\n' + (target.username ? '@' + target.username + '\n' : '') +
-    '🌍 ' + (target.country || '—') + ' | ⚧ ' + (target.gender || '—') + ' | 🎂 ' + (target.age || '—');
+    '🌍 ' + (country ? country.label : '—') + ' | ⚧ ' + (target.gender || '—') + ' | 🎂 ' + (target.age || '—');
   await sendPrompt(chatId, text, adminUserSettingsKeyboard(adminUser, target.telegram_id), adminUser);
 }
 async function showUserList(chatId, user) {
