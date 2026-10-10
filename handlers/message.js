@@ -298,19 +298,19 @@ export default async function (message, ctx) {
   }
   if (admin && (text === t.adminListings || text === '/pending_listings')) {
     const rows = (await db.select().from(listings).where(eq(listings.status, 'pending')).all()).slice(0, 15);
-    const body = rows.length ? rows.map(x => `#${x.id} | ${x.type} | ${x.name}\nمالک داخلي ID: ${x.owner_id}\nلینک: ${x.username ?? 'نشته'}\nبیه: ${x.ad_price ?? 0} ${x.currency ?? 'XTR'}\nتایید: /approve_listing ${x.id}\nرد: /reject_listing ${x.id}`).join('\n\n') : 'د کتنې لپاره ثبت نشته.';
+    const body = rows.length ? rows.map(x => "" + x.id + " | " + x.type + " | " + x.name + "\nمالک داخلي ID: " + x.owner_id + "\nلینک: " + (x.username ?? 'نشته') + "\nبیه: " + (x.ad_price ?? 0) + " " + (x.currency ?? 'XTR') + "\nتایید: /approve_listing " + x.id + "\nرد: /reject_listing " + x.id).join('\n\n') : 'د کتنې لپاره ثبت نشته.';
     await send(chatId, '📋 د تایید په تمه ثبتونه:\n\n' + body, adminKeyboard(t));
     return;
   }
   if (admin && (text === t.adminAds || text === '/pending_ads')) {
     const rows = (await db.select().from(ads).where(eq(ads.status, 'pending')).all()).slice(0, 15);
-    const body = rows.length ? rows.map(x => `#${x.id} | ${x.title}\nبوديجه: ${x.budget ?? 0} USD\nهدف: ${x.target ?? 'یوازې د بوټ بازار'}\nتشریح: ${x.description ?? 'نشته'}\nتایید: /approve_ad ${x.id}\nرد: /reject_ad ${x.id}`).join('\n\n') : 'د کتنې لپاره اعلان نشته.';
+    const body = rows.length ? rows.map(x => "" + x.id + " | " + x.title + "\nبوديجه: " + (x.budget ?? 0) + " USD\nهدف: " + (x.target ?? 'یوازې د بوټ بازار') + "\nتشریح: " + (x.description ?? 'نشته') + "\nتایید: /approve_ad " + x.id + "\nرد: /reject_ad " + x.id).join('\n\n') : 'د کتنې لپاره اعلان نشته.'
     await send(chatId, '📢 د تایید په تمه اعلانونه:\n\n' + body, adminKeyboard(t));
     return;
   }
   if (admin && (text === t.adminRequests || text === '/pending_requests')) {
     const rows = (await db.select().from(ad_requests).where(eq(ad_requests.status, 'pending')).all()).slice(0, 15);
-    const body = rows.length ? rows.map(x => `#${x.id} | د سرچینې ID: ${x.listing_id}\nاعلان ورکوونکی داخلي ID: ${x.advertiser_id}\nوړاندیز: ${x.offered_price ?? 'توافق ته اړتیا لري'} USD\nپیغام: ${x.message ?? '—'}`).join('\n\n') : 'د معاملې غوښتنې نشته.';
+    const body = rows.length ? rows.map(x => "" + x.id + " | د سرچینې ID: " + x.listing_id + "\nاعلان ورکوونکی داخلي ID: " + x.advertiser_id + "\nوړاندیز: " + (x.offered_price ?? 'توافق ته اړتیا لري') + " USD\nپیغام: " + (x.message ?? '—')).join('\n\n') : 'د معاملې غوښتنې نشته.';
     await send(chatId, '🤝 د معاملې غوښتنې:\n\n' + body, adminKeyboard(t));
     return;
   }
@@ -319,7 +319,7 @@ export default async function (message, ctx) {
     const allListings = await db.select().from(listings).all();
     const allAds = await db.select().from(ads).all();
     const allRequests = await db.select().from(ad_requests).all();
-    await send(chatId, `📊 احصائیه\n\n👥 کاروونکي: ${allUsers.length}\n📋 سرچینې: ${allListings.length}\n📢 اعلانونه: ${allAds.length}\n🤝 د معاملې غوښتنې: ${allRequests.length}`, adminKeyboard(t));
+    await send(chatId, "📊 احصائیه\n\n👥 کاروونکي: " + allUsers.length + "\n📋 سرچینې: " + allListings.length + "\n📢 اعلانونه: " + allAds.length + "\n🤝 د معاملې غوښتنې: " + allRequests.length, adminKeyboard(t));
     return;
   }
   if (admin && text === t.adminBroadcast) {
@@ -338,7 +338,7 @@ export default async function (message, ctx) {
       catch { failedCount++; }
     }
     user = await clearFlow(user);
-    await send(chatId, `✅ پیغام واستول شو.\nبریالي: ${sentCount}\nناکام: ${failedCount}`, adminKeyboard(t));
+    await send(chatId, "✅ پیغام واستول شو.\nبریالي: " + sentCount + "\nناکام: " + failedCount, adminKeyboard(t));
     return;
   }
   const blockAction = text.match(/^\/(block|unblock)\s+(\d+)$/);
@@ -350,7 +350,7 @@ export default async function (message, ctx) {
     const target = await db.select().from(users).where(eq(users.telegram_id, targetId)).get();
     if (!target) { await send(chatId, '❌ دا Telegram ID نه دی ثبت شوی.'); return; }
     await db.update(users).set({ is_blocked: action === 'block' ? 1 : 0 }).where(eq(users.id, target.id)).run();
-    await send(chatId, `${action === 'block' ? '🚫 کاروونکی بند شو' : '✅ کاروونکی فعال شو'}\nTelegram ID: ${targetId}`, adminKeyboard(t));
+    await send(chatId, (action === 'block' ? '🚫 کاروونکی بند شو' : '✅ کاروونکی فعال شو') + "\nTelegram ID: " + targetId, adminKeyboard(t));
     return;
   }
   const adminAction = text.match(/^\/(approve|reject)_(listing|ad)\s+(\d+)$/);
@@ -361,21 +361,21 @@ export default async function (message, ctx) {
     if (kind === 'listing') {
       const row = await db.select().from(listings).where(eq(listings.id, id)).get();
       if (!row) { await send(chatId, '❌ ثبت ونه موندل شو.'); return; }
-      if (row.status !== 'pending') { await send(chatId, `ℹ️ دا ثبت مخکې ارزول شوی دی. اوسنی حالت: ${row.status}`, adminKeyboard(t)); return; }
+      if (row.status !== 'pending') { await send(chatId, "ℹ️ دا ثبت مخکې ارزول شوی دی. اوسنی حالت: " + row.status, adminKeyboard(t)); return; }
       const status = decision === 'approve' ? 'approved' : 'rejected';
       await db.update(listings).set({ status }).where(eq(listings.id, id)).run();
-      await tellOwner(row, `${status === 'approved' ? '✅ ستا ثبت تایید شو' : '❌ ستا ثبت رد شو'}: ${row.name}`);
-      await send(chatId, `${status === 'approved' ? '✅ تایید شو' : '❌ رد شو'}: #${id} — ${row.name}`, adminKeyboard(t));
+      await tellOwner(row, (status === 'approved' ? '✅ ستا ثبت تایید شو' : '❌ ستا ثبت رد شو') + ": " + row.name);
+      await send(chatId, (status === 'approved' ? '✅ تایید شو' : '❌ رد شو') + ": " + id + " — " + row.name, adminKeyboard(t));
       return;
     }
     const row = await db.select().from(ads).where(eq(ads.id, id)).get();
     if (!row) { await send(chatId, '❌ اعلان ونه موندل شو.'); return; }
-    if (row.status !== 'pending') { await send(chatId, `ℹ️ دا اعلان مخکې ارزول شوی دی. اوسنی حالت: ${row.status}`, adminKeyboard(t)); return; }
+    if (row.status !== 'pending') { await send(chatId, "ℹ️ دا اعلان مخکې ارزول شوی دی. اوسنی حالت: " + row.status, adminKeyboard(t)); return; }
     if (decision === 'reject') {
       await db.update(ads).set({ status: 'rejected' }).where(eq(ads.id, id)).run();
       const owner = await db.select().from(users).where(eq(users.id, row.owner_id)).get();
-      if (owner) { try { await send(owner.telegram_id, `❌ ستا اعلان رد شو: ${row.title}`); } catch {} }
-      await send(chatId, `❌ اعلان رد شو: #${id}`, adminKeyboard(t));
+      if (owner) { try { await send(owner.telegram_id, "❌ ستا اعلان رد شو: " + row.title); } catch {} }
+      await send(chatId, "❌ اعلان رد شو: " + id, adminKeyboard(t));
       return;
     }
     await db.update(ads).set({ status: 'approved' }).where(eq(ads.id, id)).run();
@@ -383,16 +383,16 @@ export default async function (message, ctx) {
     if (row.target) {
       try {
         const markup = row.url ? { inline_keyboard: [[{ text: '🔗 اعلان وګوره', url: row.url }]] } : undefined;
-        await send(row.target, `📢 ${row.title}\n\n${row.description ?? ''}\n\nاعلان د Telegram Connect له لارې خپور شو.`, markup);
+        await send(row.target, "📢 " + row.title + "\n\n" + (row.description ?? '') + "\n\nاعلان د Telegram Connect له لارې خپور شو.", markup);
         await db.update(ads).set({ status: 'published', published_chat: row.target }).where(eq(ads.id, id)).run();
-        publication = `اعلان په ${row.target} کې هم خپور شو.`;
+        publication = "اعلان په " + row.target + " کې هم خپور شو.";
       } catch (error) {
-        publication = `اعلان په بازار کې تایید شو، خو په ${row.target} کې خپر نه شو. وګوره چې بوټ هلته اډمین وي او د پیغام لېږلو اجازه ولري.`;
+        publication = "اعلان په " + row.target + " کې تایید شو، خو په " + row.target + " کې خپر نه شو. وګوره چې بوټ هلته اډمین وي او د پیغام لېږلو اجازه ولري.";
       }
     }
     const owner = await db.select().from(users).where(eq(users.id, row.owner_id)).get();
-    if (owner) { try { await send(owner.telegram_id, `✅ ستا اعلان تایید شو.\n${publication}`); } catch {} }
-    await send(chatId, "✅ اعلان #" + id + " تایید شو.\n" + publication, adminKeyboard(t));
+    if (owner) { try { await send(owner.telegram_id, "✅ ستا اعلان تایید شو.\n" + publication); } catch {} }
+    await send(chatId, "✅ اعلان " + id + " تایید شو.\n" + publication, adminKeyboard(t));
     return;
   }
 
@@ -409,7 +409,7 @@ export default async function (message, ctx) {
       }
       if (listing.owner_id === user.id) { await send(chatId, 'دا ستا خپله سرچینه ده؛ خپل ځان ته غوښتنه نه شې لېږلای.'); return; }
       user = await updateUser(user, { state: 'offer_price', draft_offer_listing_id: listing.id, draft_offer_price: null });
-      await send(chatId, `🤝 د ${listing.name} لپاره د اعلان د بیې وړاندیز په ⭐ کې ولیکه؛ که د مالک له بیې سره خبرې کول غواړې، 0 ولیکه:`, keyboard([[t.back]]));
+      await send(chatId, "🤝 د " + listing.name + " لپاره د اعلان د بیې وړاندیز په ⭐ کې ولیکه؛ که د مالک له بیې سره خبرې کول غواړې، 0 ولیکه:", keyboard([[t.back]]));
       return;
     }
     const request = await db.select().from(ad_requests).where(eq(ad_requests.id, id)).get();
@@ -421,7 +421,7 @@ export default async function (message, ctx) {
     await db.update(ad_requests).set({ status }).where(eq(ad_requests.id, id)).run();
     const advertiser = await db.select().from(users).where(eq(users.id, request.advertiser_id)).get();
     if (advertiser) {
-      try { await send(advertiser.telegram_id, `${status === 'accepted' ? '✅ د اعلان غوښتنه ومنل شوه' : '❌ د اعلان غوښتنه رد شوه'}\nسرچینه: ${listing.name}\nاوس د وروستیو شرایطو د توافق لپاره له مالک سره اړیکه ونیسئ: ${listing.username ?? 'د بوټ له لارې پیغام واستوئ'}`); } catch {}
+      try { await send(advertiser.telegram_id, (status === 'accepted' ? '✅ د اعلان غوښتنه ومنل شوه' : '❌ د اعلان غوښتنه رد شوه') + "\nسرچینه: " + listing.name + "\nاوس د وروستیو شرایطو د توافق لپاره له مالک سره اړیکه ونیسئ: " + (listing.username ?? 'د بوټ له لارې پیغام واستوئ')); } catch {}
     }
     await send(chatId, status === 'accepted' ? '✅ غوښتنه ومنل شوه. د پیسو ورکړه د دې بوټ له لارې نه ترسره کېږي؛ له اعلان ورکوونکي سره وروستي شرایط تایید کړه.' : '❌ غوښتنه رد شوه.', mainKeyboard(t, admin));
     return;
@@ -535,7 +535,7 @@ export default async function (message, ctx) {
     const owner = await db.select().from(users).where(eq(users.id, listing.owner_id)).get();
     if (owner) {
       try {
-        await send(owner.telegram_id, `🤝 د اعلان نوې غوښتنه #${request.id}\nسرچینه: ${listing.name}\nوړاندیز: ${request.offered_price} ⭐\nپیغام: ${request.message ?? '—'}\n\nمنل: /accept_offer ${request.id}\nردول: /reject_offer ${request.id}`);
+        await send(owner.telegram_id, "🤝 د اعلان نوې غوښتنه " + request.id + "\nسرچینه: " + listing.name + "\nوړاندیز: " + request.offered_price + " ⭐\nپیغام: " + (request.message ?? '—') + "\n\nمنل: /accept_offer " + request.id + "\nردول: /reject_offer " + request.id);
       } catch {}
     }
     user = await clearFlow(user);
@@ -578,7 +578,7 @@ export default async function (message, ctx) {
     ).slice(0, 10);
     user = await updateUser(user, { state: null });
     if (!found.length) { await send(chatId, t.noResults, mainKeyboard(t, admin)); return; }
-    const body = found.map(x => `#${x.id} | ${x.type} | ${x.name}\n${x.username ?? 'لینک نشته'}\nکټګوري: ${x.category ?? '—'} | ژبه: ${x.language ?? '—'}\n${x.description ?? ''}${x.ad_price !== null && x.ad_price !== undefined && ['channel', 'group'].includes(x.type) ? `\nد اعلان بیه: ${x.ad_price} ${x.currency ?? 'XTR'}\nغوښتنه: /request_ad ${x.id}` : ''}`).join('\n\n');
+    const body = found.map(x => `${x.id} | ${x.type} | ${x.name}\n${x.username ?? 'لینک نشته'}\nکټګوري: ${x.category ?? '—'} | ژبه: ${x.language ?? '—'}\n${x.description ?? ''}${x.ad_price !== null && x.ad_price !== undefined && ['channel', 'group'].includes(x.type) ? `\nد اعلان بیه: ${x.ad_price} ${x.currency ?? 'XTR'}\nغوښتنه: /request_ad ${x.id}` : ''}`).join('\n\n');
     await send(chatId, t.results + '\n\n' + body, mainKeyboard(t, admin)); return;
   }
   if (text === t.market) { await showMarket(chatId, user); return; }
@@ -598,9 +598,9 @@ export default async function (message, ctx) {
   if (text === t.account) {
     const ownListings = await db.select().from(listings).where(eq(listings.owner_id, user.id)).all();
     const ownAds = await db.select().from(ads).where(eq(ads.owner_id, user.id)).all();
-    const listingLines = ownListings.length ? ownListings.slice(0, 10).map(x => `#${x.id} ${x.name} — ${statusText(t, x.status)}`).join('\n') : t.noListings;
-    const adLines = ownAds.length ? ownAds.slice(0, 10).map(x => `#${x.id} ${x.title} — ${statusText(t, x.status)}`).join('\n') : t.noAds;
-    await send(chatId, `${t.account}\n\n🆔 Telegram ID: ${message.from.id}\n👤 ${message.from.first_name ?? ''}\n\n📋 ثبتونه:\n${listingLines}\n\n📢 اعلانونه:\n${adLines}`, mainKeyboard(t, admin)); return;
+    const listingLines = ownListings.length ? ownListings.slice(0, 10).map(x => "" + x.id + " " + x.name + " — " + statusText(t, x.status)).join('\n') : t.noListings;
+    const adLines = ownAds.length ? ownAds.slice(0, 10).map(x => "" + x.id + " " + x.title + " — " + statusText(t, x.status)).join('\n') : t.noAds;
+    await send(chatId, t.account + "\n\n🆔 Telegram ID: " + message.from.id + "\n👤 " + (message.from.first_name ?? '') + "\n\n📋 ثبتونه:\n" + listingLines + "\n\n📢 اعلانونه:\n" + adLines, mainKeyboard(t, admin)); return;
   }
 
   await send(chatId, t.unknown, mainKeyboard(t, admin));
