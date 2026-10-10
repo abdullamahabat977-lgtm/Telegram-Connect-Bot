@@ -147,12 +147,22 @@ function ageKeyboard() {
   }
   return { inline_keyboard: rows };
 }
+function requiredChatInfo(chat) {
+  const stored = String(chat.title || '');
+  if (stored.startsWith('channel::')) return { type: 'channel', title: stored.slice(9) };
+  if (stored.startsWith('group::')) return { type: 'group', title: stored.slice(7) };
+  return { type: String(chat.chat_id) === '-1004419974496' ? 'channel' : 'group', title: stored };
+}
 async function showMembership(chatId, user, prefix) {
-  const t = tx(user);
-  const chats = await db.select().from(required_chats).where(eq(required_chats.is_active, 1)).all();
-  let text = (prefix ? prefix + '\n\n' : '') + t.membership + '\n\n';
-  for (const chat of chats) text += '• ' + chat.title + '\n' + chat.invite_link + '\n\n';
-  await sendPrompt(chatId, text, { inline_keyboard: [[{ text: t.joined, callback_data: 'reg:membership:check' }]] }, user);
+  const t = tx(user), chats = await db.select().from(required_chats).where(eq(required_chats.is_active, 1)).all(), rows = [];
+  const labels = { ps: ['چینل ته ګډون', 'ګروپ ته ګډون'], fa: ['عضویت در کانال', 'عضویت در گروه'], en: ['Join channel', 'Join group'], ur: ['چینل میں شامل ہوں', 'گروپ میں شامل ہوں'], ar: ['الانضمام إلى القناة', 'الانضمام إلى المجموعة'] };
+  const pair = labels[user.language] || labels.ps;
+  for (const chat of chats) {
+    const info = requiredChatInfo(chat);
+    if (chat.invite_link) rows.push([{ text: ((info.type === 'channel' ? pair[0] : pair[1]) + (info.title ? ': ' + info.title : '')).slice(0, 60), url: chat.invite_link }]);
+  }
+  rows.push([{ text: t.joined, callback_data: 'reg:membership:check' }]);
+  await sendPrompt(chatId, (prefix ? prefix + '\n\n' : '') + t.membership, { inline_keyboard: rows }, user);
 }
 async function checkMembership(id) {
   const chats = await db.select().from(required_chats).where(eq(required_chats.is_active, 1)).all();
