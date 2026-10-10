@@ -325,9 +325,10 @@ async function showProfile(chatId, user) {
   const t = tx(user);
   const c = COUNTRIES.find(function (item) { return item.code === user.country; });
   const l = LANGUAGES.find(function (item) { return item.code === user.language; }) || LANGUAGES[0];
+  const genderLabel = user.gender === 'male' ? t.male : (user.gender === 'female' ? t.female : t.notSet);
   const text = t.profile + '\n\n👤 ' + (user.name || user.first_name || t.notSet) +
     '\n📝 ' + (user.surname || t.notSet) + '\n🌍 ' + (c ? c.label : t.notSet) +
-    '\n⚧ ' + (user.gender || t.notSet) + '\n🎂 ' + (user.age || t.notSet) + '\n🗣️ ' + l.label;
+    '\n⚧ ' + genderLabel + '\n🎂 ' + (user.age || t.notSet) + '\n🗣️ ' + l.label;
   await sendPrompt(chatId, text, menuKeyboard(user, await isAdmin(user.telegram_id)), user);
 }
 async function showFavorites(chatId, user) {
@@ -424,6 +425,13 @@ async function processMessage(message) {
     return;
   }
   await safeDelete(chatId, message.message_id);
+  const protectedStates = ['admin_menu', 'admin_channels_menu', 'waiting_admin_id', 'waiting_remove_admin_id', 'waiting_channel_details', 'waiting_remove_channel_id', 'waiting_broadcast'];
+  if (protectedStates.includes(user.state) && !(await isAdmin(id))) {
+    await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, id)).run();
+    user.state = 'ready';
+    await sendPrompt(chatId, tx(user).noAccess, menuKeyboard(user, false), user);
+    return;
+  }
 
   if (start) {
     if (user.state === 'ready') await showMain(chatId, user);
