@@ -348,26 +348,26 @@ async function showAdminUserSettings(chatId, adminUser, target) {
   await sendPrompt(chatId, text, adminUserSettingsKeyboard(adminUser, target.telegram_id, target.is_blocked), adminUser);
 }
 async function showUserList(chatId, user, page) {
-  const all = await db.select().from(users).all();
+  const w = listWords(user), all = await db.select().from(users).all();
   all.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
   const size = 8, pages = Math.max(1, Math.ceil(all.length / size)), current = Math.min(Math.max(0, Number(page) || 0), pages - 1);
   const items = all.slice(current * size, current * size + size), rows = [];
-  let text = tx(user).userListTitle + '\n' + (current + 1) + '/' + pages + '\n━━━━━━━━━━━━━━\n\n';
+  let text = w.users + '\n' + (current + 1) + '/' + pages + '\n━━━━━━━━━━━━━━\n\n';
   if (!all.length) text += tx(user).userListEmpty;
   for (const item of items) {
     const name = [item.name || item.first_name || 'User', item.surname || ''].filter(Boolean).join(' ');
     const favCount = await db.$count(favorites, eq(favorites.user_telegram_id, Number(item.telegram_id)));
     text += '👤 ' + name + '\n🆔 ' + item.telegram_id + '\n🔗 ' + (item.username ? '@' + item.username : '—') +
-      '\n📨 Referrals: ' + Number(item.referral_count || 0) + '  👥 Favorites: ' + favCount +
-      '\n⭐ ' + Number(item.stars || 0) + '  🏆 ' + Number(item.points || 0) + '  ❤️ ' + Number(item.likes || 0) + '\n\n';
-    rows.push([{ text: '⚙️ ' + name.slice(0, 30), callback_data: 'admin:open_user:' + item.telegram_id },
-      { text: '📋 ID', copy_text: { text: String(item.telegram_id) } }]);
+      '\n📨 ' + w.ref + ': ' + Number(item.referral_count || 0) + '  👥 ' + w.fav + ': ' + favCount +
+      '\n⭐ ' + w.stars + ': ' + Number(item.stars || 0) + '  🏆 ' + w.points + ': ' + Number(item.points || 0) + '  ❤️ ' + w.likes + ': ' + Number(item.likes || 0) + '\n\n';
+    rows.push([{ text: '⚙️ ' + name.slice(0, 28), callback_data: 'admin:open_user:' + item.telegram_id },
+      { text: w.copy, copy_text: { text: String(item.telegram_id) } }]);
   }
   const nav = [];
-  if (current > 0) nav.push({ text: '⬅️ Previous', callback_data: 'admin:users:page:' + (current - 1) });
-  if (current < pages - 1) nav.push({ text: 'Next ➡️', callback_data: 'admin:users:page:' + (current + 1) });
+  if (current > 0) nav.push({ text: w.prev, callback_data: 'admin:users:page:' + (current - 1) });
+  if (current < pages - 1) nav.push({ text: w.next, callback_data: 'admin:users:page:' + (current + 1) });
   if (nav.length) rows.push(nav);
-  rows.push([{ text: '🏠 Main menu', callback_data: 'admin:main' }]);
+  rows.push([{ text: w.main, callback_data: 'admin:main' }]);
   await sendPrompt(chatId, text, { inline_keyboard: rows }, user);
 }
 function channelKeyboard(user) {
@@ -569,23 +569,22 @@ async function showFavorites(chatId, user) {
   await sendPrompt(chatId, text, menuKeyboard(user, await isAdmin(user.telegram_id)), user);
 }
 async function showFavoriteSettings(chatId, user, page) {
-  const all = await db.select().from(favorites).where(eq(favorites.user_telegram_id, Number(user.telegram_id))).all();
+  const w = listWords(user), all = await db.select().from(favorites).where(eq(favorites.user_telegram_id, Number(user.telegram_id))).all();
   const size = 8, pages = Math.max(1, Math.ceil(all.length / size)), current = Math.min(Math.max(0, Number(page) || 0), pages - 1);
   const items = all.slice(current * size, current * size + size), rows = [];
-  let text = '❤️ ' + tx(user).favoriteSettingsButtons[0] + '\n' + (current + 1) + '/' + pages + '\n\n';
+  let text = '❤️ ' + w.fav + '\n' + (current + 1) + '/' + pages + '\n\n';
   for (const item of items) {
-    const friend = await getUser(item.favorite_telegram_id);
-    if (!friend) continue;
+    const friend = await getUser(item.favorite_telegram_id); if (!friend) continue;
     const name = [friend.name || friend.first_name || 'User', friend.surname || ''].filter(Boolean).join(' ');
-    text += '• ' + name + '\n🆔 ' + friend.telegram_id + '\n' + (friend.username ? '@' + friend.username : '—') + '\n\n';
-    rows.push([{ text: '❌ ' + name.slice(0, 35), callback_data: 'settings:unfavorite:' + friend.telegram_id + ':' + current }]);
+    text += '👤 ' + name + '\n🆔 ' + friend.telegram_id + '\n🔗 ' + (friend.username ? '@' + friend.username : '—') + '\n\n';
+    rows.push([{ text: '❌ ' + w.unfollow + ' ' + name.slice(0, 24), callback_data: 'settings:unfavorite:' + friend.telegram_id + ':' + current }]);
   }
   if (!all.length) text += tx(user).noFavorites;
   const nav = [];
-  if (current > 0) nav.push({ text: '⬅️', callback_data: 'settings:favorites:page:' + (current - 1) });
-  if (current < pages - 1) nav.push({ text: '➡️', callback_data: 'settings:favorites:page:' + (current + 1) });
+  if (current > 0) nav.push({ text: w.prev, callback_data: 'settings:favorites:page:' + (current - 1) });
+  if (current < pages - 1) nav.push({ text: w.next, callback_data: 'settings:favorites:page:' + (current + 1) });
   if (nav.length) rows.push(nav);
-  rows.push([{ text: '⚙️ ' + tx(user).settingsButtons[0], callback_data: 'settings:open' }, { text: '🏠 Main menu', callback_data: 'settings:main' }]);
+  rows.push([{ text: '⚙️ ' + w.settings, callback_data: 'settings:open' }, { text: w.main, callback_data: 'settings:main' }]);
   await sendPrompt(chatId, text, { inline_keyboard: rows }, user);
 }
 async function showSettingsSection(chatId, user, state, text, markup) {
@@ -614,23 +613,33 @@ async function showReferral(chatId, user) {
   await sendPrompt(chatId, t.referralTitle + '\n\n' + t.referralText + '\n\n' + link,
     { inline_keyboard: [[{ text: t.share, url: share }]] }, user);
 }
+function listWords(user) {
+  const all = {
+    ps: {copy:'📋 ID کاپي',prev:'⬅️ شاته',next:'مخکې ➡️',main:'🏠 اصلي مېنو',ref:'رابلل شوي',fav:'پالو ملګري',stars:'ستوري',points:'نمرې',likes:'لایکونه',unfollow:'پالو پرېښودل',settings:'تنظیمات',users:'👥 د کاروونکو لېست',admins:'🛡️ د مدیرانو لېست'},
+    fa: {copy:'📋 کپی شناسه',prev:'⬅️ قبلی',next:'بعدی ➡️',main:'🏠 منوی اصلی',ref:'دعوت‌شده',fav:'دوستان محبوب',stars:'ستاره',points:'امتیاز',likes:'لایک',unfollow:'حذف از محبوب‌ها',settings:'تنظیمات',users:'👥 فهرست کاربران',admins:'🛡️ فهرست مدیران'},
+    en: {copy:'📋 Copy ID',prev:'⬅️ Previous',next:'Next ➡️',main:'🏠 Main menu',ref:'Referrals',fav:'Favorites',stars:'Stars',points:'Points',likes:'Likes',unfollow:'Unfollow',settings:'Settings',users:'👥 User list',admins:'🛡️ Admin list'},
+    ur: {copy:'📋 ID کاپی',prev:'⬅️ پچھلا',next:'اگلا ➡️',main:'🏠 مرکزی مینو',ref:'مدعو',fav:'پسندیدہ دوست',stars:'ستارے',points:'پوائنٹس',likes:'لائکس',unfollow:'پسندیدہ سے ہٹائیں',settings:'ترتیبات',users:'👥 صارفین کی فہرست',admins:'🛡️ ایڈمنز کی فہرست'},
+    ar: {copy:'📋 نسخ المعرّف',prev:'⬅️ السابق',next:'التالي ➡️',main:'🏠 القائمة الرئيسية',ref:'الإحالات',fav:'الأصدقاء المفضلون',stars:'النجوم',points:'النقاط',likes:'الإعجابات',unfollow:'إلغاء التفضيل',settings:'الإعدادات',users:'👥 قائمة المستخدمين',admins:'🛡️ قائمة المديرين'}
+  };
+  return all[user.language] || all.ps;
+}
 async function showAdminList(chatId, user, page) {
-  const all = await db.select().from(admins).all();
+  const w = listWords(user), all = await db.select().from(admins).all();
   const size = 8, pages = Math.max(1, Math.ceil(all.length / size)), current = Math.min(Math.max(0, Number(page) || 0), pages - 1);
   const items = all.slice(current * size, current * size + size), rows = [];
-  let text = '🛡️ ' + tx(user).adminManagementButtons[2] + '\n' + (current + 1) + '/' + pages + '\n\n';
+  let text = w.admins + '\n' + (current + 1) + '/' + pages + '\n\n';
   if (!all.length) text += tx(user).adminEmpty;
   for (const row of items) {
     const profile = await getUser(row.telegram_id);
     const name = profile ? [profile.name || profile.first_name || 'Admin', profile.surname || ''].filter(Boolean).join(' ') : 'Admin';
     text += '👤 ' + name + '\n🆔 ' + row.telegram_id + '\n🔗 ' + (profile && profile.username ? '@' + profile.username : '—') + '\n\n';
-    rows.push([{ text: '📋 Copy ID ' + row.telegram_id, copy_text: { text: String(row.telegram_id) } }]);
+    rows.push([{ text: w.copy + ' ' + row.telegram_id, copy_text: { text: String(row.telegram_id) } }]);
   }
   const nav = [];
-  if (current > 0) nav.push({ text: '⬅️ Previous', callback_data: 'admin:admins:page:' + (current - 1) });
-  if (current < pages - 1) nav.push({ text: 'Next ➡️', callback_data: 'admin:admins:page:' + (current + 1) });
+  if (current > 0) nav.push({ text: w.prev, callback_data: 'admin:admins:page:' + (current - 1) });
+  if (current < pages - 1) nav.push({ text: w.next, callback_data: 'admin:admins:page:' + (current + 1) });
   if (nav.length) rows.push(nav);
-  rows.push([{ text: '🏠 Main menu', callback_data: 'admin:main' }]);
+  rows.push([{ text: w.main, callback_data: 'admin:main' }]);
   await sendPrompt(chatId, text, { inline_keyboard: rows }, user);
 }
 async function showChannelList(chatId, user) {
