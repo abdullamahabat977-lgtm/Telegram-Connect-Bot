@@ -35,6 +35,7 @@ Random Connect — Telegram Random Chat Bot
 - د غړیتوب د کتلو لپاره بوټ باید په هر اجباري ګروپ یا چینل کې د اړینې اجازې لرونکی وي.
 - GitHub ته د کوډ ثبتول په خپله ژوندی Serverless کوډ نه بدلوي. لومړی کوډ Deploy/Push کړه، بیا د Database د Migration بدلونونه په دقت وګوره او تطبیق یې کړه. هېڅ خطرناک یا د حذف بدلون مه تاییدوه تر څو یې اغېز روښانه نه وي.
 - د users جدول کې نوي فیلډونه ورزیات شوي: `profile_photo_id`، `channel_username`، `stars`، `points`، `likes`، `last_active_at` او `connection_request_mode`. د handlers له Deploy مخکې د دې فیلډونو لپاره د موجودو معلوماتو له حذف پرته migration تطبیق کړه.
+- که `last_active_at` او `connection_request_mode` په ژوندۍ DB کې لا نه وي، دا غیرحذفي SQL یو ځل اجرا کړه: `ALTER TABLE users ADD COLUMN last_active_at TEXT;` او `ALTER TABLE users ADD COLUMN connection_request_mode TEXT NOT NULL DEFAULT 'all';`. که کوم فیلډ له مخکې موجود وي، د هماغه `ALTER TABLE` بیا مه اجرا کوه.
 - د ریفرل جایزې د `app_settings` له لارې تنظیمېږي: `referral_reward_stars` ډیفالټ ۱۵، `referral_reward_points` ډیفالټ ۵، `referral_reward_likes` ډیفالټ ۲. یوازې د نوي کارن د لومړي ثبت پر مهال دعوت کوونکي ته جایزه ورکول کېږي.
 - د آنلاین شمېر معیار د وروستیو ۱۵ دقیقو فعالیت دی؛ د کارن پیغام او د بوټ بټن کلیک د فعالیت وخت تازه کوي.
 - د اړیکې د غوښتنو تنظیمات اوس انتخاب ثبتوي، خو د تصادفي اړیکې او پیغامونو relay سیستم لا نه دی فعال؛ له همدې امله دا تنظیم تر هغه وخته غوښتنې نه فلټر کوي چې matching سیستم جوړ شي.
