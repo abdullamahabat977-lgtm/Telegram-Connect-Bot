@@ -458,7 +458,19 @@ async function processMessage(message) {
 
   if (user.state === 'choose_language') {
     const cleanInput = String(input || '').normalize('NFC').trim();
-    const selected = LANGUAGES.find(function (item) { return String(item.label).normalize('NFC').trim() === cleanInput; });
+    const languageNames = {
+      ps: ['پښتو', 'pashto', 'ps'],
+      fa: ['دری', 'دري', 'dari', 'fa', 'persian'],
+      en: ['English', 'english', 'en'],
+      ur: ['اردو', 'urdu', 'ur'],
+      ar: ['العربية', 'عربي', 'arabic', 'ar']
+    };
+    const selected = LANGUAGES.find(function (item) {
+      return String(item.label).normalize('NFC').trim().toLowerCase() === cleanInput.toLowerCase() ||
+        languageNames[item.code].some(function (name) {
+          return String(name).normalize('NFC').trim().toLowerCase() === cleanInput.toLowerCase();
+        });
+    });
     if (!selected) { await showLanguage(chatId, user); return; }
     const nextState = user.country ? 'ready' : 'check_membership';
     await db.update(users).set({ language: selected.code, state: nextState })
