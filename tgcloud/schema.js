@@ -16,6 +16,8 @@ export const users = table('users', {
   stars: integer('stars').notNull().default(0),
   points: integer('points').notNull().default(0),
   likes: integer('likes').notNull().default(0),
+  last_active_at: text('last_active_at'),
+  connection_request_mode: text('connection_request_mode').notNull().default('all'),
   state: text('state').notNull().default('choose_language'),
   is_blocked: integer('is_blocked').notNull().default(0),
   referrer_id: integer('referrer_id'),
