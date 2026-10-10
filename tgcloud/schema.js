@@ -46,3 +46,31 @@ export const favorites = table('favorites', {
   favorite_telegram_id: integer('favorite_telegram_id').notNull(),
   created_at: text('created_at').notNull(),
 });
+
+export const chat_sessions = table('chat_sessions', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  first_user_telegram_id: integer('first_user_telegram_id').notNull(),
+  second_user_telegram_id: integer('second_user_telegram_id'),
+  status: text('status').notNull().default('waiting'),
+  created_at: text('created_at').notNull(),
+  connected_at: text('connected_at'),
+  ended_at: text('ended_at'),
+});
+
+export const user_blocks = table('user_blocks', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  blocker_telegram_id: integer('blocker_telegram_id').notNull(),
+  blocked_telegram_id: integer('blocked_telegram_id').notNull(),
+  created_at: text('created_at').notNull(),
+});
+
+export const reports = table('reports', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  reporter_telegram_id: integer('reporter_telegram_id').notNull(),
+  reported_telegram_id: integer('reported_telegram_id').notNull(),
+  reason: text('reason'),
+  status: text('status').notNull().default('pending'),
+  reviewed_by: integer('reviewed_by'),
+  reviewed_at: text('reviewed_at'),
+  created_at: text('created_at').notNull(),
+});
