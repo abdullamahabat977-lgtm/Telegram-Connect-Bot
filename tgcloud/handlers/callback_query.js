@@ -11,17 +11,17 @@ const LANGUAGES = [
   { code: 'ar', label: 'العربية' }
 ];
 const COUNTRIES = [
-  { code: 'AF', label: '🇦🇫 افغانستان / Afghanistan' },
-  { code: 'PK', label: '🇵🇰 پاکستان / Pakistan' },
-  { code: 'IN', label: '🇮🇳 هند / India' },
-  { code: 'IR', label: '🇮🇷 ایران / Iran' },
-  { code: 'TJ', label: '🇹🇯 تاجکستان / Tajikistan' },
-  { code: 'TR', label: '🇹🇷 ترکیه / Türkiye' },
-  { code: 'AE', label: '🇦🇪 امارات / UAE' },
-  { code: 'SA', label: '🇸🇦 سعودي عربستان / Saudi Arabia' },
-  { code: 'GB', label: '🇬🇧 بریتانیا / United Kingdom' },
-  { code: 'US', label: '🇺🇸 امریکا / United States' },
-  { code: 'OTHER', label: '🌍 بل هېواد / Other' }
+  { code: 'AF', label: '🇦🇫 افغانستان' },
+  { code: 'PK', label: '🇵🇰 پاکستان' },
+  { code: 'IN', label: '🇮🇳 भारत' },
+  { code: 'IR', label: '🇮🇷 ایران' },
+  { code: 'TJ', label: '🇹🇯 Тоҷикистон' },
+  { code: 'TR', label: '🇹🇷 Türkiye' },
+  { code: 'AE', label: '🇦🇪 الإمارات العربية المتحدة' },
+  { code: 'SA', label: '🇸🇦 المملكة العربية السعودية' },
+  { code: 'GB', label: '🇬🇧 United Kingdom' },
+  { code: 'US', label: '🇺🇸 United States' },
+  { code: 'OTHER', label: '🌍 Other' }
 ];
 const AGES = [12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40];
 const TEXT = {
@@ -83,15 +83,12 @@ async function safeDelete(chatId, messageId) {
   try { await api.deleteMessage({ chat_id: chatId, message_id: Number(messageId) }); } catch (e) {}
 }
 async function sendPrompt(chatId, text, markup, user) {
-  const registrationStates = ['choose_language', 'check_membership', 'choose_country', 'choose_gender', 'choose_age', 'enter_name', 'enter_surname'];
-  if (user && registrationStates.includes(user.state) && Number(user.last_prompt_id) > 0) {
-    await safeDelete(chatId, user.last_prompt_id);
-  }
+  if (user && Number(user.last_prompt_id) > 0) await safeDelete(chatId, user.last_prompt_id);
   const sent = await api.sendMessage({ chat_id: chatId, text: text, reply_markup: markup });
-  if (user && sent && sent.message_id) {
-    await db.update(users).set({ last_prompt_id: sent.message_id })
-      .where(eq(users.telegram_id, Number(user.telegram_id))).run();
-    user.last_prompt_id = sent.message_id;
+  if (user) {
+    const inlineId = markup && Array.isArray(markup.inline_keyboard) && sent && sent.message_id ? sent.message_id : 0;
+    await db.update(users).set({ last_prompt_id: inlineId }).where(eq(users.telegram_id, Number(user.telegram_id))).run();
+    user.last_prompt_id = inlineId;
   }
   return sent;
 }
@@ -163,7 +160,36 @@ function mainKeyboard(user, admin) {
   if (admin) rows.push([{ text: m[8] }]);
   return { keyboard: rows, resize_keyboard: true };
 }
+const ADMIN_UI = {
+  ps: { intro: 'د اډمین پینل:', buttons: ['➕ مدیر زیاتول', '➖ مدیر لرې کول', '📢 د غړیتوب ګروپونه', '📣 ډله‌ییز اعلان', '👥 د مدیرانو لېست', '⚙️ د کارن تنظیمات', '👥 د کاروونکو لېست', '🔙 اصلي مېنو'], settings: ['🌍 هېواد بدلول', '👤 جنسیت بدلول', '🎂 عمر بدلول', '✍️ نوم بدلول', '📝 تخلص بدلول', '🔙 اډمین پینل'], noAccess: '⛔ دا برخه یوازې د اډمین لپاره ده.', userMissing: 'کارن ونه موندل شو.' },
+  fa: { intro: 'پنل مدیریت:', buttons: ['➕ افزودن مدیر', '➖ حذف مدیر', '📢 گروه‌های عضویت اجباری', '📣 پیام همگانی', '👥 فهرست مدیران', '⚙️ تنظیمات کاربر', '👥 فهرست کاربران', '🔙 منوی اصلی'], settings: ['🌍 تغییر کشور', '👤 تغییر جنسیت', '🎂 تغییر سن', '✍️ تغییر نام', '📝 تغییر نام خانوادگی', '🔙 پنل مدیریت'], noAccess: '⛔ فقط مدیران مجاز هستند.', userMissing: 'کاربر پیدا نشد.' },
+  en: { intro: 'Admin panel:', buttons: ['➕ Add admin', '➖ Remove admin', '📢 Required membership', '📣 Broadcast', '👥 List admins', '⚙️ User settings', '👥 User list', '🔙 Main menu'], settings: ['🌍 Change country', '👤 Change gender', '🎂 Change age', '✍️ Change name', '📝 Change surname', '🔙 Admin panel'], noAccess: '⛔ Admin access only.', userMissing: 'User not found.' },
+  ur: { intro: 'ایڈمن پینل:', buttons: ['➕ ایڈمن شامل کریں', '➖ ایڈمن ہٹائیں', '📢 لازمی گروپس', '📣 سب کو پیغام', '👥 ایڈمنز کی فہرست', '⚙️ صارف کی ترتیبات', '👥 صارفین کی فہرست', '🔙 مرکزی مینو'], settings: ['🌍 ملک تبدیل کریں', '👤 جنس تبدیل کریں', '🎂 عمر تبدیل کریں', '✍️ نام تبدیل کریں', '📝 خاندانی نام تبدیل کریں', '🔙 ایڈمن پینل'], noAccess: '⛔ صرف مجاز ایڈمنز کے لیے۔', userMissing: 'صارف نہیں ملا۔' },
+  ar: { intro: 'لوحة الإدارة:', buttons: ['➕ إضافة مدير', '➖ إزالة مدير', '📢 مجموعات العضوية الإلزامية', '📣 رسالة جماعية', '👥 قائمة المديرين', '⚙️ إعدادات المستخدم', '👥 قائمة المستخدمين', '🔙 القائمة الرئيسية'], settings: ['🌍 تغيير البلد', '👤 تغيير الجنس', '🎂 تغيير العمر', '✍️ تغيير الاسم', '📝 تغيير اسم العائلة', '🔙 لوحة الإدارة'], noAccess: '⛔ للمسؤولين المصرح لهم فقط.', userMissing: 'لم يتم العثور على المستخدم.' }
+};
+function adminKeyboard(user) {
+  const b = ADMIN_UI[user.language] || ADMIN_UI.ps;
+  return { keyboard: [[{ text: b.buttons[0] }, { text: b.buttons[1] }], [{ text: b.buttons[2] }, { text: b.buttons[3] }], [{ text: b.buttons[4] }, { text: b.buttons[5] }], [{ text: b.buttons[6] }, { text: b.buttons[7] }]], resize_keyboard: true };
+}
+function adminSettingsKeyboard(user, targetId) {
+  const b = (ADMIN_UI[user.language] || ADMIN_UI.ps).settings;
+  return { inline_keyboard: [
+    [{ text: b[0], callback_data: 'admin:edit:country:' + targetId }, { text: b[1], callback_data: 'admin:edit:gender:' + targetId }],
+    [{ text: b[2], callback_data: 'admin:edit:age:' + targetId }, { text: b[3], callback_data: 'admin:edit:name:' + targetId }],
+    [{ text: b[4], callback_data: 'admin:edit:surname:' + targetId }],
+    [{ text: b[5], callback_data: 'admin:panel' }]
+  ] };
+}
+async function showAdminUserSettings(chatId, actor, target) {
+  const b = ADMIN_UI[actor.language] || ADMIN_UI.ps;
+  const text = b.settings[0] + '\n\n👤 ' + (target.name || target.first_name || '—') + '\n🆔 ' + target.telegram_id +
+    '\n' + (target.username ? '@' + target.username + '\n' : '') + '🌍 ' + (target.country || '—') +
+    ' | ⚧ ' + (target.gender || '—') + ' | 🎂 ' + (target.age || '—');
+  await sendPrompt(chatId, text, adminSettingsKeyboard(actor, target.telegram_id), actor);
+}
 async function showMain(chatId, user, message) {
+  user.state = 'ready';
+  await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, Number(user.telegram_id))).run();
   const text = (message ? message + '\n\n' : '') + tx(user).main;
   await sendPrompt(chatId, text, mainKeyboard(user, await isAdmin(user.telegram_id)), user);
 }
@@ -176,6 +202,80 @@ async function showGender(chatId, user) {
 async function showAge(chatId, user) {
   await sendPrompt(chatId, tx(user).age, ageKeyboard(), user);
 }
+async function handleAdminCallback(query, actor, data, actorId, chatId) {
+  if (!(await isAdmin(actorId))) {
+    await sendPrompt(chatId, (ADMIN_UI[actor.language] || ADMIN_UI.ps).noAccess, mainKeyboard(actor, false), actor);
+    return;
+  }
+  const p = data.split(':');
+  const ui = ADMIN_UI[actor.language] || ADMIN_UI.ps;
+  if (p[1] === 'panel') {
+    actor.state = 'admin_menu';
+    await db.update(users).set({ state: 'admin_menu' }).where(eq(users.telegram_id, actorId)).run();
+    await sendPrompt(chatId, ui.intro, adminKeyboard(actor), actor);
+    return;
+  }
+  let targetId = 0;
+  if (p[1] === 'open_user') targetId = Number(p[2]);
+  else if (p[1] === 'edit') targetId = Number(p[3]);
+  else if (p[1] === 'setcountry' || p[1] === 'setgender' || p[1] === 'setage') targetId = Number(p[3]);
+  if (!Number.isSafeInteger(targetId) || targetId <= 0) return;
+  const target = await getUser(targetId);
+  if (!target) {
+    await sendPrompt(chatId, ui.userMissing, adminKeyboard(actor), actor);
+    return;
+  }
+  if (p[1] === 'open_user') {
+    await showAdminUserSettings(chatId, actor, target);
+    return;
+  }
+  if (p[1] === 'edit') {
+    const field = p[2];
+    if (field === 'country') {
+      const rows = [];
+      for (let i = 0; i < COUNTRIES.length; i += 2) {
+        const row = [{ text: COUNTRIES[i].label, callback_data: 'admin:setcountry:' + COUNTRIES[i].code + ':' + targetId }];
+        if (COUNTRIES[i + 1]) row.push({ text: COUNTRIES[i + 1].label, callback_data: 'admin:setcountry:' + COUNTRIES[i + 1].code + ':' + targetId });
+        rows.push(row);
+      }
+      rows.push([{ text: '🔙', callback_data: 'admin:open_user:' + targetId }]);
+      await sendPrompt(chatId, tx(actor).country, { inline_keyboard: rows }, actor);
+    } else if (field === 'gender') {
+      await sendPrompt(chatId, tx(actor).gender, { inline_keyboard: [[
+        { text: tx(actor).menu[0].startsWith('🔎') ? (actor.language === 'en' ? 'Male' : actor.language === 'fa' ? 'مرد' : actor.language === 'ur' ? 'مرد' : actor.language === 'ar' ? 'ذكر' : 'نارینه') : 'Male', callback_data: 'admin:setgender:male:' + targetId },
+        { text: actor.language === 'en' ? 'Female' : actor.language === 'fa' ? 'زن' : actor.language === 'ur' ? 'عورت' : actor.language === 'ar' ? 'أنثى' : 'ښځینه', callback_data: 'admin:setgender:female:' + targetId }
+      ], [{ text: '🔙', callback_data: 'admin:open_user:' + targetId }]] }, actor);
+    } else if (field === 'age') {
+      const rows = [];
+      for (let i = 0; i < AGES.length; i += 3) rows.push(AGES.slice(i, i + 3).map(age => ({ text: String(age), callback_data: 'admin:setage:' + age + ':' + targetId })));
+      rows.push([{ text: '🔙', callback_data: 'admin:open_user:' + targetId }]);
+      await sendPrompt(chatId, tx(actor).age, { inline_keyboard: rows }, actor);
+    } else if (field === 'name' || field === 'surname') {
+      actor.state = 'admin_edit_user_' + field + ':' + targetId;
+      await db.update(users).set({ state: actor.state }).where(eq(users.telegram_id, actorId)).run();
+      const prompt = field === 'name' ? (actor.language === 'en' ? 'Enter the new name:' : actor.language === 'fa' ? 'نام جدید را بنویسید:' : actor.language === 'ur' ? 'نیا نام لکھیں:' : actor.language === 'ar' ? 'اكتب الاسم الجديد:' : 'د کارن نوی نوم ولیکه:') :
+        (actor.language === 'en' ? 'Enter the new surname, or send /skip to clear it:' : actor.language === 'fa' ? 'نام خانوادگی جدید را بنویسید:' : actor.language === 'ur' ? 'نیا خاندانی نام لکھیں:' : actor.language === 'ar' ? 'اكتب اسم العائلة الجديد:' : 'د کارن نوی تخلص ولیکه:');
+      await sendPrompt(chatId, prompt, { force_reply: true }, actor);
+    }
+    return;
+  }
+  if (p[1] === 'setcountry') {
+    const country = COUNTRIES.find(item => item.code === p[2]);
+    if (!country) return;
+    await db.update(users).set({ country: country.code }).where(eq(users.telegram_id, targetId)).run();
+    target.country = country.code;
+  } else if (p[1] === 'setgender') {
+    if (!['male', 'female'].includes(p[2])) return;
+    await db.update(users).set({ gender: p[2] }).where(eq(users.telegram_id, targetId)).run();
+    target.gender = p[2];
+  } else if (p[1] === 'setage') {
+    const age = Number(p[2]);
+    if (!AGES.includes(age)) return;
+    await db.update(users).set({ age }).where(eq(users.telegram_id, targetId)).run();
+    target.age = age;
+  }
+  await showAdminUserSettings(chatId, actor, target);
+}
 async function handleCallback(query) {
   if (!query || !query.from || !query.message || !query.message.chat || !query.data) return;
   const id = Number(query.from.id);
@@ -183,9 +283,13 @@ async function handleCallback(query) {
   if (!Number.isSafeInteger(id) || id <= 0 || query.message.chat.type !== 'private') return;
   try { await api.answerCallbackQuery({ callback_query_id: query.id }); } catch (e) {}
   const data = String(query.data);
-  if (!data.startsWith('reg:')) return;
   let user = await getUser(id);
   if (!user || Number(user.is_blocked) === 1) return;
+  if (data.startsWith('admin:')) {
+    await handleAdminCallback(query, user, data, id, chatId);
+    return;
+  }
+  if (!data.startsWith('reg:')) return;
   const parts = data.split(':');
   const kind = parts[1];
   const value = parts[2];
