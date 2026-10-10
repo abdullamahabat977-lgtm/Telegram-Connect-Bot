@@ -226,6 +226,86 @@ export default async function (message, ctx) {
   if (!message?.chat?.id || !message?.from || message.chat.type !== 'private') return;
   const chatId = message.chat.id;
   let user = await getOrCreateUser(message.from);
+
+  // Telegram sends successful_payment as a Message update.
+  // Keep this here because Serverless has no separate successful_payment handler.
+  if (message.successful_payment) {
+    const payment = message.successful_payment;
+    const payload = String(payment.invoice_payload || '');
+    const match = /^wallet:(\d+):(100|250|500|1000):([A-Za-z0-9_-]{6,40})$/.exec(payload);
+    const allowedAmounts = [100, 250, 500, 1000];
+    const amount = match ? Number(match[2]) : 0;
+    const payloadUserId = match ? Number(match[1]) : 0;
+    const totalAmount = Number(payment.total_amount);
+    const chargeId = String(payment.telegram_payment_charge_id || '');
+
+    if (!match || !Number.isSafeInteger(payloadUserId) || payloadUserId <= 0 ||
+        !allowedAmounts.includes(amount) || payment.currency !== 'XTR' ||
+        totalAmount !== amount || !chargeId) {
+      await send(chatId, '⚠️ د تادیې معلومات سم نه دي. له مدیر سره اړیکه ونیسه.');
+      return;
+    }
+
+    if (Number(user.id) !== payloadUserId || Number(user.telegram_id) !== Number(message.from.id)) {
+      await send(chatId, '⚠️ دا تادیه له دې حساب سره سمون نه خوري. له مدیر سره اړیکه ونیسه.');
+      return;
+    }
+
+    const now = new Date().toISOString();
+    try {
+      // Unique telegram_payment_charge_id prevents crediting the same payment twice.
+      await db.insert(star_payments).values({
+        user_id: user.id,
+        telegram_payment_charge_id: chargeId,
+        provider_payment_charge_id: payment.provider_payment_charge_id || null,
+        invoice_payload: payload,
+        currency: payment.currency,
+        total_amount: totalAmount,
+        status: 'successful',
+        created_at: now
+      }).run();
+    } catch (error) {
+      await send(chatId, 'ℹ️ دا تادیه مخکې ثبت شوې یا ثبت کې ستونزه راغلې ده. د والټ د بیلانس لپاره له مدیر سره اړیکه ونیسه.');
+      return;
+    }
+
+    try {
+      await db.insert(wallets).values({
+        user_id: user.id,
+        available_stars: 0,
+        pending_stars: 0,
+        updated_at: now
+      }).onConflictDoUpdate({
+        target: wallets.user_id,
+        set: { updated_at: now }
+      }).run();
+
+      await db.update(wallets).set({
+        available_stars: sql`${wallets.available_stars} + ${amount}`,
+        updated_at: now
+      }).where(eq(wallets.user_id, user.id)).run();
+
+      await db.insert(wallet_transactions).values({
+        user_id: user.id,
+        promotion_id: null,
+        transaction_type: 'topup',
+        bucket: 'available',
+        amount_stars: amount,
+        idempotency_key: 'topup:' + chargeId,
+        note: 'Telegram Stars payment',
+        created_at: now
+      }).run();
+    } catch (error) {
+      // Payment is recorded already; do not retry-credit automatically and risk a duplicate.
+      await send(chatId, '⚠️ تادیه ثبت شوه، خو د والټ تازه کول بشپړ نه شول. د رسید ID له مدیر سره شریک کړه: ' + chargeId);
+      return;
+    }
+
+    const wallet = await db.select().from(wallets).where(eq(wallets.user_id, user.id)).get();
+    await send(chatId, '✅ تادیه بریالۍ شوه!\\n➕ ورزیات شول: ' + amount + ' ⭐\\n💰 موجود بیلانس: ' + (wallet ? wallet.available_stars : amount) + ' ⭐');
+    return;
+  }
+
   const text = (message.text ?? '').trim();
   if (!text) return;
   user = await getOrCreateUser(message.from);
@@ -369,7 +449,7 @@ export default async function (message, ctx) {
         await db.update(ads).set({ status: 'published', published_chat: row.target }).where(eq(ads.id, id)).run();
         publication = "اعلان په " + row.target + " کې هم خپور شو.";
       } catch (error) {
-        publication = "اعلان په " + row.target + " کې تایید شو، خو په " + row.target + " کې خپر نه شو. وګوره چې بوټ هلته اډمین وي او د پیغام لېږلو اجازه ولري.";
+        publication = "اعلان په بازار کې تایید شو، خو په " + row.target + " کې خپور نه شو. وګوره چې بوټ هلته اډمین وي او د پیغام لېږلو اجازه ولري.";
       }
     }
     const owner = await db.select().from(users).where(eq(users.id, row.owner_id)).get();
