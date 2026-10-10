@@ -17,7 +17,7 @@ export default async function (message) {
 
   const payment = message.successful_payment;
   const payload = String(payment.invoice_payload || '');
-  const match = /^wallet:(\\d+):(100|250|500|1000):([A-Za-z0-9_-]{6,40})$/.exec(payload);
+  const match = /^wallet:(\d+):(100|250|500|1000):([A-Za-z0-9_-]{6,40})$/.exec(payload);
 
   if (!match) {
     await sendMessage(message.chat.id, '⚠️ د تادیې معلومات سم نه دي. له مدیر سره اړیکه ونیسه.');
