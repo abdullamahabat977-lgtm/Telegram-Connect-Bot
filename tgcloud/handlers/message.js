@@ -67,7 +67,7 @@ const T = {
     share: '📤 له ملګرو سره شریکول', later: '🚧 دا برخه به د بوټ په راتلونکي پړاو کې فعاله شي. اوس د بوټ جوړښت او پروفایل بشپړوو.',
     saved: '✅ بدلون ثبت شو.', broadcastDone: '📣 اعلان بشپړ شو.\nلېږل شوي: ', broadcastFailed: '\nناکام: ',
     main: 'اصلي مېنو:', nameInvalid: 'مهرباني وکړه مناسب نوم ولیکه.',
-    channelFormat: '⚠️ بڼه ناسمه ده. chat_id | لینک | نوم وکاروه.',
+    channelFormat: '⚠️ سم عددي ID راولېږه.',
     noAccess: '⛔ دا برخه یوازې د مجاز مدیرانو لپاره ده.'
   },
   fa: {
@@ -111,7 +111,7 @@ const T = {
     share: '📤 اشتراک‌گذاری', later: '🚧 این بخش در مرحله بعد فعال می‌شود. فعلاً ساختار ربات و پروفایل را کامل می‌کنیم.',
     saved: '✅ تغییرات ذخیره شد.', broadcastDone: '📣 پیام همگانی تمام شد.\nارسال موفق: ', broadcastFailed: '\nناموفق: ',
     main: 'منوی اصلی:', nameInvalid: 'لطفاً نام معتبری بنویسید.',
-    channelFormat: '⚠️ قالب: chat_id | لینک | نام', noAccess: '⛔ این بخش فقط برای مدیران مجاز است.'
+    channelFormat: '⚠️ شناسه عددی معتبر بفرستید.', noAccess: '⛔ این بخش فقط برای مدیران مجاز است.'
   },
   en: {
     lang: '🌐 Choose your language:', country: '🌍 Choose your country:', gender: '👤 Choose your gender:',
@@ -154,7 +154,7 @@ const T = {
     share: '📤 Share with friends', later: '🚧 This feature will be enabled in a later stage. We are building the bot and profile first.',
     saved: '✅ Changes saved.', broadcastDone: '📣 Broadcast finished.\nSent: ', broadcastFailed: '\nFailed: ',
     main: 'Main menu:', nameInvalid: 'Please enter a valid name.',
-    channelFormat: '⚠️ Format: chat_id | link | title', noAccess: '⛔ This section is for authorized admins only.'
+    channelFormat: '⚠️ Send a valid numeric ID.', noAccess: '⛔ This section is for authorized admins only.'
   },
   ur: {
     lang: '🌐 اپنی زبان منتخب کریں:', country: '🌍 اپنا ملک منتخب کریں:', gender: '👤 اپنی جنس منتخب کریں:',
@@ -197,7 +197,7 @@ const T = {
     share: '📤 دوستوں کے ساتھ شیئر کریں', later: '🚧 یہ سہولت اگلے مرحلے میں فعال ہوگی۔ ابھی بوٹ اور پروفائل تیار کررہے ہیں۔',
     saved: '✅ تبدیلی محفوظ ہوگئی۔', broadcastDone: '📣 پیغام بھیجنا مکمل ہوا۔\nکامیاب: ', broadcastFailed: '\nناکام: ',
     main: 'مرکزی مینو:', nameInvalid: 'براہ کرم درست نام لکھیں.',
-    channelFormat: '⚠️ فارمیٹ: chat_id | لنک | نام', noAccess: '⛔ یہ حصہ صرف مجاز ایڈمنز کے لیے ہے۔'
+    channelFormat: '⚠️ درست عددی ID بھیجیں۔', noAccess: '⛔ یہ حصہ صرف مجاز ایڈمنز کے لیے ہے۔'
   },
   ar: {
     lang: '🌐 اختر لغتك:', country: '🌍 اختر بلدك:', gender: '👤 اختر جنسك:',
@@ -240,7 +240,7 @@ const T = {
     share: '📤 مشاركة مع الأصدقاء', later: '🚧 سيتم تفعيل هذه الميزة في مرحلة لاحقة. نكمل الآن بنية البوت والملف الشخصي.',
     saved: '✅ تم حفظ التغييرات.', broadcastDone: '📣 انتهى الإرسال الجماعي.\nتم الإرسال: ', broadcastFailed: '\nفشل: ',
     main: 'القائمة الرئيسية:', nameInvalid: 'يرجى كتابة اسم صالح.',
-    channelFormat: '⚠️ الصيغة: chat_id | الرابط | الاسم', noAccess: '⛔ هذا القسم للمديرين المصرح لهم فقط.'
+    channelFormat: '⚠️ أرسل معرّفًا رقميًا صحيحًا.', noAccess: '⛔ هذا القسم للمديرين المصرح لهم فقط.'
   }
 };
 
