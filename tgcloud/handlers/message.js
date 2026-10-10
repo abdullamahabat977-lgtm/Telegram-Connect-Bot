@@ -354,18 +354,25 @@ function channelKeyboard(user) {
 }
 function actionFor(input) {
   for (const lang of Object.keys(T)) {
-    const t = T[lang];
-    const m = t.menu;
+    const t = T[lang], m = t.menu;
     const pairs = [
       ['find', m[0]], ['favorites', m[1]], ['random', m[2]], ['invite', m[3]], ['profile', m[4]],
       ['language', m[5]], ['settings', m[6]], ['stats', m[7]], ['admin', m[8]], ['joined', t.joined],
-      ['country', t.settingsButtons[0]], ['gender', t.settingsButtons[1]], ['age', t.settingsButtons[2]],
-      ['name', t.settingsButtons[3]], ['surname', t.settingsButtons[4]], ['back', t.settingsButtons[5]],
-      ['adminAdd', t.adminButtons[0]], ['adminRemove', t.adminButtons[1]], ['channels', t.adminButtons[2]],
-      ['broadcast', t.adminButtons[3]], ['adminsList', t.adminButtons[4]], ['userSettings', t.adminButtons[5]],
-      ['usersList', t.adminButtons[6]], ['channelAdd', t.channelButtons[0]],
-      ['channelRemove', t.channelButtons[1]], ['channelList', t.channelButtons[2]], ['cancel', t.cancel], ['skip', t.skip]
+      ['country', t.profileSettingsButtons[0]], ['gender', t.profileSettingsButtons[1]], ['age', t.profileSettingsButtons[2]],
+      ['name', t.profileSettingsButtons[3]], ['surname', t.profileSettingsButtons[4]],
+      ['profileSettings', t.settingsButtons[0]], ['photoSettings', t.settingsButtons[1]],
+      ['channelSettings', t.settingsButtons[2]], ['favoriteSettings', t.settingsButtons[3]],
+      ['adminManagement', t.adminButtons[0]], ['channels', t.adminButtons[1]], ['broadcast', t.adminButtons[2]],
+      ['userSettings', t.adminButtons[3]], ['usersList', t.adminButtons[4]],
+      ['adminAdd', t.adminManagementButtons[0]], ['adminRemove', t.adminManagementButtons[1]],
+      ['adminsList', t.adminManagementButtons[2]], ['cancel', t.cancel], ['skip', t.skip],
+      ['photoSet', t.photoSettingsButtons[0]], ['photoRemove', t.photoSettingsButtons[1]],
+      ['channelSet', t.channelSettingsButtons[0]], ['channelRemoveProfile', t.channelSettingsButtons[1]],
+      ['favoritesList', t.favoriteSettingsButtons[0]]
     ];
+    const backLabels = [t.settingsButtons[4], t.profileSettingsButtons[5], t.photoSettingsButtons[2],
+      t.channelSettingsButtons[2], t.favoriteSettingsButtons[1], t.adminManagementButtons[3]];
+    for (const label of backLabels) if (label === input) return 'back';
     for (const pair of pairs) if (pair[1] === input) return pair[0];
   }
   return null;
