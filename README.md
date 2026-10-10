@@ -1,18 +1,13 @@
 # Telegram Connect Bot
 
-Telegram Connect is a multilingual Telegram Serverless bot for:
-- Discovering approved public channels, groups, and bots.
-- Submitting listings for administrator review.
-- Creating ad requests and optionally publishing approved ads to a public channel/group.
-- Letting advertisers request promotions from channel/group owners and negotiate a proposed price.
-- Admin review, user blocking, broadcast messages, and basic statistics.
+Telegram Connect is a multilingual Telegram Serverless bot project for discovering and promoting public Telegram channels, groups, and bots.
 
 ## Source files
 
-- `schema.js`: all database tables.
-- `handlers/message.js`: the message handler.
+- `schema.js`: database tables.
+- `handlers/message.js`: current message handler.
 
-These repository paths are kept easy to find and copy. For the current Telegram Serverless CLI project layout, the corresponding local files belong at:
+For the Telegram Serverless project layout, use:
 
 ```
 tgcloud/
@@ -21,25 +16,41 @@ tgcloud/
     message.js
 ```
 
-The handler imports the schema using Telegram Serverless module naming: `import { ... } from 'schema'`. Relative paths and `.js` extensions are not supported for project modules in this runtime.
+Project modules are imported by module name, for example `import { users } from 'schema'`, in accordance with Telegram Serverless module rules.
 
-## Important behavior
+## Planned Stars wallet and promotion settlement
 
-- Listings and ads begin with `pending` status and require administrator approval.
-- An ad may optionally include a public target such as `@MyChannel`. After an administrator approves it, the bot attempts to publish the ad there. The bot must be an administrator with permission to post messages in that channel/group. If publication fails, the ad remains approved in the bot marketplace and the admin receives a warning.
-- A listing owner sets an optional advertising price in USD. Advertisers can send a request and proposed price using `/request_ad ID`; the owner can accept or reject with `/accept_offer ID` or `/reject_offer ID`.
-- The bot records requests only; it does not collect or escrow money. Both parties must independently confirm final terms and payment.
-- Telegram does not let a bot discover every channel or group automatically. The directory is based on user-submitted and administrator-approved listings.
-- Telegram inline-button colors cannot be individually selected by the bot; Telegram controls their appearance.
+The schema now includes the **database foundation** for:
+- `wallets`: a user's internal app balance in whole Telegram Stars units, split into available and pending balances.
+- `wallet_transactions`: an auditable ledger with unique idempotency keys to prevent duplicate accounting.
+- `star_payments`: records successful Telegram Stars payments and unique Telegram payment charge IDs.
+- `promotions`: an ad placement order, approval mode, publish time, and 48-hour monitoring/settlement status.
 
-## Before using the updated code
+Important distinction: the internal wallet is **not** the user's native Telegram Stars balance. The bot must first receive a successful Telegram Stars payment update and record it once, then credit the internal wallet.
 
-1. Open the bot's Serverless database/schema section.
-2. Review and apply the migration for the new columns in `users` and `listings`, and the new `ad_requests` table. Do not run the handler against the old schema before the migration is complete.
-3. Copy the updated schema and handler into the matching Serverless modules.
-4. Test in a private chat first: `/start`, language selection, listing submission, admin approval, ad submission, admin approval, marketplace request, and owner accept/reject.
-5. For channel publication, add the bot as an administrator with permission to post. Start with a test channel.
+## Proposed promotion rules
 
-The handler import has been aligned with the official Serverless module rules and the marketplace/admin logic has been hardened. However, the complete bot has **not** been runtime-tested against your live Telegram Serverless bot or database. Do not treat it as production-tested until the migration and the tests above succeed.
+- Advertiser pays the listing price plus a 10% advertiser fee from their internal available wallet.
+- The listing owner is charged a 10% fee against the listing price; owner net proceeds are therefore 90% of the listed price.
+- The full reservation stays in pending accounting until approval, publication, and the 48-hour monitoring period complete.
+- If approval is denied or publication/monitoring fails, the advertiser's reserved amount is refunded and the owner receives no earnings.
+- If the ad survives the 48-hour monitoring period, the owner's net proceeds become available.
+- The administrator commission is planned as 20% of the bot's collected transaction fees (the advertiser fee plus owner fee), not 20% of the ad's entire price. The precise rounding rule for fractional Stars must be defined in code; only whole Stars can be credited.
+- The bot must have the required channel administrator/posting rights. If Telegram cannot reliably confirm the ad still exists or the bot's rights, settlement must be paused for admin review rather than automatically releasing funds.
 
-Official documentation: https://core.telegram.org/bots/serverless
+## Current implementation status — read carefully
+
+The wallet/payment/promotion tables have been added to `schema.js`. **The payment and escrow workflow is not yet implemented in `handlers/message.js`**, and the bot has not been runtime-tested with Telegram Serverless. Do not describe the Stars wallet or 48-hour settlement as live until handlers are implemented and tested.
+
+Before deploying:
+1. Review and apply the Serverless database migration for all new tables.
+2. Implement the Telegram Stars invoice flow using currency `XTR`, validate pre-checkout queries, and credit only after `successful_payment`.
+3. Add atomic/idempotent wallet ledger operations and promotion approval/publish/refund/settlement handlers.
+4. Test with Telegram's dedicated Stars test environment and a test channel before enabling real payments.
+5. Never store bot tokens, API secrets, or private credentials in this repository.
+
+Existing marketplace/message-handler functionality may still use the earlier USD listing/ad fields; it must be reconciled with the new Stars pricing flow before production use.
+
+Official docs:
+- Telegram Serverless: https://core.telegram.org/bots/serverless
+- Telegram Stars payments: https://core.telegram.org/bots/payments-stars
