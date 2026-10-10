@@ -1049,7 +1049,8 @@ async function processMessage(message) {
   if (user.state === 'admin_menu') {
     if (!(await isAdmin(id))) { user.state = 'ready'; await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, tx(user).noAccess, menuKeyboard(user, false), user); return; }
     const i = tx(user).adminButtons.indexOf(input);
-    const field = i >= 0 ? ['adminManagement','channels','broadcast','userSettings','usersList','back'][i] : action;
+    const field = i >= 0 ? ['adminManagement','channels','broadcast','userSettings','usersList','back','rewardSettings'][i] : action;
+    if (field === 'rewardSettings') { await sendPrompt(chatId, '🎁 د ریفرل جایزې تنظیمات:\n\nد هر بریالي دعوت لپاره د ستورو، نمرو او لایکونو مقدار بدلولو لپاره لاندې بټن وکاروه.', { inline_keyboard: [[{ text: '⭐ ستوري', callback_data: 'admin:reward:stars' }, { text: '🏆 نمرې', callback_data: 'admin:reward:points' }], [{ text: '❤️ لایکونه', callback_data: 'admin:reward:likes' }], [{ text: '🔙 اډمین پینل', callback_data: 'admin:panel' }]] }, user); return; }
     if (field === 'adminManagement') {
       user.state = 'admin_management_menu'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run();
       await sendPrompt(chatId, tx(user).adminManagementIntro, adminManagementKeyboard(user), user);
