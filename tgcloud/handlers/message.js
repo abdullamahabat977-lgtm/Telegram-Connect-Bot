@@ -651,6 +651,7 @@ async function processMessage(message) {
     await db.insert(users).values({
       telegram_id: id, username: message.from.username || null, first_name: message.from.first_name || null,
       language: 'ps', country: null, gender: null, age: null, name: null, surname: null,
+      profile_photo_id: null, channel_username: null, stars: 0, points: 0, likes: 0,
       state: 'choose_language', is_blocked: 0, referrer_id: referrer, referral_count: 0,
       last_prompt_id: 0, created_at: new Date().toISOString()
     }).run();
@@ -688,12 +689,18 @@ async function processMessage(message) {
     else if (user.state === 'enter_name' || user.state === 'settings_name') await showName(chatId, user);
     else if (user.state === 'enter_surname' || user.state === 'settings_surname') await showSurname(chatId, user);
     else if (user.state === 'admin_channels_menu') await sendPrompt(chatId, tx(user).channelIntro, channelKeyboard(user), user);
-    else if (user.state === 'admin_menu' || user.state.startsWith('waiting_') || user.state.startsWith('admin_edit_user_')) {
-      user.state = 'admin_menu';
-      await db.update(users).set({ state: 'admin_menu' }).where(eq(users.telegram_id, id)).run();
+    else if (user.state === 'admin_management_menu') await sendPrompt(chatId, tx(user).adminManagementIntro, adminManagementKeyboard(user), user);
+    else if (user.state === 'settings_menu') await sendPrompt(chatId, tx(user).settings, settingsKeyboard(user), user);
+    else if (user.state === 'profile_settings_menu') await sendPrompt(chatId, tx(user).settings, profileSettingsKeyboard(user), user);
+    else if (user.state === 'settings_photo_menu') await sendPrompt(chatId, '🖼 ' + tx(user).settings, photoSettingsKeyboard(user), user);
+    else if (user.state === 'settings_channel_menu') await sendPrompt(chatId, '📢 ' + tx(user).settings, channelSettingsKeyboard(user), user);
+    else if (user.state === 'settings_favorites_menu') await sendPrompt(chatId, '❤️ ' + tx(user).settings, favoriteSettingsKeyboard(user), user);
+    else if (user.state === 'waiting_profile_photo') await sendPrompt(chatId, user.language === 'en' ? 'Send the profile photo now.' : 'اوس د پروفایل عکس راولېږه.', { force_reply: true }, user);
+    else if (user.state === 'waiting_profile_channel') await sendPrompt(chatId, user.language === 'en' ? 'Send a public channel @username or t.me/username.' : 'د عام چینل @username یا لینک راولېږه.', { force_reply: true }, user);
+    else if (user.state === 'admin_menu' || user.state.startsWith('waiting_') || user.state.startsWith('admin_edit_user_') || user.state.startsWith('admin_adjust_balance:') || user.state.startsWith('admin_send_user_message:')) {
+      user.state = 'admin_menu'; await db.update(users).set({ state: 'admin_menu' }).where(eq(users.telegram_id, id)).run();
       await sendPrompt(chatId, tx(user).adminIntro, adminKeyboard(user), user);
-    } else if (user.state === 'settings_menu') await sendPrompt(chatId, tx(user).settings, settingsKeyboard(user), user);
-    else await showMain(chatId, user);
+    } else await showMain(chatId, user);
     return;
   }
 
