@@ -578,7 +578,7 @@ export default async function (message, ctx) {
     ).slice(0, 10);
     user = await updateUser(user, { state: null });
     if (!found.length) { await send(chatId, t.noResults, mainKeyboard(t, admin)); return; }
-    const body = found.map(x => `${x.id} | ${x.type} | ${x.name}\n${x.username ?? 'لینک نشته'}\nکټګوري: ${x.category ?? '—'} | ژبه: ${x.language ?? '—'}\n${x.description ?? ''}${x.ad_price !== null && x.ad_price !== undefined && ['channel', 'group'].includes(x.type) ? `\nد اعلان بیه: ${x.ad_price} ${x.currency ?? 'XTR'}\nغوښتنه: /request_ad ${x.id}` : ''}`).join('\n\n');
+    const body = found.map(x => "" + x.id + " | " + x.type + " | " + x.name + "\n" + (x.username ?? 'لینک نشته') + "\nکټګوري: " + (x.category ?? '—') + " | ژبه: " + (x.language ?? '—') + "\n" + (x.description ?? '') + (x.ad_price !== null && x.ad_price !== undefined && ['channel', 'group'].includes(x.type) ? "\nد اعلان بیه: " + x.ad_price + " " + (x.currency ?? 'XTR') + "\nغوښتنه: /request_ad " + x.id : '')).join('\n\n');
     await send(chatId, t.results + '\n\n' + body, mainKeyboard(t, admin)); return;
   }
   if (text === t.market) { await showMarket(chatId, user); return; }
