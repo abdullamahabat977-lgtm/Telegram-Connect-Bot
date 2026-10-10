@@ -263,7 +263,36 @@ function settingsKeyboard(user) {
 }
 function adminKeyboard(user) {
   const b = tx(user).adminButtons;
-  return keyboard([[{ text: b[0] }, { text: b[1] }], [{ text: b[2] }, { text: b[3] }], [{ text: b[4] }, { text: b[5] }], [{ text: b[6] }]]);
+  return keyboard([[{ text: b[0] }, { text: b[1] }], [{ text: b[2] }, { text: b[3] }], [{ text: b[4] }, { text: b[5] }], [{ text: b[6] }, { text: b[7] }]]);
+}
+function adminUserSettingsKeyboard(user, targetId) {
+  const b = tx(user).userSettingButtons;
+  return { inline_keyboard: [
+    [{ text: b[0], callback_data: 'admin:edit:country:' + targetId }, { text: b[1], callback_data: 'admin:edit:gender:' + targetId }],
+    [{ text: b[2], callback_data: 'admin:edit:age:' + targetId }, { text: b[3], callback_data: 'admin:edit:name:' + targetId }],
+    [{ text: b[4], callback_data: 'admin:edit:surname:' + targetId }],
+    [{ text: b[5], callback_data: 'admin:panel' }]
+  ] };
+}
+async function showAdminUserSettings(chatId, adminUser, target) {
+  const text = tx(adminUser).userSettingsTitle + '\n\n' + '👤 ' + (target.name || target.first_name || '—') +
+    '\n🆔 ' + target.telegram_id + '\n' + (target.username ? '@' + target.username + '\n' : '') +
+    '🌍 ' + (target.country || '—') + ' | ⚧ ' + (target.gender || '—') + ' | 🎂 ' + (target.age || '—');
+  await sendPrompt(chatId, text, adminUserSettingsKeyboard(adminUser, target.telegram_id), adminUser);
+}
+async function showUserList(chatId, user) {
+  const list = await db.select().from(users).all();
+  if (!list.length) { await sendPrompt(chatId, tx(user).userListEmpty, adminKeyboard(user), user); return; }
+  const visible = list.slice(-30).reverse();
+  let text = tx(user).userListTitle + '\n\n';
+  const rows = [];
+  for (const item of visible) {
+    const label = (item.name || item.first_name || 'User') + ' · ' + item.telegram_id;
+    text += '• ' + label + (item.username ? ' (@' + item.username + ')' : '') + '\n';
+    rows.push([{ text: label.slice(0, 60), callback_data: 'admin:open_user:' + item.telegram_id }]);
+  }
+  rows.push([{ text: tx(user).adminButtons[7], callback_data: 'admin:panel' }]);
+  await sendPrompt(chatId, text, { inline_keyboard: rows }, user);
 }
 function channelKeyboard(user) {
   const b = tx(user).channelButtons;
@@ -279,7 +308,8 @@ function actionFor(input) {
       ['country', t.settingsButtons[0]], ['gender', t.settingsButtons[1]], ['age', t.settingsButtons[2]],
       ['name', t.settingsButtons[3]], ['surname', t.settingsButtons[4]], ['back', t.settingsButtons[5]],
       ['adminAdd', t.adminButtons[0]], ['adminRemove', t.adminButtons[1]], ['channels', t.adminButtons[2]],
-      ['broadcast', t.adminButtons[3]], ['adminsList', t.adminButtons[4]], ['channelAdd', t.channelButtons[0]],
+      ['broadcast', t.adminButtons[3]], ['adminsList', t.adminButtons[4]], ['userSettings', t.adminButtons[5]],
+      ['usersList', t.adminButtons[6]], ['channelAdd', t.channelButtons[0]],
       ['channelRemove', t.channelButtons[1]], ['channelList', t.channelButtons[2]], ['cancel', t.cancel], ['skip', t.skip]
     ];
     for (const pair of pairs) if (pair[1] === input) return pair[0];
@@ -474,8 +504,9 @@ async function processMessage(message) {
     return;
   }
   // Keep user messages visible; only replace the bot's previous prompt.
-  const protectedStates = ['admin_menu', 'admin_channels_menu', 'waiting_admin_id', 'waiting_remove_admin_id', 'waiting_channel_details', 'waiting_remove_channel_id', 'waiting_broadcast'];
-  if (protectedStates.includes(user.state) && !(await isAdmin(id))) {
+  const protectedStates = ['admin_menu', 'admin_channels_menu', 'waiting_admin_id', 'waiting_remove_admin_id', 'waiting_channel_details', 'waiting_remove_channel_id', 'waiting_broadcast', 'waiting_user_settings_id'];
+  const adminEditState = /^admin_edit_user_(name|surname):\d+$/.test(String(user.state || ''));
+  if ((protectedStates.includes(user.state) || adminEditState) && !(await isAdmin(id))) {
     await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, id)).run();
     user.state = 'ready';
     await sendPrompt(chatId, tx(user).noAccess, menuKeyboard(user, false), user);
@@ -599,28 +630,48 @@ async function processMessage(message) {
 
   if (user.state === 'waiting_admin_id') {
     const adminId = Number(input);
-    if (!Number.isSafeInteger(adminId) || adminId <= 0) { await sendPrompt(chatId, tx(user).badId, adminKeyboard(user), user); return; }
-    const existing = await db.select().from(admins).where(eq(admins.telegram_id, adminId)).get();
-    if (existing) {
-      await db.update(users).set({ state: 'admin_menu' }).where(eq(users.telegram_id, id)).run();
-      user.state = 'admin_menu';
-      await sendPrompt(chatId, tx(user).adminExists, adminKeyboard(user), user);
-      return;
-    }
+    const back = async (message) => { user.state = 'admin_menu'; await db.update(users).set({ state: 'admin_menu' }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, message, adminKeyboard(user), user); };
+    if (!Number.isSafeInteger(adminId) || adminId <= 0) { await back(tx(user).badId); return; }
+    if (ROOT_ADMINS.includes(adminId) || await isAdmin(adminId)) { await back(tx(user).adminExists); return; }
+    const target = await getUser(adminId);
+    if (!target) { await back(tx(user).userNotFound); return; }
     await db.insert(admins).values({ telegram_id: adminId, created_at: new Date().toISOString() }).run();
-    await db.update(users).set({ state: 'admin_menu' }).where(eq(users.telegram_id, id)).run();
-    user.state = 'admin_menu';
-    await sendPrompt(chatId, tx(user).adminAdded, adminKeyboard(user), user);
+    await back(tx(user).adminAdded);
     return;
   }
   if (user.state === 'waiting_remove_admin_id') {
     const adminId = Number(input);
-    if (!Number.isSafeInteger(adminId) || adminId <= 0) { await sendPrompt(chatId, tx(user).badId, adminKeyboard(user), user); return; }
-    if (ROOT_ADMINS.includes(adminId)) { await sendPrompt(chatId, tx(user).rootAdmin, adminKeyboard(user), user); return; }
+    const back = async (message) => { user.state = 'admin_menu'; await db.update(users).set({ state: 'admin_menu' }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, message, adminKeyboard(user), user); };
+    if (!Number.isSafeInteger(adminId) || adminId <= 0) { await back(tx(user).badId); return; }
+    if (ROOT_ADMINS.includes(adminId)) { await back(tx(user).rootAdmin); return; }
+    if (!await getUser(adminId)) { await back(tx(user).userNotFound); return; }
+    const existing = await db.select().from(admins).where(eq(admins.telegram_id, adminId)).get();
+    if (!existing) { await back(tx(user).userNotFound); return; }
     await db.delete(admins).where(eq(admins.telegram_id, adminId)).run();
-    await db.update(users).set({ state: 'admin_menu' }).where(eq(users.telegram_id, id)).run();
+    await back(tx(user).adminRemoved);
+    return;
+  }
+  if (user.state === 'waiting_user_settings_id') {
+    const targetId = Number(input);
     user.state = 'admin_menu';
-    await sendPrompt(chatId, tx(user).adminRemoved, adminKeyboard(user), user);
+    await db.update(users).set({ state: 'admin_menu' }).where(eq(users.telegram_id, id)).run();
+    if (!Number.isSafeInteger(targetId) || targetId <= 0) { await sendPrompt(chatId, tx(user).badId, adminKeyboard(user), user); return; }
+    const target = await getUser(targetId);
+    if (!target) { await sendPrompt(chatId, tx(user).userNotFound, adminKeyboard(user), user); return; }
+    await showAdminUserSettings(chatId, user, target);
+    return;
+  }
+  if (/^admin_edit_user_(name|surname):\d+$/.test(String(user.state || ''))) {
+    const match = String(user.state).match(/^admin_edit_user_(name|surname):(\d+)$/);
+    const field = match[1], targetId = Number(match[2]);
+    const target = await getUser(targetId);
+    user.state = 'admin_menu';
+    await db.update(users).set({ state: 'admin_menu' }).where(eq(users.telegram_id, id)).run();
+    if (!target) { await sendPrompt(chatId, tx(user).userNotFound, adminKeyboard(user), user); return; }
+    if (input.startsWith('/')) { await sendPrompt(chatId, tx(user).cancel, adminKeyboard(user), user); return; }
+    if ((field === 'name' && input.length < 2) || input.length > 60) { await sendPrompt(chatId, tx(user).nameInvalid, adminKeyboard(user), user); return; }
+    await db.update(users).set({ [field]: input || null }).where(eq(users.telegram_id, targetId)).run();
+    await sendPrompt(chatId, tx(user).saved, adminKeyboard(user), user);
     return;
   }
   if (user.state === 'waiting_channel_details') {
@@ -700,7 +751,7 @@ async function processMessage(message) {
       return;
     }
     const i = tx(user).adminButtons.indexOf(input);
-    const field = i >= 0 ? ['adminAdd', 'adminRemove', 'channels', 'broadcast', 'adminsList', 'stats', 'back'][i] : action;
+    const field = i >= 0 ? ['adminAdd', 'adminRemove', 'channels', 'broadcast', 'adminsList', 'userSettings', 'usersList', 'back'][i] : action;
     if (field === 'adminAdd') {
       user.state = 'waiting_admin_id';
       await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run();
@@ -718,7 +769,11 @@ async function processMessage(message) {
       await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run();
       await sendPrompt(chatId, tx(user).askBroadcast, keyboard([[{ text: tx(user).cancel }]]), user);
     } else if (field === 'adminsList') await showAdminList(chatId, user);
-    else if (field === 'stats') await showStats(chatId, user);
+    else if (field === 'userSettings') {
+      user.state = 'waiting_user_settings_id';
+      await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run();
+      await sendPrompt(chatId, tx(user).askUserSettings, { force_reply: true }, user);
+    } else if (field === 'usersList') await showUserList(chatId, user);
     else await showMain(chatId, user);
     return;
   }
