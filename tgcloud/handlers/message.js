@@ -320,7 +320,28 @@ async function safeDelete(chatId, messageId) {
   if (!messageId) return;
   try { await api.deleteMessage({ chat_id: chatId, message_id: messageId }); } catch (e) {}
 }
+let inlinePromptTrackingReady = false;
+async function ensureInlinePromptTracking() {
+  if (inlinePromptTrackingReady) return;
+  const marker = await db.select().from(app_settings).where(eq(app_settings.setting_key, 'inline_prompt_tracking_v1')).get();
+  if (!marker) {
+    const allUsers = await db.select({ telegram_id: users.telegram_id }).from(users).all();
+    for (const row of allUsers) {
+      await db.update(users).set({ last_prompt_id: 0 }).where(eq(users.telegram_id, Number(row.telegram_id))).run();
+    }
+    try {
+      await db.insert(app_settings).values({ setting_key: 'inline_prompt_tracking_v1', setting_value: '1' }).run();
+    } catch (e) {}
+  }
+  inlinePromptTrackingReady = true;
+}
 async function sendPrompt(chatId, text, markup, user) {
+  await ensureInlinePromptTracking();
+  if (user) {
+    const latest = await db.select({ last_prompt_id: users.last_prompt_id }).from(users)
+      .where(eq(users.telegram_id, Number(user.telegram_id))).get();
+    user.last_prompt_id = Number(latest && latest.last_prompt_id || 0);
+  }
   if (user && Number(user.last_prompt_id) > 0) {
     await safeDelete(chatId, Number(user.last_prompt_id));
   }
