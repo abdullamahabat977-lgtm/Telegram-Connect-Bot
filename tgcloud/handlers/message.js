@@ -289,27 +289,50 @@ function genderKeyboard(user) {
 }
 function settingsKeyboard(user) {
   const b = tx(user).settingsButtons;
+  return keyboard([[{ text: b[0] }, { text: b[1] }], [{ text: b[2] }, { text: b[3] }], [{ text: b[4] }]]);
+}
+function profileSettingsKeyboard(user) {
+  const b = tx(user).profileSettingsButtons;
   return keyboard([[{ text: b[0] }, { text: b[1] }], [{ text: b[2] }, { text: b[3] }], [{ text: b[4] }, { text: b[5] }]]);
+}
+function photoSettingsKeyboard(user) {
+  const b = tx(user).photoSettingsButtons;
+  return keyboard([[{ text: b[0] }, { text: b[1] }], [{ text: b[2] }]]);
+}
+function channelSettingsKeyboard(user) {
+  const b = tx(user).channelSettingsButtons;
+  return keyboard([[{ text: b[0] }, { text: b[1] }], [{ text: b[2] }]]);
+}
+function favoriteSettingsKeyboard(user) {
+  const b = tx(user).favoriteSettingsButtons;
+  return keyboard([[{ text: b[0] }], [{ text: b[1] }]]);
 }
 function adminKeyboard(user) {
   const b = tx(user).adminButtons;
-  return keyboard([[{ text: b[0] }, { text: b[1] }], [{ text: b[2] }, { text: b[3] }], [{ text: b[4] }, { text: b[5] }], [{ text: b[6] }, { text: b[7] }]]);
+  return keyboard([[{ text: b[0] }, { text: b[1] }], [{ text: b[2] }, { text: b[3] }], [{ text: b[4] }, { text: b[5] }]]);
 }
-function adminUserSettingsKeyboard(user, targetId) {
-  const b = tx(user).userSettingButtons;
+function adminManagementKeyboard(user) {
+  const b = tx(user).adminManagementButtons;
+  return keyboard([[{ text: b[0] }, { text: b[1] }], [{ text: b[2] }], [{ text: b[3] }]]);
+}
+function adminUserSettingsKeyboard(user, targetId, blocked) {
+  const b = user.language === 'en' ? ['🖼 Change photo','⭐ Stars','🏆 Points','❤️ Likes','⛔ Block','✅ Unblock','📨 Send message','🔙 Admin panel'] : user.language === 'fa' ? ['🖼 تغییر عکس','⭐ ستاره','🏆 امتیاز','❤️ لایک','⛔ مسدود','✅ رفع مسدودی','📨 ارسال پیام','🔙 پنل مدیریت'] : user.language === 'ur' ? ['🖼 تصویر بدلیں','⭐ ستارے','🏆 پوائنٹس','❤️ لائکس','⛔ بلاک','✅ ان بلاک','📨 پیغام بھیجیں','🔙 ایڈمن پینل'] : user.language === 'ar' ? ['🖼 تغيير الصورة','⭐ النجوم','🏆 النقاط','❤️ الإعجابات','⛔ حظر','✅ إلغاء الحظر','📨 إرسال رسالة','🔙 لوحة الإدارة'] : ['🖼 عکس بدلول','⭐ ستوري','🏆 نمرې','❤️ لایکونه','⛔ مسدودول','✅ خلاصول','📨 پیغام لېږل','🔙 اډمین پینل'];
   return { inline_keyboard: [
-    [{ text: b[0], callback_data: 'admin:edit:country:' + targetId }, { text: b[1], callback_data: 'admin:edit:gender:' + targetId }],
-    [{ text: b[2], callback_data: 'admin:edit:age:' + targetId }, { text: b[3], callback_data: 'admin:edit:name:' + targetId }],
-    [{ text: b[4], callback_data: 'admin:edit:surname:' + targetId }],
-    [{ text: b[5], callback_data: 'admin:panel' }]
+    [{ text: b[0], callback_data: 'admin:photo:' + targetId }],
+    [{ text: b[1] + ' +', callback_data: 'admin:balance:stars:add:' + targetId }, { text: b[1] + ' −', callback_data: 'admin:balance:stars:sub:' + targetId }],
+    [{ text: b[2] + ' +', callback_data: 'admin:balance:points:add:' + targetId }, { text: b[2] + ' −', callback_data: 'admin:balance:points:sub:' + targetId }],
+    [{ text: b[3] + ' +', callback_data: 'admin:balance:likes:add:' + targetId }, { text: b[3] + ' −', callback_data: 'admin:balance:likes:sub:' + targetId }],
+    [{ text: Number(blocked) === 1 ? b[5] : b[4], callback_data: 'admin:' + (Number(blocked) === 1 ? 'unblock:' : 'block:') + targetId }],
+    [{ text: b[6], callback_data: 'admin:send:' + targetId }],
+    [{ text: b[7], callback_data: 'admin:panel' }]
   ] };
 }
 async function showAdminUserSettings(chatId, adminUser, target) {
   const country = COUNTRIES.find(item => item.code === target.country);
-  const text = tx(adminUser).userSettingsTitle + '\n\n' + '👤 ' + (target.name || target.first_name || '—') +
-    '\n🆔 ' + target.telegram_id + '\n' + (target.username ? '@' + target.username + '\n' : '') +
-    '🌍 ' + (country ? country.label : '—') + ' | ⚧ ' + (target.gender || '—') + ' | 🎂 ' + (target.age || '—');
-  await sendPrompt(chatId, text, adminUserSettingsKeyboard(adminUser, target.telegram_id), adminUser);
+  const favCount = await db.$count(favorites, eq(favorites.user_telegram_id, Number(target.telegram_id)));
+  const title = adminUser.language === 'en' ? '👤 USER SETTINGS' : adminUser.language === 'fa' ? '👤 تنظیمات کاربر' : adminUser.language === 'ur' ? '👤 صارف کی ترتیبات' : adminUser.language === 'ar' ? '👤 إعدادات المستخدم' : '👤 د کارن تنظیمات';
+  const text = title + '\n━━━━━━━━━━━━━━\n' + '👤 ' + [target.name || target.first_name || '—', target.surname || ''].filter(Boolean).join(' ') + '\n🆔 ' + target.telegram_id + '\n🔗 ' + (target.username ? '@' + target.username : '—') + '\n🌍 ' + (country ? country.label : '—') + '\n⚧ ' + (target.gender || '—') + '  🎂 ' + (target.age || '—') + '\n📢 ' + (target.channel_username || '—') + '\n📨 Referrals: ' + Number(target.referral_count || 0) + '\n👥 Favorites: ' + favCount + '\n⭐ Stars: ' + Number(target.stars || 0) + '\n🏆 Points: ' + Number(target.points || 0) + '\n❤️ Likes: ' + Number(target.likes || 0) + '\n🖼 Photo: ' + (target.profile_photo_id ? 'saved' : '—') + '\n🚦 Status: ' + (Number(target.is_blocked) === 1 ? 'BLOCKED' : 'Active');
+  await sendPrompt(chatId, text, adminUserSettingsKeyboard(adminUser, target.telegram_id, target.is_blocked), adminUser);
 }
 async function showUserList(chatId, user) {
   const list = await db.select().from(users).all();
