@@ -226,24 +226,6 @@ export default async function (message, ctx) {
   if (!message?.chat?.id || !message?.from || message.chat.type !== 'private') return;
   const chatId = message.chat.id;
   let user = await getOrCreateUser(message.from);
-  if (message.successful_payment) {
-    const p = message.successful_payment;
-    const m = /^wallet:(\d+):(\d+):([A-Za-z0-9_-]{6,40})$/.exec(String(p.invoice_payload || ''));
-    if (!m || p.currency !== 'XTR' || Number(m[1]) !== Number(user.id) || Number(m[2]) !== Number(p.total_amount)) {
-      await send(chatId, '⚠️ د تادیې معلومات ونه پېژندل شول. پیسې مه بیا ورکوئ؛ له مدیر سره اړیکه ونیسئ.'); return;
-    }
-    const amount = Number(p.total_amount), chargeId = String(p.telegram_payment_charge_id || '');
-    if (!chargeId || !Number.isSafeInteger(amount) || amount < 1) { await send(chatId, '⚠️ د تادیې رسید ناسم دی؛ مدیر ته خبر ورکړه.'); return; }
-    try {
-      await db.insert(star_payments).values({ user_id: user.id, telegram_payment_charge_id: chargeId, provider_payment_charge_id: p.provider_payment_charge_id || null, invoice_payload: p.invoice_payload, currency: p.currency, total_amount: amount, status: 'successful', created_at: new Date().toISOString() }).run();
-    } catch (e) { await send(chatId, 'ℹ️ دا تادیه مخکې ثبت شوې ده؛ ستا والټ بیا چارج نه کېږي.'); return; }
-    await db.insert(wallets).values({ user_id: user.id, available_stars: 0, pending_stars: 0, updated_at: new Date().toISOString() }).onConflictDoUpdate({ target: wallets.user_id, set: { updated_at: new Date().toISOString() } }).run();
-    await db.update(wallets).set({ available_stars: sql`${wallets.available_stars} + ${amount}`, updated_at: new Date().toISOString() }).where(eq(wallets.user_id, user.id)).run();
-    await db.insert(wallet_transactions).values({ user_id: user.id, promotion_id: null, transaction_type: 'topup', bucket: 'available', amount_stars: amount, idempotency_key: 'topup:' + chargeId, note: 'Telegram Stars payment', created_at: new Date().toISOString() }).run();
-    const w = await db.select().from(wallets).where(eq(wallets.user_id, user.id)).get();
-    await send(chatId, '✅ تادیه بریالۍ شوه!\n➕ ورزیات شول: ' + amount + ' ⭐\n💰 موجود بیلانس: ' + (w?.available_stars ?? amount) + ' ⭐', mainKeyboard(LANG[langOf(user)], isAdmin(user.telegram_id)));
-    return;
-  }
   const text = (message.text ?? '').trim();
   if (!text) return;
   user = await getOrCreateUser(message.from);
