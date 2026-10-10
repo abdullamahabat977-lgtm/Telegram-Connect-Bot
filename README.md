@@ -31,6 +31,7 @@ Random Connect — Telegram Random Chat Bot
 - د تصادفي اړیکې، د پیغامونو relay، او د خبرو پر مهال د نوي ملګري پالو کولو فعالیتونه لا نه دي جوړ شوي. د موجودو favorites لېست اداره او Unfollow فعال دي. د chat_sessions، user_blocks او reports جدولونه د راتلونکو پړاوونو لپاره یوازې د ډیټابیس بنسټ برابروي.
 - د غړیتوب د کتلو لپاره بوټ باید په هر اجباري ګروپ یا چینل کې د اړینې اجازې لرونکی وي.
 - GitHub ته د کوډ ثبتول په خپله ژوندی Serverless کوډ نه بدلوي. لومړی کوډ Deploy/Push کړه، بیا د Database د Migration بدلونونه په دقت وګوره او تطبیق یې کړه. هېڅ خطرناک یا د حذف بدلون مه تاییدوه تر څو یې اغېز روښانه نه وي.
+- د users جدول کې نوي فیلډونه ورزیات شوي: `profile_photo_id`، `channel_username`، `stars`، `points` او `likes`. د handlers له Deploy مخکې د دې فیلډونو لپاره د موجودو معلوماتو له حذف پرته migration تطبیق کړه.
 
 فایلونه
 - tgcloud/handlers/message.js — د پیغام handler.
