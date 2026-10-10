@@ -617,7 +617,7 @@ export default async function (message, ctx) {
     const amount = Number(choice[1]);
     const payload = 'wallet:' + user.id + ':' + amount + ':' + Date.now().toString(36);
     try {
-      await api.sendInvoice({ chat_id: chatId, title: 'Telegram Connect wallet ' + amount + ' Stars', description: 'Add ' + amount + ' Telegram Stars to your internal Telegram Connect wallet.', payload, provider_token: '', currency: 'XTR', prices: [{ label: amount + ' Stars wallet credit', amount }] });
+      await api.sendInvoice({ chat_id: chatId, title: 'Telegram Connect wallet ' + amount + ' Stars', description: 'Add ' + amount + ' Telegram Stars to your internal Telegram Connect wallet.', payload, currency: 'XTR', prices: [{ label: amount + ' Stars wallet credit', amount }] });
     } catch (e) { await send(chatId, '❌ د Stars تادیې رسید جوړ نه شو. کوډ خپور شوی او د Telegram Stars تادیات فعال دي که نه، وګوره.'); }
     return;
   }
