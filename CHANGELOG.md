@@ -1,8 +1,6 @@
-# Changelog
+Random Connect changelog
 
-## 0.1.0 — Initial scaffold
-- Added multilingual menu and language preference flow.
-- Added initial listing registration and search flows.
-- Aligned runtime files with the documented Telegram Serverless layout.
-
-This initial implementation has not been deployed or runtime-tested against the live bot/database.
+Initial conversion from the previous Telegram Connect project.
+- Replaced the previous listing and Stars-wallet bot flow with Random Connect language and country selection.
+- Reused the message update handler; no new Telegram event type was added.
+- Random partner matching will be implemented in a later stage after this selection flow is checked.
