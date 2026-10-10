@@ -11,17 +11,17 @@ const LANGUAGES = [
   { code: 'ar', label: 'العربية' }
 ];
 const COUNTRIES = [
-  { code: 'AF', label: '🇦🇫 افغانستان / Afghanistan' },
-  { code: 'PK', label: '🇵🇰 پاکستان / Pakistan' },
-  { code: 'IN', label: '🇮🇳 هند / India' },
-  { code: 'IR', label: '🇮🇷 ایران / Iran' },
-  { code: 'TJ', label: '🇹🇯 تاجکستان / Tajikistan' },
-  { code: 'TR', label: '🇹🇷 ترکیه / Türkiye' },
-  { code: 'AE', label: '🇦🇪 امارات / UAE' },
-  { code: 'SA', label: '🇸🇦 سعودي عربستان / Saudi Arabia' },
-  { code: 'GB', label: '🇬🇧 بریتانیا / United Kingdom' },
-  { code: 'US', label: '🇺🇸 امریکا / United States' },
-  { code: 'OTHER', label: '🌍 بل هېواد / Other' }
+  { code: 'AF', label: '🇦🇫 افغانستان' },
+  { code: 'PK', label: '🇵🇰 پاکستان' },
+  { code: 'IN', label: '🇮🇳 भारत' },
+  { code: 'IR', label: '🇮🇷 ایران' },
+  { code: 'TJ', label: '🇹🇯 Тоҷикистон' },
+  { code: 'TR', label: '🇹🇷 Türkiye' },
+  { code: 'AE', label: '🇦🇪 الإمارات العربية المتحدة' },
+  { code: 'SA', label: '🇸🇦 المملكة العربية السعودية' },
+  { code: 'GB', label: '🇬🇧 United Kingdom' },
+  { code: 'US', label: '🇺🇸 United States' },
+  { code: 'OTHER', label: '🌍 Other' }
 ];
 const AGES = [12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40];
 
@@ -37,7 +37,10 @@ const T = {
     settings: '⚙️ د پروفایل د بدلولو لپاره یوه برخه وټاکه:',
     settingsButtons: ['🌍 هېواد بدلول', '👤 جنسیت بدلول', '🎂 عمر بدلول', '✍️ نوم بدلول', '📝 تخلص بدلول', '🔙 اصلي مېنو'],
     male: 'نارینه', female: 'ښځینه', admin: '🛡️ د اډمین پینل', adminIntro: 'د اډمین پینل ته ښه راغلاست:',
-    adminButtons: ['➕ مدیر زیاتول', '➖ مدیر لرې کول', '📢 د غړیتوب ګروپونه', '📣 ډله‌ییز اعلان', '👥 د مدیرانو لېست', '📊 احصائیې', '🔙 اصلي مېنو'],
+    adminButtons: ['➕ مدیر زیاتول', '➖ مدیر لرې کول', '📢 د غړیتوب ګروپونه', '📣 ډله‌ییز اعلان', '👥 د مدیرانو لېست', '⚙️ د کارن تنظیمات', '👥 د کاروونکو لېست', '🔙 اصلي مېنو'],
+    askUserSettings: 'د کارن ټیلیګرام عددي ID راولېږه:', userNotFound: 'دا کارن له بوټ سره نه دی یوځای شوی. لومړی باید /start یې کړی وي.',
+    userSettingsTitle: 'د ټاکلي کارن تنظیمات:', userListTitle: '👥 د کاروونکو لېست:', userListEmpty: 'تر اوسه هېڅ کارن نشته.',
+    userSettingButtons: ['🌍 هېواد بدلول', '👤 جنسیت بدلول', '🎂 عمر بدلول', '✍️ نوم بدلول', '📝 تخلص بدلول', '🔙 اډمین پینل'],
     channelIntro: '📢 د اجباري غړیتوب اداره:',
     channelButtons: ['➕ ګروپ یا چینل زیاتول', '➖ ګروپ یا چینل لرې کول', '📋 د ګروپونو لېست', '🔙 اصلي مېنو'],
     askAdmin: 'د نوي مدیر ټیلیګرام عددي ID راولېږه:', askRemoveAdmin: 'د لرې کېدونکي مدیر عددي ID راولېږه:',
@@ -71,7 +74,10 @@ const T = {
     settings: '⚙️ بخشی را برای ویرایش پروفایل انتخاب کنید:',
     settingsButtons: ['🌍 تغییر کشور', '👤 تغییر جنسیت', '🎂 تغییر سن', '✍️ تغییر نام', '📝 تغییر نام خانوادگی', '🔙 منوی اصلی'],
     male: 'مرد', female: 'زن', admin: '🛡️ پنل مدیریت', adminIntro: 'به پنل مدیریت خوش آمدید:',
-    adminButtons: ['➕ افزودن مدیر', '➖ حذف مدیر', '📢 گروه‌های عضویت اجباری', '📣 پیام همگانی', '👥 فهرست مدیران', '📊 آمار', '🔙 منوی اصلی'],
+    adminButtons: ['➕ افزودن مدیر', '➖ حذف مدیر', '📢 گروه‌های عضویت اجباری', '📣 پیام همگانی', '👥 فهرست مدیران', '⚙️ تنظیمات کاربر', '👥 فهرست کاربران', '🔙 منوی اصلی'],
+    askUserSettings: 'شناسه عددی تلگرام کاربر را بفرستید:', userNotFound: 'این کاربر هنوز ربات را شروع نکرده است. ابتدا باید /start را زده باشد.',
+    userSettingsTitle: 'تنظیمات کاربر انتخاب‌شده:', userListTitle: '👥 فهرست کاربران:', userListEmpty: 'هنوز کاربری وجود ندارد.',
+    userSettingButtons: ['🌍 تغییر کشور', '👤 تغییر جنسیت', '🎂 تغییر سن', '✍️ تغییر نام', '📝 تغییر نام خانوادگی', '🔙 پنل مدیریت'],
     channelIntro: '📢 مدیریت عضویت اجباری:',
     channelButtons: ['➕ افزودن گروه یا کانال', '➖ حذف گروه یا کانال', '📋 فهرست گروه‌ها', '🔙 منوی اصلی'],
     askAdmin: 'شناسه عددی تلگرام مدیر جدید را بفرستید:', askRemoveAdmin: 'شناسه عددی مدیر را برای حذف بفرستید:',
@@ -104,7 +110,10 @@ const T = {
     settings: '⚙️ Choose a profile field to edit:',
     settingsButtons: ['🌍 Change country', '👤 Change gender', '🎂 Change age', '✍️ Change name', '📝 Change surname', '🔙 Main menu'],
     male: 'Male', female: 'Female', admin: '🛡️ Admin panel', adminIntro: 'Welcome to the admin panel:',
-    adminButtons: ['➕ Add admin', '➖ Remove admin', '📢 Required membership', '📣 Broadcast', '👥 List admins', '📊 Statistics', '🔙 Main menu'],
+    adminButtons: ['➕ Add admin', '➖ Remove admin', '📢 Required membership', '📣 Broadcast', '👥 List admins', '⚙️ User settings', '👥 User list', '🔙 Main menu'],
+    askUserSettings: 'Send the user Telegram numeric ID:', userNotFound: 'This user has not started the bot. They must send /start first.',
+    userSettingsTitle: 'Settings for the selected user:', userListTitle: '👥 User list:', userListEmpty: 'No users yet.',
+    userSettingButtons: ['🌍 Change country', '👤 Change gender', '🎂 Change age', '✍️ Change name', '📝 Change surname', '🔙 Admin panel'],
     channelIntro: '📢 Required membership management:',
     channelButtons: ['➕ Add group/channel', '➖ Remove group/channel', '📋 List groups', '🔙 Main menu'],
     askAdmin: 'Send the new admin Telegram numeric ID:', askRemoveAdmin: 'Send the numeric ID of the admin to remove:',
@@ -137,7 +146,10 @@ const T = {
     settings: '⚙️ پروفائل میں تبدیلی کے لیے حصہ منتخب کریں:',
     settingsButtons: ['🌍 ملک تبدیل کریں', '👤 جنس تبدیل کریں', '🎂 عمر تبدیل کریں', '✍️ نام تبدیل کریں', '📝 خاندانی نام تبدیل کریں', '🔙 مرکزی مینو'],
     male: 'مرد', female: 'عورت', admin: '🛡️ ایڈمن پینل', adminIntro: 'ایڈمن پینل میں خوش آمدید:',
-    adminButtons: ['➕ ایڈمن شامل کریں', '➖ ایڈمن ہٹائیں', '📢 لازمی گروپس', '📣 سب کو پیغام', '👥 ایڈمنز کی فہرست', '📊 اعدادوشمار', '🔙 مرکزی مینو'],
+    adminButtons: ['➕ ایڈمن شامل کریں', '➖ ایڈمن ہٹائیں', '📢 لازمی گروپس', '📣 سب کو پیغام', '👥 ایڈمنز کی فہرست', '⚙️ صارف کی ترتیبات', '👥 صارفین کی فہرست', '🔙 مرکزی مینو'],
+    askUserSettings: 'صارف کا ٹیلیگرام عددی ID بھیجیں:', userNotFound: 'اس صارف نے ابھی بوٹ شروع نہیں کیا۔ اسے پہلے /start کرنا ہوگا۔',
+    userSettingsTitle: 'منتخب صارف کی ترتیبات:', userListTitle: '👥 صارفین کی فہرست:', userListEmpty: 'ابھی کوئی صارف نہیں۔',
+    userSettingButtons: ['🌍 ملک تبدیل کریں', '👤 جنس تبدیل کریں', '🎂 عمر تبدیل کریں', '✍️ نام تبدیل کریں', '📝 خاندانی نام تبدیل کریں', '🔙 ایڈمن پینل'],
     channelIntro: '📢 لازمی رکنیت کا انتظام:',
     channelButtons: ['➕ گروپ یا چینل شامل کریں', '➖ گروپ یا چینل ہٹائیں', '📋 گروپس کی فہرست', '🔙 مرکزی مینو'],
     askAdmin: 'نئے ایڈمن کا ٹیلیگرام عددی ID بھیجیں:', askRemoveAdmin: 'ہٹانے والے ایڈمن کا عددی ID بھیجیں:',
@@ -170,7 +182,10 @@ const T = {
     settings: '⚙️ اختر ما تريد تغييره في ملفك الشخصي:',
     settingsButtons: ['🌍 تغيير البلد', '👤 تغيير الجنس', '🎂 تغيير العمر', '✍️ تغيير الاسم', '📝 تغيير اسم العائلة', '🔙 القائمة الرئيسية'],
     male: 'ذكر', female: 'أنثى', admin: '🛡️ لوحة الإدارة', adminIntro: 'مرحبًا بك في لوحة الإدارة:',
-    adminButtons: ['➕ إضافة مدير', '➖ إزالة مدير', '📢 مجموعات العضوية الإلزامية', '📣 رسالة جماعية', '👥 قائمة المديرين', '📊 الإحصائيات', '🔙 القائمة الرئيسية'],
+    adminButtons: ['➕ إضافة مدير', '➖ إزالة مدير', '📢 مجموعات العضوية الإلزامية', '📣 رسالة جماعية', '👥 قائمة المديرين', '⚙️ إعدادات المستخدم', '👥 قائمة المستخدمين', '🔙 القائمة الرئيسية'],
+    askUserSettings: 'أرسل رقم Telegram الخاص بالمستخدم:', userNotFound: 'هذا المستخدم لم يبدأ البوت بعد. يجب أن يرسل /start أولاً.',
+    userSettingsTitle: 'إعدادات المستخدم المحدد:', userListTitle: '👥 قائمة المستخدمين:', userListEmpty: 'لا يوجد مستخدمون بعد.',
+    userSettingButtons: ['🌍 تغيير البلد', '👤 تغيير الجنس', '🎂 تغيير العمر', '✍️ تغيير الاسم', '📝 تغيير اسم العائلة', '🔙 لوحة الإدارة'],
     channelIntro: '📢 إدارة العضوية الإلزامية:',
     channelButtons: ['➕ إضافة مجموعة أو قناة', '➖ إزالة مجموعة أو قناة', '📋 قائمة المجموعات', '🔙 القائمة الرئيسية'],
     askAdmin: 'أرسل رقم معرف تيليجرام للمدير الجديد:', askRemoveAdmin: 'أرسل رقم معرف المدير الذي تريد إزالته:',
@@ -276,14 +291,14 @@ async function safeDelete(chatId, messageId) {
   try { await api.deleteMessage({ chat_id: chatId, message_id: messageId }); } catch (e) {}
 }
 async function sendPrompt(chatId, text, markup, user) {
-  const registrationStates = ['choose_language', 'check_membership', 'choose_country', 'choose_gender', 'choose_age', 'enter_name', 'enter_surname'];
-  if (user && registrationStates.includes(user.state) && Number(user.last_prompt_id) > 0) {
+  if (user && Number(user.last_prompt_id) > 0) {
     await safeDelete(chatId, Number(user.last_prompt_id));
   }
   const sent = await api.sendMessage({ chat_id: chatId, text: text, reply_markup: markup });
-  if (user && sent && sent.message_id) {
-    await db.update(users).set({ last_prompt_id: sent.message_id }).where(eq(users.telegram_id, Number(user.telegram_id))).run();
-    user.last_prompt_id = sent.message_id;
+  if (user) {
+    const inlineId = markup && Array.isArray(markup.inline_keyboard) && sent && sent.message_id ? sent.message_id : 0;
+    await db.update(users).set({ last_prompt_id: inlineId }).where(eq(users.telegram_id, Number(user.telegram_id))).run();
+    user.last_prompt_id = inlineId;
   }
   return sent;
 }
@@ -351,6 +366,8 @@ async function showSurname(chatId, user) {
   await sendPrompt(chatId, tx(user).surname, { inline_keyboard: [[{ text: tx(user).skip, callback_data: 'reg:skip_surname' }]] }, user);
 }
 async function showMain(chatId, user, text) {
+  user.state = 'ready';
+  await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, Number(user.telegram_id))).run();
   await sendPrompt(chatId, (text ? text + '\n\n' : '') + tx(user).main, menuKeyboard(user, await isAdmin(user.telegram_id)), user);
 }
 async function showProfile(chatId, user) {
@@ -466,14 +483,20 @@ async function processMessage(message) {
   }
 
   if (start) {
-    if (user.state === 'ready') await showMain(chatId, user);
+    if (user.state === 'choose_language' || !user.language) await showLanguage(chatId, user);
     else if (user.state === 'check_membership') await showMembership(chatId, user);
     else if (user.state === 'choose_country' || user.state === 'settings_country') await showCountry(chatId, user);
     else if (user.state === 'choose_gender' || user.state === 'settings_gender') await showGender(chatId, user);
     else if (user.state === 'choose_age' || user.state === 'settings_age') await showAge(chatId, user);
     else if (user.state === 'enter_name' || user.state === 'settings_name') await showName(chatId, user);
     else if (user.state === 'enter_surname' || user.state === 'settings_surname') await showSurname(chatId, user);
-    else await showLanguage(chatId, user);
+    else if (user.state === 'admin_channels_menu') await sendPrompt(chatId, tx(user).channelIntro, channelKeyboard(user), user);
+    else if (user.state === 'admin_menu' || user.state.startsWith('waiting_') || user.state.startsWith('admin_edit_user_')) {
+      user.state = 'admin_menu';
+      await db.update(users).set({ state: 'admin_menu' }).where(eq(users.telegram_id, id)).run();
+      await sendPrompt(chatId, tx(user).adminIntro, adminKeyboard(user), user);
+    } else if (user.state === 'settings_menu') await sendPrompt(chatId, tx(user).settings, settingsKeyboard(user), user);
+    else await showMain(chatId, user);
     return;
   }
 
