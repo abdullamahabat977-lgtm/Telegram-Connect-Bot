@@ -339,8 +339,8 @@ async function handleAdminCallback(query, actor, data, actorId, chatId) {
     const label = { stars: '⭐ Stars', points: '🏆 Points', likes: '❤️ Likes' }[field];
     await sendPrompt(chatId, 'Send the new whole-number amount for ' + label + ' per successful referral. Zero is allowed.', { force_reply: true }, actor); return;
   }
-  if (p[1] === 'users' && p[2] === 'page') { await showUserList(chatId, actor, Number(p[3])); return; }
-  if (p[1] === 'admins' && p[2] === 'page') { await showAdminList(chatId, actor, Number(p[3])); return; }
+  if (p[1] === 'users' && p[2] === 'page') { await showUserListPage(chatId, actor, Number(p[3])); return; }
+  if (p[1] === 'admins' && p[2] === 'page') { await showAdminListPage(chatId, actor, Number(p[3])); return; }
 
   let targetId = 0;
   if (p[1] === 'open_user' || p[1] === 'photo' || p[1] === 'block' || p[1] === 'unblock' || p[1] === 'send') targetId = Number(p[2]);
