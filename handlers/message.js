@@ -138,7 +138,7 @@ function keyboard(rows, extra = {}) {
 }
 function isAdmin(id) { return ADMINS.includes(Number(id)); }
 function mainKeyboard(t, admin = false) {
-  const rows = [[t.search, t.register], [t.ads, t.market], [t.wallet, t.topup], [t.account, t.help], [t.language]];
+  const rows = [[t.search, t.register], [t.ads, t.market], [t.wallet ?? '⭐ زما Stars والټ', t.topup ?? '➕ والټ چارج'], [t.account, t.help], [t.language]];
   if (admin) rows.push([t.admin]);
   return keyboard(rows);
 }
