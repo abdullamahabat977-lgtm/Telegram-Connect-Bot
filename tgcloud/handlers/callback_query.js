@@ -312,6 +312,9 @@ async function handleCallback(query) {
   if (!Number.isSafeInteger(id) || id <= 0 || query.message.chat.type !== 'private') return;
   try { await api.answerCallbackQuery({ callback_query_id: query.id }); } catch (e) {}
   const data = String(query.data);
+  if ((data.startsWith('reg:') || data.startsWith('admin:')) && query.message.message_id) {
+    await safeDelete(chatId, query.message.message_id);
+  }
   let user = await getUser(id);
   if (!user || Number(user.is_blocked) === 1) return;
   if (data.startsWith('admin:')) {
