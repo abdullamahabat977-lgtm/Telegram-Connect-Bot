@@ -31,14 +31,82 @@ Random Connect — Telegram Random Chat Bot
 مهم محدودیتونه
 - د Telegram بټنونو اصلي سور، شین او نېلي رنګونه د عادي Bot API له لارې په خپل سر نه شي ټاکل کېدای.
 - د ثبت‌نام د ژبې، غړیتوب، هېواد، جنسیت، عمر او د تخلص د نه لیکلو انتخابونه Inline Keyboard کاروي. د دې کلیکونه په tgcloud/handlers/callback_query.js کې پروسس کېږي؛ د اصلي مېنو تڼۍ Reply Keyboard پاتې دي.
-- د تصادفي اړیکې، د پیغامونو relay، او د خبرو پر مهال د نوي ملګري پالو کولو فعالیتونه لا نه دي جوړ شوي. د موجودو favorites لېست اداره او Unfollow فعال دي. د chat_sessions، user_blocks او reports جدولونه د راتلونکو پړاوونو لپاره یوازې د ډیټابیس بنسټ برابروي.
+- د تصادفي اړیکې لټون، د غوښتنې منل/ردول، د پیغامونو relay، د پروفایل د لیدلو محدودیت، فالو، د ۱ تر ۵ نمرو ورکول، یو ځل لایک/بېرته اخیستل، راپور او د وروستیو ۱۰ دقیقو د بوټ له خوا لېږل شوو relay پیغامونو حذفول د موجودو message او callback_query handlers له لارې جوړ شوي دي.
+- د ګېم برخه د Telegram 🎲 dice، د لوبغاړو موندلو، د منلو/ردولو او د ستورو/نمرو حسابولو ملاتړ کوي.
+- د ۵ دقیقو بې‌پیغامۍ او ۴۰ دقیقو اعظمي اړیکې، او د ۲ دقیقو د ګېم/ملګري انتظار موده د راتلونکو message/callback updates پر مهال ارزول کېږي. که هېڅ نوی update رانه شي، Serverless handler په خپله په ټاکلي وخت نه راویښېږي؛ د دقیق وخت لپاره scheduler/cron ته اړتیا ده، او نوی Event Handler نه دی جوړ شوی.
+- د Telegram محدودیت له مخې بوټ د کارن اصلي پیغامونه په شخصي چټ کې نه شي حذفولای؛ د حذف تڼۍ یوازې د ملګري هغه کاپي شوي پیغامونه حذفوي چې بوټ په تېرو ۱۰ دقیقو کې کارن ته لېږلي وي.
 - د غړیتوب د کتلو لپاره بوټ باید په هر اجباري ګروپ یا چینل کې د اړینې اجازې لرونکی وي.
 - GitHub ته د کوډ ثبتول په خپله ژوندی Serverless کوډ نه بدلوي. لومړی کوډ Deploy/Push کړه، بیا د Database د Migration بدلونونه په دقت وګوره او تطبیق یې کړه. هېڅ خطرناک یا د حذف بدلون مه تاییدوه تر څو یې اغېز روښانه نه وي.
-- د users جدول کې نوي فیلډونه ورزیات شوي: `profile_photo_id`، `channel_username`، `stars`، `points`، `likes`، `last_active_at` او `connection_request_mode`. د handlers له Deploy مخکې د دې فیلډونو لپاره د موجودو معلوماتو له حذف پرته migration تطبیق کړه.
+- د users جدول کې نوي فیلډونه: `profile_photo_id`، `channel_username`، `stars`، `points`، `likes`، `last_active_at`، `connection_request_mode`، `welcome_reward_claimed`، `profile_visibility`، `search_gender` او `search_language` دي. د chat_sessions جدول کې `last_activity_at` او `end_reason` هم ورزیات شوي. د نوي کوډ له Deploy مخکې د موجودو معلوماتو له حذف پرته migration تطبیق کړه.
 - که `last_active_at` او `connection_request_mode` په ژوندۍ DB کې لا نه وي، دا غیرحذفي SQL یو ځل اجرا کړه: `ALTER TABLE users ADD COLUMN last_active_at TEXT;` او `ALTER TABLE users ADD COLUMN connection_request_mode TEXT NOT NULL DEFAULT 'all';`. که کوم فیلډ له مخکې موجود وي، د هماغه `ALTER TABLE` بیا مه اجرا کوه.
 - د ریفرل جایزې د `app_settings` له لارې تنظیمېږي: `referral_reward_stars` ډیفالټ ۱۵، `referral_reward_points` ډیفالټ ۵، `referral_reward_likes` ډیفالټ ۲. یوازې د نوي کارن د لومړي ثبت پر مهال دعوت کوونکي ته جایزه ورکول کېږي.
 - د آنلاین شمېر معیار د وروستیو ۱۵ دقیقو فعالیت دی؛ د کارن پیغام او د بوټ بټن کلیک د فعالیت وخت تازه کوي.
 - د اړیکې د غوښتنو تنظیمات اوس انتخاب ثبتوي، خو د تصادفي اړیکې او پیغامونو relay سیستم لا نه دی فعال؛ له همدې امله دا تنظیم تر هغه وخته غوښتنې نه فلټر کوي چې matching سیستم جوړ شي.
+
+
+د نوي matching او game schema لپاره د DB migration
+
+دا بدلونونه یوازې یو ځل تطبیق کړه. د ALTER TABLE هره کرښه یوازې هغه وخت اجرا کړه چې فیلډ لا په جدول کې موجود نه وي. هېڅ جدول مه حذفوه.
+
+ALTER TABLE users ADD COLUMN welcome_reward_claimed INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN profile_visibility TEXT NOT NULL DEFAULT 'everyone';
+ALTER TABLE users ADD COLUMN search_gender TEXT NOT NULL DEFAULT 'auto';
+ALTER TABLE users ADD COLUMN search_language TEXT NOT NULL DEFAULT 'auto';
+ALTER TABLE chat_sessions ADD COLUMN last_activity_at TEXT;
+ALTER TABLE chat_sessions ADD COLUMN end_reason TEXT;
+
+CREATE TABLE IF NOT EXISTS connection_requests (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  requester_id INTEGER NOT NULL,
+  recipient_id INTEGER,
+  status TEXT NOT NULL DEFAULT 'searching',
+  request_type TEXT NOT NULL DEFAULT 'random',
+  gender_filter TEXT NOT NULL DEFAULT 'auto',
+  language_filter TEXT NOT NULL DEFAULT 'auto',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS chat_messages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id INTEGER NOT NULL,
+  sender_id INTEGER NOT NULL,
+  recipient_id INTEGER NOT NULL,
+  recipient_message_id INTEGER NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS user_ratings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id INTEGER NOT NULL,
+  rater_id INTEGER NOT NULL,
+  rated_id INTEGER NOT NULL,
+  rating INTEGER NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS user_likes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  liker_id INTEGER NOT NULL,
+  liked_id INTEGER NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS game_sessions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  player_id INTEGER NOT NULL,
+  opponent_id INTEGER,
+  status TEXT NOT NULL DEFAULT 'waiting',
+  player_roll INTEGER,
+  opponent_roll INTEGER,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  fee_stars TEXT NOT NULL DEFAULT '0.5',
+  win_stars TEXT NOT NULL DEFAULT '3',
+  bot_loss_total_stars TEXT NOT NULL DEFAULT '3.5',
+  points_award INTEGER NOT NULL DEFAULT 1
+);
+
 
 فایلونه
 - tgcloud/handlers/message.js — د پیغام handler.
