@@ -33,7 +33,7 @@ const T = {
     skip: 'تخلص نه لیکم', membership: '🔐 د بوټ کارولو لپاره په لاندې ټولو ګروپونو یا چینلونو کې ګډون وکړه، بیا د غړیتوب کتلو بټن کېکاږه:',
     joined: '✅ ګډون مې وکړ، بیا یې وګوره', membershipFail: '⚠️ غړیتوب تایید نه شو. په ټولو ګروپونو کې ګډون وکړه او ډاډ ترلاسه کړه چې بوټ د غړیتوب د کتلو اجازه لري.',
     ready: '🎉 ستا پروفایل جوړ شو!', blocked: '⛔ ستا حساب محدود شوی دی.',
-    menu: ['🔎 ملګری پیدا کړه', '👥 پالو ملګري', '🎲 ناڅاپي اړیکه', '📨 ملګری رابلل', '👤 زما پروفایل', '🌍 د ژبې بدلول', '⚙️ تنظیمات', '📊 احصائیې', '🛡️ د اډمین پینل', '🎲 ګېم کول'],
+    menu: ['🔎 ملګری پیدا کړه', '👥 پالو ملګري', '🎲 ناڅاپي اړیکه', '📨 ملګری رابلل', '👤 زما پروفایل', '🌍 د ژبې بدلول', '⚙️ تنظیمات', '📊 احصائیې', '🛡️ د اډمین پینل', '🎲 ګېم کول', '🏆 لوړ رتبه کسان'],
     settings: "⚙️ د تنظیماتو یوه برخه وټاکه:",
     profileSettingsTitle: "👤 د پروفایل تنظیمات: یوه برخه وټاکه:",
     settingsButtons: ["👤 د پروفایل تنظیمات","❤️ د پالو ملګرو تنظیمات","🔔 د اړیکې تنظیمات","🔙 اصلي مېنو"],
@@ -77,7 +77,7 @@ const T = {
     membership: '🔐 برای استفاده از ربات، عضو همه گروه‌ها یا کانال‌های زیر شوید و سپس عضویت را بررسی کنید:',
     joined: '✅ عضو شدم، بررسی کن', membershipFail: '⚠️ عضویت تأیید نشد. عضو همه گروه‌ها شوید و دسترسی بررسی عضویت ربات را بررسی کنید.',
     ready: '🎉 پروفایل شما آماده شد!', blocked: '⛔ حساب شما محدود شده است.',
-    menu: ['🔎 پیدا کردن دوست', '👥 دوستان محبوب', '🎲 ارتباط تصادفی', '📨 دعوت از دوست', '👤 پروفایل من', '🌍 تغییر زبان', '⚙️ تنظیمات', '📊 آمار', '🛡️ پنل مدیریت', '🎲 بازی'],
+    menu: ['🔎 پیدا کردن دوست', '👥 دوستان محبوب', '🎲 ارتباط تصادفی', '📨 دعوت از دوست', '👤 پروفایل من', '🌍 تغییر زبان', '⚙️ تنظیمات', '📊 آمار', '🛡️ پنل مدیریت', '🎲 بازی', '🏆 رتبه‌بندی برتر'],
     settings: "⚙️ یکی از بخش‌های تنظیمات را انتخاب کنید:",
     profileSettingsTitle: "👤 تنظیمات پروفایل: یک بخش را انتخاب کنید:",
     settingsButtons: ["👤 تنظیمات پروفایل","❤️ تنظیمات دوستان محبوب","🔔 تنظیمات ارتباط","🔙 منوی اصلی"],
@@ -120,7 +120,7 @@ const T = {
     membership: '🔐 Join every group or channel below to use the bot, then check your membership:',
     joined: '✅ I joined, check again', membershipFail: '⚠️ Membership is not confirmed. Join all listed groups and ensure the bot can check membership.',
     ready: '🎉 Your profile is ready!', blocked: '⛔ Your account is restricted.',
-    menu: ['🔎 Find a friend', '👥 Favorite friends', '🎲 Random connection', '📨 Invite a friend', '👤 My profile', '🌍 Change language', '⚙️ Settings', '📊 Statistics', '🛡️ Admin panel', '🎲 Play game'],
+    menu: ['🔎 Find a friend', '👥 Favorite friends', '🎲 Random connection', '📨 Invite a friend', '👤 My profile', '🌍 Change language', '⚙️ Settings', '📊 Statistics', '🛡️ Admin panel', '🎲 Play game', '🏆 Top rankings'],
     settings: "⚙️ Choose a settings section:",
     profileSettingsTitle: "👤 Profile settings: choose a field to edit:",
     settingsButtons: ["👤 Profile settings","❤️ Favorite friends settings","🔔 Connection settings","🔙 Main menu"],
@@ -163,7 +163,7 @@ const T = {
     membership: '🔐 بوٹ استعمال کرنے کے لیے نیچے دیے گئے تمام گروپس یا چینلز میں شامل ہوں، پھر تصدیق کریں:',
     joined: '✅ شامل ہوگیا، دوبارہ چیک کریں', membershipFail: '⚠️ رکنیت کی تصدیق نہیں ہوئی۔ تمام گروپس میں شامل ہوں اور بوٹ کی اجازت چیک کریں۔',
     ready: '🎉 آپ کا پروفائل تیار ہے!', blocked: '⛔ آپ کا اکاؤنٹ محدود ہے۔',
-    menu: ['🔎 دوست تلاش کریں', '👥 پسندیدہ دوست', '🎲 اچانک رابطہ', '📨 دوست کو بلائیں', '👤 میرا پروفائل', '🌍 زبان تبدیل کریں', '⚙️ ترتیبات', '📊 اعدادوشمار', '🛡️ ایڈمن پینل', '🎲 گیم کھیلیں'],
+    menu: ['🔎 دوست تلاش کریں', '👥 پسندیدہ دوست', '🎲 اچانک رابطہ', '📨 دوست کو بلائیں', '👤 میرا پروفائل', '🌍 زبان تبدیل کریں', '⚙️ ترتیبات', '📊 اعدادوشمار', '🛡️ ایڈمن پینل', '🎲 گیم کھیلیں', '🏆 اعلیٰ رینکنگ'],
     settings: "⚙️ ترتیبات کا حصہ منتخب کریں:",
     profileSettingsTitle: "👤 پروفائل کی ترتیبات: تبدیل کرنے کے لیے حصہ منتخب کریں:",
     settingsButtons: ["👤 پروفائل کی ترتیبات","❤️ پسندیدہ دوستوں کی ترتیبات","🔔 رابطے کی ترتیبات","🔙 مرکزی مینو"],
@@ -206,7 +206,7 @@ const T = {
     membership: '🔐 لاستخدام البوت، انضم إلى كل مجموعة أو قناة أدناه ثم تحقق من العضوية:',
     joined: '✅ انضممت، تحقق مرة أخرى', membershipFail: '⚠️ لم يتم تأكيد العضوية. انضم إلى جميع المجموعات وتأكد أن البوت يستطيع التحقق.',
     ready: '🎉 ملفك الشخصي جاهز!', blocked: '⛔ حسابك مقيّد.',
-    menu: ['🔎 ابحث عن صديق', '👥 الأصدقاء المفضلون', '🎲 اتصال عشوائي', '📨 دعوة صديق', '👤 ملفي الشخصي', '🌍 تغيير اللغة', '⚙️ الإعدادات', '📊 الإحصائيات', '🛡️ لوحة الإدارة', '🎲 العب'],
+    menu: ['🔎 ابحث عن صديق', '👥 الأصدقاء المفضلون', '🎲 اتصال عشوائي', '📨 دعوة صديق', '👤 ملفي الشخصي', '🌍 تغيير اللغة', '⚙️ الإعدادات', '📊 الإحصائيات', '🛡️ لوحة الإدارة', '🎲 العب', '🏆 أعلى التصنيفات'],
     settings: "⚙️ اختر قسم الإعدادات:",
     profileSettingsTitle: "👤 إعدادات الملف الشخصي: اختر ما تريد تعديله:",
     settingsButtons: ["👤 إعدادات الملف الشخصي","❤️ إعدادات الأصدقاء المفضلين","🔔 إعدادات الاتصال","🔙 القائمة الرئيسية"],
@@ -257,7 +257,8 @@ function menuKeyboard(user, admin) {
     [{ text: m[2] }, { text: m[3] }],
     [{ text: m[4] }, { text: m[5] }],
     [{ text: m[6] }, { text: m[7] }],
-    [{ text: m[9] }]
+    [{ text: m[9] }],
+    [{ text: m[10] }]
   ];
   if (admin) rows.push([{ text: m[8] }]);
   return keyboard(rows);
@@ -385,7 +386,7 @@ function actionFor(input) {
     const t = T[lang], m = t.menu;
     const pairs = [
       ['find', m[0]], ['favorites', m[1]], ['random', m[2]], ['invite', m[3]], ['profile', m[4]],
-      ['language', m[5]], ['settings', m[6]], ['stats', m[7]], ['admin', m[8]], ['game', m[9]], ['joined', t.joined],
+      ['language', m[5]], ['settings', m[6]], ['stats', m[7]], ['admin', m[8]], ['game', m[9]], ['leaderboards', m[10]], ['joined', t.joined],
       ['country', t.profileSettingsButtons[0]], ['gender', t.profileSettingsButtons[1]], ['age', t.profileSettingsButtons[2]],
       ['name', t.profileSettingsButtons[3]], ['surname', t.profileSettingsButtons[4]],
       ['photoSettings', t.profileSettingsButtons[5]], ['channelSettings', t.profileSettingsButtons[6]], ['profileVisibility', t.profileSettingsButtons[7]],
@@ -1537,17 +1538,17 @@ async function processMessage(message) {
   if (user.state === 'ready') {
     const session = await activeSessionFor(id);
     const quickAction = actionFor(input);
-    const allowedDuringChat = ['find','favorites','random','invite','profile','language','settings','stats','admin','game'];
+    const allowedDuringChat = ['find','favorites','random','invite','profile','language','settings','stats','admin','game','leaderboards'];
     if (session && !allowedDuringChat.includes(quickAction) && !start) { await relayConnectionMessage(message, session); return; }
   }
   if (!['ready','searching_connection'].includes(user.state)) { await showLanguage(chatId, user); return; }
   if (user.state === 'searching_connection' && !['/start'].includes(input)) {
     const quickAction = actionFor(input);
-    if (!['settings','profile','stats','invite','favorites','language','admin','game','find','random'].includes(quickAction)) return;
+    if (!['settings','profile','stats','invite','favorites','language','admin','game','leaderboards','find','random'].includes(quickAction)) return;
   }
   const m = tx(user).menu;
   const i = m.indexOf(input);
-  const field = i >= 0 ? ['find', 'favorites', 'random', 'invite', 'profile', 'language', 'settings', 'stats', 'admin', 'game'][i] : action;
+  const field = i >= 0 ? ['find', 'favorites', 'random', 'invite', 'profile', 'language', 'settings', 'stats', 'admin', 'game', 'leaderboards'][i] : action;
   if (field === 'find') await sendPrompt(chatId, '🔎 کوم ډول ملګری غواړې؟', { inline_keyboard: [[{ text: '👨 نارینه', callback_data: 'find:gender:male' }, { text: '👩 ښځینه', callback_data: 'find:gender:female' }], [{ text: '🌐 اتومات', callback_data: 'find:gender:auto' }], [{ text: '❌ لغوه', callback_data: 'find:cancel' }]] }, user);
   else if (field === 'random') {
     const cost = Number(await getSetting('connection_cost_stars', 1));
@@ -1555,6 +1556,7 @@ async function processMessage(message) {
     else await sendPrompt(chatId, '🎲 ناڅاپي اړیکه پیل کړو؟\n\nد غوښتنې د منلو پر مهال به ' + cost + ' ستوری کم شي.\n\nغواړې غوښتنه واستوې؟', { inline_keyboard: [[{ text: '✅ تایید او غوښتنه واستوه', callback_data: 'conn:confirm:random' }, { text: '❌ لغوه', callback_data: 'conn:cancel' }]] }, user);
   }
   else if (field === 'game') await startDiceGame(chatId, user);
+  else if (field === 'leaderboards') await sendPrompt(chatId, '🏆 لوړ رتبه کسان\\n\\nلاندې درجه‌بندي وټاکه:', { inline_keyboard: [[{ text: '🏆 تر ټولو ډېرې نمرې', callback_data: 'admin:rank:points' }], [{ text: '📨 تر ټولو ډېر ریفرلونه', callback_data: 'admin:rank:referrals' }], [{ text: '👥 تر ټولو ډېر فالو', callback_data: 'admin:rank:follows' }], [{ text: '❤️ تر ټولو ډېر لایکونه', callback_data: 'admin:rank:likes' }], [{ text: '🔙 اصلي مېنو', callback_data: 'admin:main' }]] }, user);
   else if (field === 'favorites') await showFavorites(chatId, user);
   else if (field === 'invite') await showReferral(chatId, user);
   else if (field === 'profile') await showProfile(chatId, user);
