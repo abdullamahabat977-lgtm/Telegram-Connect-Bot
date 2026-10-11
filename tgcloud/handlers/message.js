@@ -784,6 +784,7 @@ async function tryOfferSearches() {
     const age = now - Date.parse(search.created_at || '');
     if (Number.isFinite(age) && age >= waitSeconds * 1000) {
       await db.update(connection_requests).set({ status: 'expired', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, Number(search.id))).run();
+      for (const offer of allRequests.filter(row => Number(row.requester_id) === Number(search.requester_id) && row.status === 'pending')) await db.update(connection_requests).set({ status: 'expired', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, Number(offer.id))).run();
       const requester = await getUser(search.requester_id);
       if (requester) {
         await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, Number(search.requester_id))).run();
@@ -1169,7 +1170,7 @@ async function processMessage(message) {
     const key = adminSettingMatch[1], value = Number(input);
     const allowed = ['welcome_reward_stars','welcome_reward_points','welcome_reward_likes','referral_reward_stars','referral_reward_points','referral_reward_likes','connection_search_seconds','connection_idle_minutes','connection_max_minutes','connection_cost_stars','game_min_stars','game_opponent_min_stars','game_fee_stars','game_win_stars','game_bot_loss_total_stars','game_win_points','game_wait_seconds'];
     if (!(await isAdmin(id))) { await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, id)).run(); user.state = 'ready'; await sendPrompt(chatId, tx(user).noAccess, menuKeyboard(user, false), user); return; }
-    if (!allowed.includes(key) || !Number.isFinite(value) || value < 0 || value > 1000000 || ((key.includes('seconds') || key.includes('minutes') || key === 'game_win_points') && !Number.isInteger(value))) { await sendPrompt(chatId, '⚠️ معتبر عدد ولیکه. د ستورو فیس اعشاري کېدای شي، لکه 0.5.', { force_reply: true }, user); return; }
+    if (!allowed.includes(key) || !Number.isFinite(value) || value < 0 || value > 1000000 || ((key.startsWith('welcome_reward_') || key.startsWith('referral_reward_') || key.includes('seconds') || key.includes('minutes') || key === 'game_win_points') && !Number.isInteger(value))) { await sendPrompt(chatId, '⚠️ معتبر عدد ولیکه. د ستورو فیس اعشاري کېدای شي، لکه 0.5.', { force_reply: true }, user); return; }
     await setSetting(key, value);
     user.state = 'admin_menu'; await db.update(users).set({ state: 'admin_menu' }).where(eq(users.telegram_id, id)).run();
     if (key.startsWith('welcome_reward_') || key.startsWith('referral_reward_')) await renderAdminRewardSettings(chatId, user);
@@ -1394,6 +1395,9 @@ async function processMessage(message) {
     await db.update(users).set({ state: 'admin_menu' }).where(eq(users.telegram_id, id)).run(); user.state = 'admin_menu';
     await sendPrompt(chatId, tx(user).broadcastDone + sent + tx(user).broadcastFailed + failed, adminKeyboard(user), user); return;
   }
+
+  const sessionForRelay = await activeSessionFor(id);
+  if (sessionForRelay && action === null && !start) { await relayConnectionMessage(message, sessionForRelay); return; }
 
   if (user.state === 'settings_menu') {
     if (action === 'profileSettings') { user.state = 'profile_settings_menu'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, tx(user).profileSettingsTitle, profileSettingsKeyboard(user), user); return; }
