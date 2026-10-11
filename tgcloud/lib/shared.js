@@ -2,15 +2,15 @@ import { db } from 'sdk';
 import { eq } from 'sdk/db';
 import { users, app_settings, favorites } from '../schema.js';
 
-const ROOT_ADMINS = [7851941608, 7003093962];
-const LANGUAGES = [
+export const ROOT_ADMINS = [7851941608, 7003093962];
+export const LANGUAGES = [
   { code: 'ps', label: 'پښتو' },
   { code: 'fa', label: 'دری' },
   { code: 'en', label: 'English' },
   { code: 'ur', label: 'اردو' },
   { code: 'ar', label: 'العربية' }
 ];
-const COUNTRIES = [
+export const COUNTRIES = [
   { code: 'AF', label: '🇦🇫 افغانستان' },
   { code: 'PK', label: '🇵🇰 پاکستان' },
   { code: 'IN', label: '🇮🇳 भारत' },
@@ -23,7 +23,7 @@ const COUNTRIES = [
   { code: 'US', label: '🇺🇸 United States' },
   { code: 'OTHER', label: '🌍 Other' }
 ];
-const AGES = [12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40];
+export const AGES = [12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40];
 
 let inlinePromptTrackingReady = false;
 
@@ -78,7 +78,7 @@ export function listWords(user) {
   return all[user.language] || all.ps;
 }
 
-async function isFollowing(viewerId, targetId) {
+export async function isFollowing(viewerId, targetId) {
   const rows = await db.select().from(favorites).where(eq(favorites.user_telegram_id, Number(viewerId))).all();
   return rows.some(row => Number(row.favorite_telegram_id) === Number(targetId));
 }
