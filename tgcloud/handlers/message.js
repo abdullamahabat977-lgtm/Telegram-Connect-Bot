@@ -687,6 +687,361 @@ async function completeProfile(chatId, user, extra) {
   user.state = 'ready';
   await showMain(chatId, user, (extra ? extra + '\n' : '') + tx(user).ready);
 }
+
+async function isFollowing(viewerId, targetId) {
+  const rows = await db.select().from(favorites).where(eq(favorites.user_telegram_id, Number(viewerId))).all();
+  return rows.some(row => Number(row.favorite_telegram_id) === Number(targetId));
+}
+async function hasBlockEitherWay(firstId, secondId) {
+  const rows = await db.select().from(user_blocks).all();
+  return rows.some(row => (Number(row.blocker_telegram_id) === Number(firstId) && Number(row.blocked_telegram_id) === Number(secondId)) ||
+    (Number(row.blocker_telegram_id) === Number(secondId) && Number(row.blocked_telegram_id) === Number(firstId)));
+}
+async function activeSessionFor(userId) {
+  const rows = await db.select().from(chat_sessions).all();
+  return rows.find(row => row.status === 'connected' &&
+    (Number(row.first_user_telegram_id) === Number(userId) || Number(row.second_user_telegram_id) === Number(userId))) || null;
+}
+function otherSessionUser(session, userId) {
+  return Number(session.first_user_telegram_id) === Number(userId) ? Number(session.second_user_telegram_id) : Number(session.first_user_telegram_id);
+}
+async function publicProfileText(target, viewerId) {
+  const fullName = [target.name || target.first_name || 'کارن', target.surname || ''].filter(Boolean).join(' ');
+  const gender = target.gender === 'female' ? 'ښځینه' : target.gender === 'male' ? 'نارینه' : 'نه دی ثبت';
+  const followerOnly = target.profile_visibility === 'followers' && !(await isFollowing(viewerId, target.telegram_id));
+  if (followerOnly) return '👤 نوم: ' + fullName + '\n\n⚧ جنسیت: ' + gender + '\n\n🔒 د بشپړ پروفایل لیدلو لپاره لومړی دا کارن فالو کړه.';
+  const country = COUNTRIES.find(item => item.code === target.country);
+  const language = LANGUAGES.find(item => item.code === target.language);
+  const favCount = await db.$count(favorites, eq(favorites.user_telegram_id, Number(target.telegram_id)));
+  return '👤 نوم: ' + fullName + '\n\n⚧ جنسیت: ' + gender + '\n\n🌍 هېواد: ' + (country ? country.label : '—') +
+    '\n\n🎂 عمر: ' + (target.age || '—') + '\n\n🗣️ ژبه: ' + (language ? language.label : target.language || '—') +
+    '\n\n📢 عام چینل: ' + (target.channel_username || '—') + '\n\n📨 ریفرلونه: ' + Number(target.referral_count || 0) +
+    '\n\n👥 پالو ملګري: ' + favCount + '\n\n🏆 نمرې: ' + Number(target.points || 0) +
+    '\n\n❤️ لایکونه: ' + Number(target.likes || 0);
+}
+function sessionKeyboard(targetId, sessionId, isFollowingTarget, liked) {
+  return { inline_keyboard: [
+    [{ text: isFollowingTarget ? '❤️ فالو شوی' : '➕ فالو کول', callback_data: 'session:follow:' + targetId + ':' + sessionId },
+     { text: liked ? '💔 لایک بېرته اخستل' : '❤️ لایک', callback_data: 'session:like:' + targetId + ':' + sessionId }],
+    [{ text: '⭐ 1', callback_data: 'session:rate:' + targetId + ':1:' + sessionId },
+     { text: '⭐ 2', callback_data: 'session:rate:' + targetId + ':2:' + sessionId },
+     { text: '⭐ 3', callback_data: 'session:rate:' + targetId + ':3:' + sessionId },
+     { text: '⭐ 4', callback_data: 'session:rate:' + targetId + ':4:' + sessionId },
+     { text: '⭐ 5', callback_data: 'session:rate:' + targetId + ':5:' + sessionId }],
+    [{ text: '👤 پروفایل لیدل', callback_data: 'session:profile:' + targetId + ':' + sessionId },
+     { text: '🛑 اړیکه پای ته رسول', callback_data: 'session:end:' + sessionId }],
+    [{ text: '🚩 راپور', callback_data: 'session:report:' + targetId + ':' + sessionId },
+     { text: '🗑 د وروستیو ۱۰ دقیقو پیغامونه حذفول', callback_data: 'session:delete_recent:' + targetId + ':' + sessionId }]
+  ] };
+}
+async function showSessionProfile(session, viewerId) {
+  const targetId = otherSessionUser(session, viewerId);
+  const target = await getUser(targetId), viewer = await getUser(viewerId);
+  if (!target || !viewer) return;
+  const following = await isFollowing(viewerId, targetId);
+  const likes = await db.select().from(user_likes).where(eq(user_likes.liker_id, Number(viewerId))).all();
+  const liked = likes.some(row => Number(row.liked_id) === targetId);
+  const text = '🤝 اړیکه فعاله ده.\n\n' + await publicProfileText(target, viewerId) +
+    '\n\n💡 د بل کس د بشپړ پروفایل لپاره، که یې پروفایل یوازې پالو ملګرو ته ښکاري، هغه فالو کړه.';
+  await sendPrompt(viewerId, text, sessionKeyboard(targetId, session.id, following, liked), viewer);
+}
+async function endConnection(session, reason) {
+  if (!session || session.status !== 'connected') return;
+  const endedAt = new Date().toISOString();
+  await db.update(chat_sessions).set({ status: 'ended', ended_at: endedAt, end_reason: reason || 'ended' })
+    .where(eq(chat_sessions.id, Number(session.id))).run();
+  const firstId = Number(session.first_user_telegram_id), secondId = Number(session.second_user_telegram_id);
+  for (const pair of [{ id: firstId, partnerId: secondId }, { id: secondId, partnerId: firstId }]) {
+    const user = await getUser(pair.id), partner = await getUser(pair.partnerId);
+    if (!user) continue;
+    await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, pair.id)).run();
+    const name = partner ? [partner.name || partner.first_name || 'کارن', partner.surname || ''].filter(Boolean).join(' ') : 'کارن';
+    const following = await isFollowing(pair.id, pair.partnerId);
+    const rows = [
+      [{ text: '🚩 راپور کول', callback_data: 'session:report:' + pair.partnerId + ':' + session.id }],
+      [{ text: '🗑 د وروستیو ۱۰ دقیقو پیغامونه حذفول', callback_data: 'session:delete_recent:' + pair.partnerId + ':' + session.id }]
+    ];
+    if (!following) rows.unshift([{ text: '➕ ' + name + ' فالو کول', callback_data: 'session:follow:' + pair.partnerId + ':' + session.id }]);
+    rows.push([{ text: '🔙 اصلي مېنو', callback_data: 'settings:main' }]);
+    try { await sendPrompt(pair.id, '🛑 اړیکه پای ته ورسېده.\n\n👤 د تېر ملګري نوم: ' + name + '\n\nکه اړتیا وي، راپور یې کړه، فالو یې کړه یا د هغه له خوا درلېږل شوي د وروستیو ۱۰ دقیقو پیغامونه حذف کړه.', { inline_keyboard: rows }, user); }
+    catch (e) { try { await api.sendMessage({ chat_id: pair.id, text: '🛑 اړیکه پای ته ورسېده. ملګری: ' + name }); } catch (ignored) {} }
+  }
+}
+async function maintainConnections() {
+  const idleMinutes = Number(await getSetting('connection_idle_minutes', 5));
+  const maxMinutes = Number(await getSetting('connection_max_minutes', 40));
+  const now = Date.now();
+  const sessions = await db.select().from(chat_sessions).all();
+  for (const session of sessions.filter(row => row.status === 'connected')) {
+    const last = Date.parse(session.last_activity_at || session.connected_at || session.created_at || '');
+    const start = Date.parse(session.connected_at || session.created_at || '');
+    if ((Number.isFinite(last) && now - last >= idleMinutes * 60000) ||
+        (Number.isFinite(start) && now - start >= maxMinutes * 60000)) {
+      await endConnection(session, Number.isFinite(last) && now - last >= idleMinutes * 60000 ? 'idle_timeout' : 'max_duration');
+    }
+  }
+}
+async function tryOfferSearches() {
+  const allRequests = await db.select().from(connection_requests).all();
+  const allUsers = await db.select().from(users).all();
+  const allSessions = await db.select().from(chat_sessions).all();
+  const allBlocks = await db.select().from(user_blocks).all();
+  const allFavorites = await db.select().from(favorites).all();
+  const now = Date.now(), waitSeconds = Number(await getSetting('connection_search_seconds', 120));
+  const searches = allRequests.filter(row => row.status === 'searching' && !row.recipient_id);
+  for (const search of searches) {
+    const age = now - Date.parse(search.created_at || '');
+    if (Number.isFinite(age) && age >= waitSeconds * 1000) {
+      await db.update(connection_requests).set({ status: 'expired', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, Number(search.id))).run();
+      const requester = await getUser(search.requester_id);
+      if (requester) {
+        await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, Number(search.requester_id))).run();
+        try { await sendPrompt(Number(search.requester_id), '⌛ په ټاکلي وخت کې مناسب ملګری پیدا نه شو. بیا هڅه کولای شې.', menuKeyboard(requester, await isAdmin(requester.telegram_id)), requester); } catch (e) {}
+      }
+      continue;
+    }
+    if (allRequests.some(row => Number(row.requester_id) === Number(search.requester_id) && row.status === 'pending' && row.recipient_id)) continue;
+    const requester = allUsers.find(row => Number(row.telegram_id) === Number(search.requester_id));
+    if (!requester || Number(requester.is_blocked) === 1) continue;
+    const alreadyTried = new Set(allRequests.filter(row => Number(row.requester_id) === Number(search.requester_id) && row.recipient_id)
+      .map(row => Number(row.recipient_id)));
+    const candidates = allUsers.filter(candidate => {
+      const candidateId = Number(candidate.telegram_id);
+      if (candidateId === Number(search.requester_id) || Number(candidate.is_blocked) === 1) return false;
+      if (!candidate.country || !candidate.gender || !candidate.age) return false;
+      const active = Date.parse(candidate.last_active_at || '');
+      if (!Number.isFinite(active) || now - active > 120000) return false;
+      if (alreadyTried.has(candidateId)) return false;
+      if (allBlocks.some(row => (Number(row.blocker_telegram_id) === candidateId && Number(row.blocked_telegram_id) === Number(search.requester_id)) ||
+        (Number(row.blocker_telegram_id) === Number(search.requester_id) && Number(row.blocked_telegram_id) === candidateId))) return false;
+      if (candidate.connection_request_mode === 'none') return false;
+      const connected = allSessions.some(row => row.status === 'connected' &&
+        (Number(row.first_user_telegram_id) === candidateId || Number(row.second_user_telegram_id) === candidateId));
+      if (connected && candidate.connection_request_mode !== 'all') return false;
+      const searching = allRequests.some(row => Number(row.requester_id) === candidateId && row.status === 'searching');
+      if (searching) return false;
+      const pendingForCandidate = allRequests.some(row => Number(row.recipient_id) === candidateId && row.status === 'pending');
+      if (pendingForCandidate) return false;
+      if (candidate.connection_request_mode === 'followed' &&
+        !allFavorites.some(row => Number(row.user_telegram_id) === candidateId && Number(row.favorite_telegram_id) === Number(search.requester_id))) return false;
+      if (search.request_type === 'find' && search.gender_filter !== 'auto' && candidate.gender !== search.gender_filter) return false;
+      if (search.request_type === 'find' && search.language_filter !== 'auto' && candidate.language !== search.language_filter) return false;
+      return true;
+    });
+    if (!candidates.length) continue;
+    candidates.sort((a, b) => {
+      const aConnected = allSessions.some(row => row.status === 'connected' && (Number(row.first_user_telegram_id) === Number(a.telegram_id) || Number(row.second_user_telegram_id) === Number(a.telegram_id)));
+      const bConnected = allSessions.some(row => row.status === 'connected' && (Number(row.first_user_telegram_id) === Number(b.telegram_id) || Number(row.second_user_telegram_id) === Number(b.telegram_id)));
+      const aFollowed = allFavorites.some(row => Number(row.user_telegram_id) === Number(search.requester_id) && Number(row.favorite_telegram_id) === Number(a.telegram_id));
+      const bFollowed = allFavorites.some(row => Number(row.user_telegram_id) === Number(search.requester_id) && Number(row.favorite_telegram_id) === Number(b.telegram_id));
+      const rank = item => allSessions.some(row => row.status === 'connected' && (Number(row.first_user_telegram_id) === Number(item.telegram_id) || Number(row.second_user_telegram_id) === Number(item.telegram_id))) ? 1 :
+        allFavorites.some(row => Number(row.user_telegram_id) === Number(search.requester_id) && Number(row.favorite_telegram_id) === Number(item.telegram_id)) ? 2 : 0;
+      return rank(a) - rank(b) || Date.parse(b.last_active_at || '') - Date.parse(a.last_active_at || '');
+    });
+    const candidate = candidates[0], nowIso = new Date().toISOString();
+    await db.insert(connection_requests).values({
+      requester_id: Number(search.requester_id), recipient_id: Number(candidate.telegram_id), status: 'pending',
+      request_type: search.request_type, gender_filter: search.gender_filter, language_filter: search.language_filter,
+      created_at: nowIso, updated_at: nowIso
+    }).run();
+    const pendingRows = await db.select().from(connection_requests).all();
+    const offer = pendingRows.filter(row => Number(row.requester_id) === Number(search.requester_id) &&
+      Number(row.recipient_id) === Number(candidate.telegram_id) && row.status === 'pending').sort((a,b) => Number(b.id)-Number(a.id))[0];
+    try {
+      await api.sendMessage({ chat_id: Number(candidate.telegram_id),
+        text: '🎲 یو ناڅاپي کس غواړي له تا سره اړیکه پیل کړي.\n\nته د غوښتونکي نوم، عکس، جنسیت او نور معلومات نه وینې. که غوښتنه ومنې، اړیکه به وصل شي؛ که رد یې کړې، بل کس ته به غوښتنه واستول شي.',
+        reply_markup: { inline_keyboard: [[{ text: '✅ غوښتنه منل', callback_data: 'conn:accept:' + offer.id }, { text: '❌ ردول', callback_data: 'conn:reject:' + offer.id }]] }
+      });
+    } catch (e) {
+      await db.update(connection_requests).set({ status: 'rejected', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, Number(offer.id))).run();
+    }
+  }
+}
+async function beginConnectionSearch(chatId, user, type) {
+  const cost = Number(await getSetting('connection_cost_stars', 1));
+  if (Number(user.stars || 0) < cost) {
+    await sendPrompt(chatId, '⭐ د اړیکې غوښتنې لپاره لږ تر لږه ' + cost + ' ستوري پکار دي.\n\nستا اوسنی بیلانس: ' + Number(user.stars || 0), menuKeyboard(user, await isAdmin(user.telegram_id)), user);
+    return;
+  }
+  const current = await activeSessionFor(user.telegram_id);
+  if (current) {
+    await sendPrompt(chatId, '⚠️ ته اوس له یوه کس سره په اړیکه کې یې. لومړی اړیکه پای ته ورسوه.', menuKeyboard(user, await isAdmin(user.telegram_id)), user);
+    return;
+  }
+  const requests = await db.select().from(connection_requests).where(eq(connection_requests.requester_id, Number(user.telegram_id))).all();
+  if (requests.some(row => row.status === 'searching' && !row.recipient_id)) {
+    await sendPrompt(chatId, '🔎 د ملګري لټون لا روان دی. مهرباني وکړه لږ انتظار وکړه.', { inline_keyboard: [[{ text: '❌ لټون لغوه کول', callback_data: 'conn:cancel_search' }]] }, user);
+    return;
+  }
+  const now = new Date().toISOString();
+  await db.insert(connection_requests).values({
+    requester_id: Number(user.telegram_id), recipient_id: null, status: 'searching', request_type: type,
+    gender_filter: type === 'find' ? (user.search_gender || 'auto') : 'auto',
+    language_filter: type === 'find' ? (user.search_language || 'auto') : 'auto',
+    created_at: now, updated_at: now
+  }).run();
+  const all = await db.select().from(connection_requests).all();
+  const search = all.filter(row => Number(row.requester_id) === Number(user.telegram_id) && row.status === 'searching' && !row.recipient_id)
+    .sort((a,b) => Number(b.id)-Number(a.id))[0];
+  user.state = 'searching_connection';
+  await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, Number(user.telegram_id))).run();
+  await sendPrompt(chatId, '🔎 د ملګري لټون پیل شو.\n\n⏳ تر ۲ دقیقو پورې انتظار وکړه. که مناسب کس پیدا شي، غوښتنه به ورولېږل شي.\n\n⭐ د اړیکې منلو پر مهال به له تا ' + cost + ' ستوری کم شي.', { inline_keyboard: [[{ text: '❌ لټون لغوه کول', callback_data: 'conn:cancel_search:' + search.id }]] }, user);
+  await tryOfferSearches();
+}
+async function relayConnectionMessage(message, session) {
+  const senderId = Number(message.from.id), recipientId = otherSessionUser(session, senderId);
+  const idleMinutes = Number(await getSetting('connection_idle_minutes', 5));
+  const maxMinutes = Number(await getSetting('connection_max_minutes', 40));
+  const now = Date.now(), last = Date.parse(session.last_activity_at || session.connected_at || session.created_at || ''), start = Date.parse(session.connected_at || session.created_at || '');
+  if ((Number.isFinite(last) && now - last >= idleMinutes * 60000) || (Number.isFinite(start) && now - start >= maxMinutes * 60000)) {
+    await endConnection(session, 'timeout');
+    return;
+  }
+  try {
+    const copied = await api.copyMessage({ chat_id: recipientId, from_chat_id: senderId, message_id: Number(message.message_id) });
+    if (copied && copied.message_id) {
+      await db.insert(chat_messages).values({ session_id: Number(session.id), sender_id: senderId, recipient_id: recipientId,
+        recipient_message_id: Number(copied.message_id), created_at: new Date().toISOString() }).run();
+    }
+    await db.update(chat_sessions).set({ last_activity_at: new Date().toISOString() }).where(eq(chat_sessions.id, Number(session.id))).run();
+  } catch (error) {
+    try { await api.sendMessage({ chat_id: senderId, text: '⚠️ دا پیغام بل ملګري ته ونه لېږل شو. بل ډول پیغام واستوه.' }); } catch (e) {}
+  }
+}
+async function startDiceGame(chatId, user) {
+  const minStars = Number(await getSetting('game_min_stars', 3.5));
+  if (Number(user.stars || 0) < minStars) {
+    await sendPrompt(chatId, '🎲 د ګېم لپاره لږ تر لږه ' + minStars + ' ستوري پکار دي.\n\nستا بیلانس: ' + Number(user.stars || 0), menuKeyboard(user, await isAdmin(user.telegram_id)), user);
+    return;
+  }
+  const rows = await db.select().from(game_sessions).all();
+  if (rows.some(row => Number(row.player_id) === Number(user.telegram_id) && ['waiting','pending','playing'].includes(row.status)) ||
+      rows.some(row => Number(row.opponent_id) === Number(user.telegram_id) && ['pending','playing'].includes(row.status))) {
+    await sendPrompt(chatId, '🎲 ستا د ګېم غوښتنه لا روانه ده.', menuKeyboard(user, await isAdmin(user.telegram_id)), user);
+    return;
+  }
+  const now = new Date().toISOString();
+  await db.insert(game_sessions).values({ player_id: Number(user.telegram_id), opponent_id: null, status: 'waiting',
+    created_at: now, updated_at: now, fee_stars: String(await getSetting('game_fee_stars', 0.5)),
+    win_stars: String(await getSetting('game_win_stars', 3)), bot_loss_total_stars: String(await getSetting('game_bot_loss_total_stars', 3.5)),
+    points_award: Number(await getSetting('game_win_points', 1)) }).run();
+  await sendPrompt(chatId, '🎲 د ګېم سیال لټول کېږي.\n\n⏳ که په ۲ دقیقو کې بل فعال لوبغاړی پیدا نه شي، له بوټ سره به لوبه وکړې.', { inline_keyboard: [[{ text: '❌ ګېم لغوه کول', callback_data: 'game:cancel' }]] }, user);
+  await tryMatchGames();
+}
+async function resolveBotGame(game) {
+  const player = await getUser(game.player_id);
+  if (!player || game.status !== 'waiting') return;
+  const fee = Number(await getSetting('game_fee_stars', 0.5));
+  const winStars = Number(await getSetting('game_win_stars', 3));
+  const botLossTotal = Number(await getSetting('game_bot_loss_total_stars', 3.5));
+  const points = Number(await getSetting('game_win_points', 1));
+  const balance = Number(player.stars || 0);
+  if (balance < fee) {
+    await db.update(game_sessions).set({ status: 'cancelled', updated_at: new Date().toISOString() }).where(eq(game_sessions.id, Number(game.id))).run();
+    return;
+  }
+  await db.update(users).set({ stars: balance - fee }).where(eq(users.telegram_id, Number(player.telegram_id))).run();
+  const playerDice = await api.sendDice({ chat_id: Number(player.telegram_id), emoji: '🎲' });
+  const botDice = await api.sendDice({ chat_id: Number(player.telegram_id), emoji: '🎲' });
+  const playerRoll = Number(playerDice && playerDice.dice && playerDice.dice.value || 0);
+  const botRoll = Number(botDice && botDice.dice && botDice.dice.value || 0);
+  let outcome = '🤝 مساوي! هېڅ ستوري یا نمرې نه ګټل کېږي؛ یوازې د ګېم فیس حساب شو.';
+  let newBalance = balance - fee;
+  if (playerRoll > botRoll) {
+    newBalance += winStars;
+    await db.update(users).set({ stars: newBalance, points: Number(player.points || 0) + points }).where(eq(users.telegram_id, Number(player.telegram_id))).run();
+    outcome = '🎉 ته وګټلې! +' + winStars + ' ستوري او +' + points + ' نمره.';
+  } else if (botRoll > playerRoll) {
+    const extraLoss = Math.max(0, botLossTotal - fee);
+    const actualLoss = Math.min(extraLoss, newBalance);
+    newBalance -= actualLoss;
+    await db.update(users).set({ stars: newBalance }).where(eq(users.telegram_id, Number(player.telegram_id))).run();
+    outcome = '🤖 بوټ وګټله! ستا ټول لګښت ' + (fee + actualLoss) + ' ستوري شو.';
+  } else {
+    await db.update(users).set({ stars: newBalance }).where(eq(users.telegram_id, Number(player.telegram_id))).run();
+  }
+  await db.update(game_sessions).set({ status: 'completed', player_roll: playerRoll, opponent_roll: botRoll, updated_at: new Date().toISOString() })
+    .where(eq(game_sessions.id, Number(game.id))).run();
+  try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: '🎲 د ګېم پایله\n\nستا 🎲: ' + playerRoll + '\n\nد بوټ 🎲: ' + botRoll + '\n\n' + outcome + '\n\n⭐ اوسنی بیلانس: ' + newBalance }); } catch (e) {}
+}
+async function tryMatchGames() {
+  const rows = await db.select().from(game_sessions).all(), allUsers = await db.select().from(users).all();
+  const allSessions = await db.select().from(chat_sessions).all();
+  const waitSeconds = Number(await getSetting('game_wait_seconds', 120));
+  const opponentMin = Number(await getSetting('game_opponent_min_stars', 3.5));
+  const now = Date.now();
+  for (const game of rows.filter(row => row.status === 'waiting' || row.status === 'pending')) {
+    const age = now - Date.parse(game.created_at || '');
+    if (Number.isFinite(age) && age >= waitSeconds * 1000) {
+      if (game.status === 'waiting') await resolveBotGame(game);
+      else {
+        await db.update(game_sessions).set({ status: 'waiting', opponent_id: null, updated_at: new Date().toISOString() }).where(eq(game_sessions.id, Number(game.id))).run();
+      }
+      continue;
+    }
+    if (game.status !== 'waiting') continue;
+    const busyGameIds = new Set(rows.filter(row => ['waiting','pending','playing'].includes(row.status))
+      .flatMap(row => [Number(row.player_id), Number(row.opponent_id || 0)]));
+    const candidates = allUsers.filter(candidate => {
+      const id = Number(candidate.telegram_id);
+      if (id === Number(game.player_id) || Number(candidate.is_blocked) === 1 || Number(candidate.stars || 0) < opponentMin) return false;
+      const last = Date.parse(candidate.last_active_at || '');
+      if (!Number.isFinite(last) || now - last > 120000) return false;
+      if (busyGameIds.has(id)) return false;
+      if (allSessions.some(row => row.status === 'connected' && (Number(row.first_user_telegram_id) === id || Number(row.second_user_telegram_id) === id))) return false;
+      return true;
+    }).sort((a,b) => Date.parse(b.last_active_at || '') - Date.parse(a.last_active_at || ''));
+    if (!candidates.length) continue;
+    const candidate = candidates[0];
+    await db.update(game_sessions).set({ opponent_id: Number(candidate.telegram_id), status: 'pending', updated_at: new Date().toISOString() })
+      .where(eq(game_sessions.id, Number(game.id))).run();
+    try {
+      await api.sendMessage({ chat_id: Number(candidate.telegram_id), text: '🎲 یو فعال کارن غواړي له تا سره د ګېم لوبه وکړي.\n\nد لوبې د منلو لپاره باید لږ تر لږه ' + opponentMin + ' ستوري ولرې. د منلو یا ردولو انتخاب وکړه.',
+        reply_markup: { inline_keyboard: [[{ text: '✅ ګېم منل', callback_data: 'game:accept:' + game.id }, { text: '❌ ردول', callback_data: 'game:reject:' + game.id }]] } });
+    } catch (e) {
+      await db.update(game_sessions).set({ status: 'waiting', opponent_id: null, updated_at: new Date().toISOString() }).where(eq(game_sessions.id, Number(game.id))).run();
+    }
+  }
+}
+async function renderAdminRewardSettings(chatId, user) {
+  const keys = [
+    ['welcome_reward_stars','⭐ د ښه راغلاست ستوري',10], ['welcome_reward_points','🏆 د ښه راغلاست نمرې',3], ['welcome_reward_likes','❤️ د ښه راغلاست لایکونه',2],
+    ['referral_reward_stars','⭐ د ریفرل ستوري',15], ['referral_reward_points','🏆 د ریفرل نمرې',5], ['referral_reward_likes','❤️ د ریفرل لایکونه',2]
+  ];
+  let text = '🎁 د جایزو تنظیمات\n\nهره جایزه جلا بدله کړه:\n\n';
+  const rows = [];
+  for (const item of keys) {
+    text += item[1] + ': ' + await getSetting(item[0], item[2]) + '\n\n';
+    rows.push([{ text: item[1], callback_data: 'admin:setting:' + item[0] }]);
+  }
+  rows.push([{ text: '🔙 اډمین پینل', callback_data: 'admin:panel' }]);
+  await sendPrompt(chatId, text, { inline_keyboard: rows }, user);
+}
+async function renderAdminConnectionSettings(chatId, user) {
+  const keys = [
+    ['connection_search_seconds','⏱ د ملګري لټون ثانیې',120], ['connection_idle_minutes','💤 د بې‌پیغامۍ دقیقې',5],
+    ['connection_max_minutes','⌛ د اړیکې اعظمي دقیقې',40], ['connection_cost_stars','⭐ د اړیکې قیمت',1]
+  ];
+  let text = '🔗 د اړیکو تنظیمات\n\n';
+  const rows = [];
+  for (const item of keys) { text += item[1] + ': ' + await getSetting(item[0], item[2]) + '\n\n'; rows.push([{ text: item[1], callback_data: 'admin:setting:' + item[0] }]); }
+  rows.push([{ text: '🔙 اډمین پینل', callback_data: 'admin:panel' }]);
+  await sendPrompt(chatId, text, { inline_keyboard: rows }, user);
+}
+async function renderAdminGameSettings(chatId, user) {
+  const keys = [
+    ['game_min_stars','⭐ د لوبې لږ تر لږه بیلانس',3.5], ['game_opponent_min_stars','👤 د سیال لږ تر لږه بیلانس',3.5],
+    ['game_fee_stars','💰 د لوبې فیس',0.5], ['game_win_stars','🏆 د ګټلو ستوري',3],
+    ['game_bot_loss_total_stars','🤖 د بوټ پر وړاندې د بایللو ټول لګښت',3.5], ['game_win_points','⭐ د ګټلو نمرې',1],
+    ['game_wait_seconds','⏱ د سیال انتظار ثانیې',120]
+  ];
+  let text = '🎲 د ګېم تنظیمات\n\n';
+  const rows = [];
+  for (const item of keys) { text += item[1] + ': ' + await getSetting(item[0], item[2]) + '\n\n'; rows.push([{ text: item[1], callback_data: 'admin:setting:' + item[0] }]); }
+  rows.push([{ text: '🔙 اډمین پینل', callback_data: 'admin:panel' }]);
+  await sendPrompt(chatId, text, { inline_keyboard: rows }, user);
+}
+
 async function processMessage(message) {
   if (!message || !message.chat || !message.from || message.chat.type !== 'private') return;
   const chatId = message.chat.id;
