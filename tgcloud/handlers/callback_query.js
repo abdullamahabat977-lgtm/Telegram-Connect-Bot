@@ -433,9 +433,33 @@ async function handleAdminCallback(query, actor, data, actorId, chatId) {
     if (p[1] === 'block' && await isAdmin(targetId)) {
       await sendPrompt(chatId, actor.language === 'en' ? '⛔ Administrators cannot be blocked from this panel.' : '⛔ د بوټ مدیران د دې پینل له لارې نه شي مسدودېدای.', adminUserSettingsKeyboard(actor, targetId, target.is_blocked), actor); return;
     }
-    const value = p[1] === 'block' ? 1 : 0;
+    const blocking = p[1] === 'block';
+    const value = blocking ? 1 : 0;
     await db.update(users).set({ is_blocked: value }).where(eq(users.telegram_id, targetId)).run();
     target.is_blocked = value;
+    if (blocking) {
+      try {
+        const reqs = await db.select().from(connection_requests).all();
+        for (const row of reqs.filter(item => (Number(item.requester_id) === targetId || Number(item.recipient_id) === targetId) && ['searching','pending'].includes(item.status))) {
+          await db.update(connection_requests).set({ status: 'cancelled', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, Number(row.id))).run();
+        }
+      } catch (e) { console.error('Could not cancel blocked user connection requests', e); }
+      try {
+        const sessions = await db.select().from(chat_sessions).all();
+        for (const session of sessions.filter(item => item.status === 'connected' && (Number(item.first_user_telegram_id) === targetId || Number(item.second_user_telegram_id) === targetId))) {
+          await endConnection(session, 'user_blocked');
+        }
+      } catch (e) { console.error('Could not end blocked user connection', e); }
+      try {
+        const games = await db.select().from(game_sessions).all();
+        for (const game of games.filter(item => (Number(item.player_id) === targetId || Number(item.opponent_id) === targetId) && ['waiting','pending','playing'].includes(item.status))) {
+          await db.update(game_sessions).set({ status: 'cancelled', updated_at: new Date().toISOString() }).where(eq(game_sessions.id, Number(game.id))).run();
+        }
+      } catch (e) { console.error('Could not cancel blocked user games', e); }
+      try { await api.sendMessage({ chat_id: targetId, text: target.language === 'en' ? '⛔ Your account has been restricted by an administrator.' : '⛔ ستا حساب د اډمین له خوا محدود شو.' }); } catch (e) {}
+    } else {
+      try { await api.sendMessage({ chat_id: targetId, text: target.language === 'en' ? '✅ Your account restriction has been removed.' : '✅ ستا د حساب محدودیت لرې شو.' }); } catch (e) {}
+    }
     await showAdminUserSettings(chatId, actor, target); return;
   }
   if (p[1] === 'send') {
