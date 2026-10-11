@@ -139,3 +139,11 @@ CREATE TABLE IF NOT EXISTS game_sessions (
 
 رسمي اسناد
 https://core.telegram.org/bots/serverless
+
+## مهم: د Telegram Serverless له ویب پاڼې سره سمون
+
+- `tgcloud/schema.js` د Serverless د **Database → Schema** برخې ته ځي؛ دا فایل باید په **Library** کې جوړ نه شي.
+- په `tgcloud/handlers/message.js` او `tgcloud/handlers/callback_query.js` کې `import { ... } from '../schema.js';` د پروژې د اوسني `tgcloud/handlers/` او `tgcloud/schema.js` جوړښت لپاره سمه relative import لاره ده. یوازې د دې لپاره یې `from 'schema'` ته مه بدلوئ چې Library تشه ده.
+- د GitHub بدلونونه په خپله د BotFather Serverless ته نه لېږدول کېږي. د Serverless په ویب پاڼه کې د Handler او Database کوډونه جلا دي؛ د GitHub نسخه او په Serverless کې خوندي شوې نسخه باید جلا پرتله شي.
+- **د Migration مهم خبرداری:** که د Database → Migration په لېست کې `users.draft_*`، `ad_requests`، `ads` یا `listings` ښکاري، یا د `users.telegram_id` او `users.state` د بدلون خبرداری وي، تر ارزونې مخکې **Start Migration مه وهئ**. دا ښايي د پخواني/بل Schema او اوسني Random Connect Schema ترمنځ اختلاف وي؛ ځینې بدلونونه د معلوماتو یا جدولونو د حذف خطر لري. لومړی د موجودو جدولونو او د بدلونونو بشپړ لېست خوندي کړئ او د معلوماتو د ساتلو لپاره یې یو په یو وارزوئ.
+- د Schema ثبتول او د Database Migration دوه جلا کارونه دي. د Migration لېست کې د `not in schema` مانا دا کېدای شي چې موجود جدول/ستنه په اوسني Schema کې نه تعریفېږي؛ دا په خپله د حذف اجازه نه ده.
