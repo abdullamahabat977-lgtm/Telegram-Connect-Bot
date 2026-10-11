@@ -110,7 +110,7 @@ CREATE TABLE IF NOT EXISTS game_sessions (
 
 فایلونه
 - tgcloud/handlers/message.js — د پیغام handler.
-- tgcloud/schema.js — اته جدولونه: users، admins، required_chats، app_settings، favorites، chat_sessions، user_blocks او reports.
+- tgcloud/schema.js — ۱۳ جدولونه: users، admins، required_chats، app_settings، favorites، chat_sessions، user_blocks، reports، connection_requests، chat_messages، user_ratings، user_likes او game_sessions.
 
 رسمي اسناد
 https://core.telegram.org/bots/serverless
