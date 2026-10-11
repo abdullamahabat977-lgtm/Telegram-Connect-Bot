@@ -299,7 +299,7 @@ function settingsKeyboard(user) {
 }
 function profileSettingsKeyboard(user) {
   const b = tx(user).profileSettingsButtons;
-  return keyboard([[{ text: b[0] }, { text: b[1] }], [{ text: b[2] }, { text: b[3] }], [{ text: b[4] }, { text: b[5] }], [{ text: b[6] }, { text: b[7] }]]);
+  return keyboard([[{ text: b[0] }, { text: b[1] }], [{ text: b[2] }, { text: b[3] }], [{ text: b[4] }, { text: b[5] }], [{ text: b[6] }], [{ text: b[7] }], [{ text: b[8] }]]);
 }
 function photoSettingsKeyboard(user) {
   const b = tx(user).photoSettingsButtons;
