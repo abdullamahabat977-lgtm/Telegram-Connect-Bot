@@ -42,7 +42,7 @@ const T = {
     channelSettingsButtons: ["📢 عام چینل ثبتول/بدلول","🗑 چینل حذفول","🔙 تنظیمات"],
     favoriteSettingsButtons: ["❤️ د پالو ملګرو لېست","🔙 تنظیمات"],
     male: 'نارینه', female: 'ښځینه', admin: '🛡️ د اډمین پینل', adminIntro: 'د اډمین پینل ته ښه راغلاست:',
-    adminButtons: ["👥 د مدیرانو تنظیمات","📢 د غړیتوب ګروپونه","📣 ډله‌ییز اعلان","⚙️ د کارن تنظیمات","👥 د کاروونکو لېست","🔙 اصلي مېنو","🎁 د جایزو تنظیمات","🔗 د اړیکو تنظیمات","🎲 د ګېم تنظیمات"],
+    adminButtons: ["👥 د مدیرانو تنظیمات","📢 د غړیتوب ګروپونه","📣 ډله‌ییز اعلان","⚙️ د کارن تنظیمات","👥 د کاروونکو لېست","🔙 اصلي مېنو","🎁 د جایزو تنظیمات","🔗 د اړیکو تنظیمات","🎲 د ګېم تنظیمات","🏆 لوړ رتبه کسان"],
     adminManagementIntro: "👥 د مدیرانو اداره:",
     adminManagementButtons: ["➕ مدیر زیاتول","➖ مدیر لرې کول","📋 د مدیرانو لېست","🔙 اډمین پینل"],
     askUserSettings: 'د کارن ټیلیګرام عددي ID راولېږه:', userNotFound: 'دا کارن له بوټ سره نه دی یوځای شوی. لومړی باید /start یې کړی وي.',
@@ -86,7 +86,7 @@ const T = {
     channelSettingsButtons: ["📢 ثبت/تغییر کانال عمومی","🗑 حذف کانال","🔙 تنظیمات"],
     favoriteSettingsButtons: ["❤️ فهرست دوستان محبوب","🔙 تنظیمات"],
     male: 'مرد', female: 'زن', admin: '🛡️ پنل مدیریت', adminIntro: 'به پنل مدیریت خوش آمدید:',
-    adminButtons: ["👥 مدیریت مدیران","📢 عضویت اجباری","📣 پیام همگانی","⚙️ تنظیمات کاربر","👥 فهرست کاربران","🔙 منوی اصلی","🎁 تنظیمات جوایز","🔗 تنظیمات ارتباطات","🎲 تنظیمات بازی"],
+    adminButtons: ["👥 مدیریت مدیران","📢 عضویت اجباری","📣 پیام همگانی","⚙️ تنظیمات کاربر","👥 فهرست کاربران","🔙 منوی اصلی","🎁 تنظیمات جوایز","🔗 تنظیمات ارتباطات","🎲 تنظیمات بازی","🏆 رتبه‌بندی برتر"],
     adminManagementIntro: "👥 مدیریت مدیران:",
     adminManagementButtons: ["➕ افزودن مدیر","➖ حذف مدیر","📋 فهرست مدیران","🔙 پنل مدیریت"],
     askUserSettings: 'شناسه عددی تلگرام کاربر را بفرستید:', userNotFound: 'این کاربر هنوز ربات را شروع نکرده است. ابتدا باید /start را زده باشد.',
@@ -129,7 +129,7 @@ const T = {
     channelSettingsButtons: ["📢 Set/change public channel","🗑 Remove channel","🔙 Settings"],
     favoriteSettingsButtons: ["❤️ Favorite friends list","🔙 Settings"],
     male: 'Male', female: 'Female', admin: '🛡️ Admin panel', adminIntro: 'Welcome to the admin panel:',
-    adminButtons: ["👥 Admin management","📢 Required membership","📣 Broadcast","⚙️ User settings","👥 User list","🔙 Main menu","🎁 Reward settings","🔗 Connection settings","🎲 Game settings"],
+    adminButtons: ["👥 Admin management","📢 Required membership","📣 Broadcast","⚙️ User settings","👥 User list","🔙 Main menu","🎁 Reward settings","🔗 Connection settings","🎲 Game settings","🏆 Top rankings"],
     adminManagementIntro: "👥 Admin management:",
     adminManagementButtons: ["➕ Add admin","➖ Remove admin","📋 Admin list","🔙 Admin panel"],
     askUserSettings: 'Send the user Telegram numeric ID:', userNotFound: 'This user has not started the bot. They must send /start first.',
@@ -172,7 +172,7 @@ const T = {
     channelSettingsButtons: ["📢 عوامی چینل لگائیں/بدلیں","🗑 چینل حذف کریں","🔙 ترتیبات"],
     favoriteSettingsButtons: ["❤️ پسندیدہ دوستوں کی فہرست","🔙 ترتیبات"],
     male: 'مرد', female: 'عورت', admin: '🛡️ ایڈمن پینل', adminIntro: 'ایڈمن پینل میں خوش آمدید:',
-    adminButtons: ["👥 ایڈمن مینجمنٹ","📢 لازمی رکنیت","📣 سب کو پیغام","⚙️ صارف کی ترتیبات","👥 صارفین کی فہرست","🔙 مرکزی مینو","🎁 انعامات کی ترتیبات","🔗 رابطے کی ترتیبات","🎲 گیم کی ترتیبات"],
+    adminButtons: ["👥 ایڈمن مینجمنٹ","📢 لازمی رکنیت","📣 سب کو پیغام","⚙️ صارف کی ترتیبات","👥 صارفین کی فہرست","🔙 مرکزی مینو","🎁 انعامات کی ترتیبات","🔗 رابطے کی ترتیبات","🎲 گیم کی ترتیبات","🏆 اعلیٰ رینک"],
     adminManagementIntro: "👥 ایڈمن مینجمنٹ:",
     adminManagementButtons: ["➕ ایڈمن شامل کریں","➖ ایڈمن ہٹائیں","📋 ایڈمنز کی فہرست","🔙 ایڈمن پینل"],
     askUserSettings: 'صارف کا ٹیلیگرام عددی ID بھیجیں:', userNotFound: 'اس صارف نے ابھی بوٹ شروع نہیں کیا۔ اسے پہلے /start کرنا ہوگا۔',
@@ -215,7 +215,7 @@ const T = {
     channelSettingsButtons: ["📢 إضافة/تغيير قناة عامة","🗑 حذف القناة","🔙 الإعدادات"],
     favoriteSettingsButtons: ["❤️ قائمة الأصدقاء المفضلين","🔙 الإعدادات"],
     male: 'ذكر', female: 'أنثى', admin: '🛡️ لوحة الإدارة', adminIntro: 'مرحبًا بك في لوحة الإدارة:',
-    adminButtons: ["👥 إدارة المديرين","📢 العضوية الإلزامية","📣 رسالة جماعية","⚙️ إعدادات المستخدم","👥 قائمة المستخدمين","🔙 القائمة الرئيسية","🎁 إعدادات المكافآت","🔗 إعدادات الاتصال","🎲 إعدادات اللعبة"],
+    adminButtons: ["👥 إدارة المديرين","📢 العضوية الإلزامية","📣 رسالة جماعية","⚙️ إعدادات المستخدم","👥 قائمة المستخدمين","🔙 القائمة الرئيسية","🎁 إعدادات المكافآت","🔗 إعدادات الاتصال","🎲 إعدادات اللعبة","🏆 أعلى التصنيفات"],
     adminManagementIntro: "👥 إدارة المديرين:",
     adminManagementButtons: ["➕ إضافة مدير","➖ إزالة مدير","📋 قائمة المديرين","🔙 لوحة الإدارة"],
     askUserSettings: 'أرسل رقم Telegram الخاص بالمستخدم:', userNotFound: 'هذا المستخدم لم يبدأ البوت بعد. يجب أن يرسل /start أولاً.',
@@ -315,7 +315,7 @@ function favoriteSettingsKeyboard(user) {
 }
 function adminKeyboard(user) {
   const b = tx(user).adminButtons;
-  return keyboard([[{ text: b[0] }], [{ text: b[1] }, { text: b[2] }], [{ text: b[3] }, { text: b[4] }], [{ text: b[5] }], [{ text: b[6] }], [{ text: b[7] }, { text: b[8] }]]);
+  return keyboard([[{ text: b[0] }], [{ text: b[1] }, { text: b[2] }], [{ text: b[3] }, { text: b[4] }], [{ text: b[5] }], [{ text: b[6] }], [{ text: b[7] }, { text: b[8] }], [{ text: b[9] }]]);
 }
 function adminManagementKeyboard(user) {
   const b = tx(user).adminManagementButtons;
@@ -392,7 +392,7 @@ function actionFor(input) {
       ['profileSettings', t.settingsButtons[0]], ['favoriteSettings', t.settingsButtons[1]],
       ['connectionSettings', t.settingsButtons[2]], ['rewardSettings', t.adminButtons[6]],
       ['adminManagement', t.adminButtons[0]], ['channels', t.adminButtons[1]], ['broadcast', t.adminButtons[2]],
-      ['userSettings', t.adminButtons[3]], ['usersList', t.adminButtons[4]], ['rewardSettings', t.adminButtons[6]], ['connectionAdminSettings', t.adminButtons[7]], ['gameAdminSettings', t.adminButtons[8]],
+      ['userSettings', t.adminButtons[3]], ['usersList', t.adminButtons[4]], ['rewardSettings', t.adminButtons[6]], ['connectionAdminSettings', t.adminButtons[7]], ['gameAdminSettings', t.adminButtons[8]], ['leaderboards', t.adminButtons[9]],
       ['adminAdd', t.adminManagementButtons[0]], ['adminRemove', t.adminManagementButtons[1]],
       ['adminsList', t.adminManagementButtons[2]], ['cancel', t.cancel], ['skip', t.skip],
       ['photoSet', t.photoSettingsButtons[0]], ['photoRemove', t.photoSettingsButtons[1]],
@@ -425,7 +425,7 @@ async function ensureInlinePromptTracking() {
   }
   inlinePromptTrackingReady = true;
 }
-async function sendPrompt(chatId, text, markup, user) {
+async function sendPrompt(chatId, text, markup, user, parseMode) {
   await ensureInlinePromptTracking();
   if (user) {
     const latest = await db.select({ last_prompt_id: users.last_prompt_id }).from(users)
@@ -435,7 +435,7 @@ async function sendPrompt(chatId, text, markup, user) {
   if (user && Number(user.last_prompt_id) > 0) {
     await safeDelete(chatId, Number(user.last_prompt_id));
   }
-  const sent = await api.sendMessage({ chat_id: chatId, text: text, reply_markup: markup });
+  const sent = await api.sendMessage({ chat_id: chatId, text: text, reply_markup: markup, ...(parseMode ? { parse_mode: parseMode } : {}) });
   if (user) {
     const inlineId = markup && Array.isArray(markup.inline_keyboard) && sent && sent.message_id ? sent.message_id : 0;
     await db.update(users).set({ last_prompt_id: inlineId }).where(eq(users.telegram_id, Number(user.telegram_id))).run();
@@ -609,19 +609,31 @@ async function showSettingsSection(chatId, user, state, text, markup) {
   await db.update(users).set({ state }).where(eq(users.telegram_id, Number(user.telegram_id))).run();
   await sendPrompt(chatId, text, markup, user);
 }
+function escapeHtml(value) {
+  return String(value == null ? '' : value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function rankingName(row) {
+  return [row.name || row.first_name || row.username || 'کارن', row.surname || ''].filter(Boolean).join(' ');
+}
+async function topReferralText(allUsers) {
+  const top = allUsers.slice().sort((a, b) => Number(b.referral_count || 0) - Number(a.referral_count || 0)).filter(row => Number(row.referral_count || 0) > 0).slice(0, 5);
+  if (!top.length) return 'تر اوسه ریفرل نه شته.';
+  return top.map((row, i) => (i + 1) + '. ' + escapeHtml(rankingName(row)) + ' — ریفرلونه: ' + Number(row.referral_count || 0) + ' — ID: <code>' + Number(row.telegram_id) + '</code>').join('\\n');
+}
 async function showStats(chatId, user) {
   const t = tx(user), allUsers = await db.select().from(users).all();
   const cutoff = Date.now() - 15 * 60 * 1000;
   const onlineUsers = allUsers.filter(row => row.last_active_at && Date.parse(row.last_active_at) >= cutoff);
   const favCount = await db.$count(favorites, eq(favorites.user_telegram_id, Number(user.telegram_id)));
   if (await isAdmin(user.telegram_id)) {
-    const text = '📊 د بوټ احصائیې\n━━━━━━━━━━━━━━\n\n👥 ټول کاروونکي: ' + allUsers.length +
-      '\n\n🟢 آنلاین کاروونکي: ' + onlineUsers.length;
-    await sendPrompt(chatId, text, menuKeyboard(user, true), user);
+    const topRefs = await topReferralText(allUsers);
+    const text = '📊 د بوټ احصائیې\\n━━━━━━━━━━━━━━\\n\\n👥 ټول کاروونکي: ' + allUsers.length +
+      '\\n\\n🟢 آنلاین کاروونکي: ' + onlineUsers.length + '\\n\\n🏆 تر ټولو ډېر ریفرل لرونکي ۵ کسان:\\n\\n' + topRefs;
+    await sendPrompt(chatId, text, menuKeyboard(user, true), user, 'HTML');
   } else {
-    const text = t.stats + '\n━━━━━━━━━━━━━━\n\n📨 ستا ریفرلونه: ' + Number(user.referral_count || 0) +
-      '\n\n❤️ پالو ملګري: ' + favCount + '\n\n⭐ ستوري: ' + Number(user.stars || 0) +
-      '\n\n🏆 نمرې: ' + Number(user.points || 0) + '\n\n❤️ لایکونه: ' + Number(user.likes || 0);
+    const text = t.stats + '\\n━━━━━━━━━━━━━━\\n\\n📨 ستا ریفرلونه: ' + Number(user.referral_count || 0) +
+      '\\n\\n❤️ پالو ملګري: ' + favCount + '\\n\\n⭐ ستوري: ' + Number(user.stars || 0) +
+      '\\n\\n🏆 نمرې: ' + Number(user.points || 0) + '\\n\\n❤️ لایکونه: ' + Number(user.likes || 0);
     await sendPrompt(chatId, text, menuKeyboard(user, false), user);
   }
 }
@@ -1091,14 +1103,22 @@ async function processMessage(message) {
     const welcomeLikes = Number(await getSetting('welcome_reward_likes', 2));
     await db.update(users).set({ stars: Number(user.stars || 0) + welcomeStars, points: Number(user.points || 0) + welcomePoints, likes: Number(user.likes || 0) + welcomeLikes, welcome_reward_claimed: 1 }).where(eq(users.telegram_id, id)).run();
     user.stars = Number(user.stars || 0) + welcomeStars; user.points = Number(user.points || 0) + welcomePoints; user.likes = Number(user.likes || 0) + welcomeLikes; user.welcome_reward_claimed = 1;
-    const welcomeText = user.language === 'en' ? '🎉 Welcome! Your welcome reward has been added.\\n\\n⭐ +' + welcomeStars + ' stars\\n\\n🏆 +' + welcomePoints + ' points\\n\\n❤️ +' + welcomeLikes + ' likes' : user.language === 'fa' ? '🎉 خوش آمدی! جایزه خوش‌آمدگویی اضافه شد.\\n\\n⭐ +' + welcomeStars + ' ستاره\\n\\n🏆 +' + welcomePoints + ' امتیاز\\n\\n❤️ +' + welcomeLikes + ' لایک' : user.language === 'ur' ? '🎉 خوش آمدید! آپ کا استقبالی انعام شامل کر دیا گیا ہے۔\\n\\n⭐ +' + welcomeStars + ' ستارے\\n\\n🏆 +' + welcomePoints + ' پوائنٹس\\n\\n❤️ +' + welcomeLikes + ' لائکس' : user.language === 'ar' ? '🎉 أهلاً بك! تمت إضافة مكافأة الترحيب.\\n\\n⭐ +' + welcomeStars + ' نجوم\\n\\n🏆 +' + welcomePoints + ' نقاط\\n\\n❤️ +' + welcomeLikes + ' إعجابات' : '🎉 ښه راغلاست! ستا د ښه راغلاست جایزه درکړل شوه.\\n\\n⭐ +' + welcomeStars + ' ستوري\\n\\n🏆 +' + welcomePoints + ' نمرې\\n\\n❤️ +' + welcomeLikes + ' لایکونه';
-    try { await api.sendMessage({ chat_id: chatId, text: welcomeText.replaceAll('\\\\n','\\n') }); } catch (e) {}
+    const welcomeText = user.language === 'en'
+      ? '🎉 Welcome! Your welcome reward has been added to your account.\\n\\n⭐ Stars: +' + welcomeStars + '\\n🏆 Points: +' + welcomePoints + '\\n❤️ Likes: +' + welcomeLikes
+      : user.language === 'fa'
+        ? '🎉 خوش آمدید! جایزه خوش‌آمدگویی به حساب شما اضافه شد.\\n\\n⭐ ستاره: +' + welcomeStars + '\\n🏆 امتیاز: +' + welcomePoints + '\\n❤️ لایک: +' + welcomeLikes
+        : user.language === 'ur'
+          ? '🎉 خوش آمدید! آپ کا استقبالی انعام آپ کے اکاؤنٹ میں شامل کر دیا گیا ہے۔\\n\\n⭐ ستارے: +' + welcomeStars + '\\n🏆 پوائنٹس: +' + welcomePoints + '\\n❤️ لائکس: +' + welcomeLikes
+          : user.language === 'ar'
+            ? '🎉 أهلاً بك! أُضيفت مكافأة الترحيب إلى حسابك.\\n\\n⭐ النجوم: +' + welcomeStars + '\\n🏆 النقاط: +' + welcomePoints + '\\n❤️ الإعجابات: +' + welcomeLikes
+            : '🎉 ښه راغلاست! ستا د ښه راغلاست جایزه ستا حساب ته اضافه شوه.\\n\\n⭐ ستوري: +' + welcomeStars + '\\n🏆 نمرې: +' + welcomePoints + '\\n❤️ لایکونه: +' + welcomeLikes;
+    try { await api.sendMessage({ chat_id: chatId, text: welcomeText }); } catch (e) { console.error('Welcome reward notification failed', e); }
   }
   const sessionBeforeMaintenance = await activeSessionFor(id);
-  await maintainConnections();
+  try { await maintainConnections(); } catch (e) { console.error('Connection timeout check failed', e); }
   if (sessionBeforeMaintenance && !(await activeSessionFor(id))) return;
-  await tryOfferSearches();
-  await tryMatchGames();
+  try { await tryOfferSearches(); } catch (e) { console.error('Connection request timeout/matching check failed', e); }
+  try { await tryMatchGames(); } catch (e) { console.error('Game timeout/matching check failed', e); }
   // Keep user messages visible; only replace the bot's previous prompt.
   const protectedStates = ['admin_menu', 'admin_management_menu', 'admin_channels_menu', 'waiting_admin_id', 'waiting_remove_admin_id', 'waiting_channel_details', 'waiting_remove_channel_id', 'waiting_broadcast', 'waiting_user_settings_id'];
   const adminEditState = /^(admin_edit_user_photo|admin_send_user_message):\d+$/.test(String(user.state || '')) || /^admin_adjust_balance:(stars|points|likes):(add|sub):\d+$/.test(String(user.state || '')) || /^admin_edit_user_(name|surname):\d+$/.test(String(user.state || ''));
@@ -1444,10 +1464,11 @@ async function processMessage(message) {
   if (user.state === 'admin_menu') {
     if (!(await isAdmin(id))) { user.state = 'ready'; await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, tx(user).noAccess, menuKeyboard(user, false), user); return; }
     const i = tx(user).adminButtons.indexOf(input);
-    const field = i >= 0 ? ['adminManagement','channels','broadcast','userSettings','usersList','back','rewardSettings','connectionAdminSettings','gameAdminSettings'][i] : action;
+    const field = i >= 0 ? ['adminManagement','channels','broadcast','userSettings','usersList','back','rewardSettings','connectionAdminSettings','gameAdminSettings','leaderboards'][i] : action;
     if (field === 'rewardSettings') { await renderAdminRewardSettings(chatId, user); return; }
     if (field === 'connectionAdminSettings') { await renderAdminConnectionSettings(chatId, user); return; }
     if (field === 'gameAdminSettings') { await renderAdminGameSettings(chatId, user); return; }
+    if (field === 'leaderboards') { await sendPrompt(chatId, '🏆 لوړ رتبه کسان\\n\\nلاندې درجه‌بندي وټاکه:', { inline_keyboard: [[{ text: '🏆 تر ټولو ډېرې نمرې', callback_data: 'admin:rank:points' }], [{ text: '📨 تر ټولو ډېر ریفرلونه', callback_data: 'admin:rank:referrals' }], [{ text: '👥 تر ټولو ډېر فالو', callback_data: 'admin:rank:follows' }], [{ text: '❤️ تر ټولو ډېر لایکونه', callback_data: 'admin:rank:likes' }], [{ text: '🔙 اډمین پینل', callback_data: 'admin:panel' }]] }, user); return; }
     if (field === 'adminManagement') {
       user.state = 'admin_management_menu'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run();
       await sendPrompt(chatId, tx(user).adminManagementIntro, adminManagementKeyboard(user), user);
