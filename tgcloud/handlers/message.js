@@ -626,16 +626,17 @@ async function showStats(chatId, user) {
   const cutoff = Date.now() - 15 * 60 * 1000;
   const onlineUsers = allUsers.filter(row => row.last_active_at && Date.parse(row.last_active_at) >= cutoff);
   const favCount = await db.$count(favorites, eq(favorites.user_telegram_id, Number(user.telegram_id)));
+  const topRefs = await topReferralText(allUsers);
   if (await isAdmin(user.telegram_id)) {
-    const topRefs = await topReferralText(allUsers);
     const text = '📊 د بوټ احصائیې\n━━━━━━━━━━━━━━\n\n👥 ټول کاروونکي: ' + allUsers.length +
       '\n\n🟢 آنلاین کاروونکي: ' + onlineUsers.length + '\n\n🏆 تر ټولو ډېر ریفرل لرونکي ۵ کسان:\n\n' + topRefs;
     await sendPrompt(chatId, text, menuKeyboard(user, true), user, 'HTML');
   } else {
     const text = t.stats + '\n━━━━━━━━━━━━━━\n\n📨 ستا ریفرلونه: ' + Number(user.referral_count || 0) +
       '\n\n❤️ پالو ملګري: ' + favCount + '\n\n⭐ ستوري: ' + Number(user.stars || 0) +
-      '\n\n🏆 نمرې: ' + Number(user.points || 0) + '\n\n❤️ لایکونه: ' + Number(user.likes || 0);
-    await sendPrompt(chatId, text, menuKeyboard(user, false), user);
+      '\n\n🏆 نمرې: ' + Number(user.points || 0) + '\n\n❤️ لایکونه: ' + Number(user.likes || 0) +
+      '\n\n🏆 د بوټ تر ټولو ډېر ریفرل لرونکي ۵ کسان:\n\n' + topRefs;
+    await sendPrompt(chatId, text, menuKeyboard(user, false), user, 'HTML');
   }
 }
 async function showReferral(chatId, user) {
