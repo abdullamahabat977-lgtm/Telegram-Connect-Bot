@@ -1,7 +1,7 @@
 import { api, db } from 'sdk';
 import { eq } from 'sdk/db';
 import { users, admins, required_chats, app_settings, favorites, chat_sessions, connection_requests, chat_messages, user_ratings, user_likes, game_sessions, user_blocks, reports } from '../schema.js';
-import { ROOT_ADMINS, LANGUAGES, COUNTRIES, AGES, languageKeyboard, countryKeyboard, ensureInlinePromptTracking, requiredChatInfo, listWords, isFollowing, otherSessionUser } from '../lib/shared.js';
+import { ROOT_ADMINS, LANGUAGES, COUNTRIES, AGES, languageKeyboard, countryKeyboard, ensureInlinePromptTracking, requiredChatInfo, listWords, isFollowing, otherSessionUser, getUser, safeDelete, isAdmin } from '../lib/shared.js';
 import { TEXT } from '../lib/callback-text.js';
 
 
@@ -35,13 +35,6 @@ const ADMIN_UI = {
 };
 function tx(user) {
   return TEXT[user && TEXT[user.language] ? user.language : 'ps'];
-}
-async function getUser(id) {
-  return await db.select().from(users).where(eq(users.telegram_id, Number(id))).get();
-}
-async function safeDelete(chatId, messageId) {
-  if (!messageId) return;
-  try { await api.deleteMessage({ chat_id: chatId, message_id: Number(messageId) }); } catch (e) {}
 }
 async function sendPrompt(chatId, text, markup, user, parseMode) {
   await ensureInlinePromptTracking();
@@ -99,10 +92,6 @@ async function checkMembership(id) {
     } catch (e) { return false; }
   }
   return true;
-}
-async function isAdmin(id) {
-  if (ROOT_ADMINS.includes(Number(id))) return true;
-  return Boolean(await db.select().from(admins).where(eq(admins.telegram_id, Number(id))).get());
 }
 function mainKeyboard(user, admin) {
   const m = tx(user).menu;
