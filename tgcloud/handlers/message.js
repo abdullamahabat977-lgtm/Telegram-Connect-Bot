@@ -618,7 +618,7 @@ function rankingName(row) {
 async function topReferralText(allUsers) {
   const top = allUsers.slice().sort((a, b) => Number(b.referral_count || 0) - Number(a.referral_count || 0)).filter(row => Number(row.referral_count || 0) > 0).slice(0, 5);
   if (!top.length) return 'تر اوسه ریفرل نه شته.';
-  return top.map((row, i) => (i + 1) + '. ' + escapeHtml(rankingName(row)) + ' — ریفرلونه: ' + Number(row.referral_count || 0) + ' — ID: <code>' + Number(row.telegram_id) + '</code>').join('\\n');
+  return top.map((row, i) => (i + 1) + '. ' + escapeHtml(rankingName(row)) + ' — ریفرلونه: ' + Number(row.referral_count || 0) + ' — ID: <code>' + Number(row.telegram_id) + '</code>').join('\n');
 }
 async function showStats(chatId, user) {
   const t = tx(user), allUsers = await db.select().from(users).all();
@@ -627,13 +627,13 @@ async function showStats(chatId, user) {
   const favCount = await db.$count(favorites, eq(favorites.user_telegram_id, Number(user.telegram_id)));
   if (await isAdmin(user.telegram_id)) {
     const topRefs = await topReferralText(allUsers);
-    const text = '📊 د بوټ احصائیې\\n━━━━━━━━━━━━━━\\n\\n👥 ټول کاروونکي: ' + allUsers.length +
-      '\\n\\n🟢 آنلاین کاروونکي: ' + onlineUsers.length + '\\n\\n🏆 تر ټولو ډېر ریفرل لرونکي ۵ کسان:\\n\\n' + topRefs;
+    const text = '📊 د بوټ احصائیې\n━━━━━━━━━━━━━━\n\n👥 ټول کاروونکي: ' + allUsers.length +
+      '\n\n🟢 آنلاین کاروونکي: ' + onlineUsers.length + '\n\n🏆 تر ټولو ډېر ریفرل لرونکي ۵ کسان:\n\n' + topRefs;
     await sendPrompt(chatId, text, menuKeyboard(user, true), user, 'HTML');
   } else {
-    const text = t.stats + '\\n━━━━━━━━━━━━━━\\n\\n📨 ستا ریفرلونه: ' + Number(user.referral_count || 0) +
-      '\\n\\n❤️ پالو ملګري: ' + favCount + '\\n\\n⭐ ستوري: ' + Number(user.stars || 0) +
-      '\\n\\n🏆 نمرې: ' + Number(user.points || 0) + '\\n\\n❤️ لایکونه: ' + Number(user.likes || 0);
+    const text = t.stats + '\n━━━━━━━━━━━━━━\n\n📨 ستا ریفرلونه: ' + Number(user.referral_count || 0) +
+      '\n\n❤️ پالو ملګري: ' + favCount + '\n\n⭐ ستوري: ' + Number(user.stars || 0) +
+      '\n\n🏆 نمرې: ' + Number(user.points || 0) + '\n\n❤️ لایکونه: ' + Number(user.likes || 0);
     await sendPrompt(chatId, text, menuKeyboard(user, false), user);
   }
 }
@@ -1104,14 +1104,14 @@ async function processMessage(message) {
     await db.update(users).set({ stars: Number(user.stars || 0) + welcomeStars, points: Number(user.points || 0) + welcomePoints, likes: Number(user.likes || 0) + welcomeLikes, welcome_reward_claimed: 1 }).where(eq(users.telegram_id, id)).run();
     user.stars = Number(user.stars || 0) + welcomeStars; user.points = Number(user.points || 0) + welcomePoints; user.likes = Number(user.likes || 0) + welcomeLikes; user.welcome_reward_claimed = 1;
     const welcomeText = user.language === 'en'
-      ? '🎉 Welcome! Your welcome reward has been added to your account.\\n\\n⭐ Stars: +' + welcomeStars + '\\n🏆 Points: +' + welcomePoints + '\\n❤️ Likes: +' + welcomeLikes
+      ? '🎉 Welcome! Your welcome reward has been added to your account.\n\n⭐ Stars: +' + welcomeStars + '\n🏆 Points: +' + welcomePoints + '\n❤️ Likes: +' + welcomeLikes
       : user.language === 'fa'
-        ? '🎉 خوش آمدید! جایزه خوش‌آمدگویی به حساب شما اضافه شد.\\n\\n⭐ ستاره: +' + welcomeStars + '\\n🏆 امتیاز: +' + welcomePoints + '\\n❤️ لایک: +' + welcomeLikes
+        ? '🎉 خوش آمدید! جایزه خوش‌آمدگویی به حساب شما اضافه شد.\n\n⭐ ستاره: +' + welcomeStars + '\n🏆 امتیاز: +' + welcomePoints + '\n❤️ لایک: +' + welcomeLikes
         : user.language === 'ur'
-          ? '🎉 خوش آمدید! آپ کا استقبالی انعام آپ کے اکاؤنٹ میں شامل کر دیا گیا ہے۔\\n\\n⭐ ستارے: +' + welcomeStars + '\\n🏆 پوائنٹس: +' + welcomePoints + '\\n❤️ لائکس: +' + welcomeLikes
+          ? '🎉 خوش آمدید! آپ کا استقبالی انعام آپ کے اکاؤنٹ میں شامل کر دیا گیا ہے۔\n\n⭐ ستارے: +' + welcomeStars + '\n🏆 پوائنٹس: +' + welcomePoints + '\n❤️ لائکس: +' + welcomeLikes
           : user.language === 'ar'
-            ? '🎉 أهلاً بك! أُضيفت مكافأة الترحيب إلى حسابك.\\n\\n⭐ النجوم: +' + welcomeStars + '\\n🏆 النقاط: +' + welcomePoints + '\\n❤️ الإعجابات: +' + welcomeLikes
-            : '🎉 ښه راغلاست! ستا د ښه راغلاست جایزه ستا حساب ته اضافه شوه.\\n\\n⭐ ستوري: +' + welcomeStars + '\\n🏆 نمرې: +' + welcomePoints + '\\n❤️ لایکونه: +' + welcomeLikes;
+            ? '🎉 أهلاً بك! أُضيفت مكافأة الترحيب إلى حسابك.\n\n⭐ النجوم: +' + welcomeStars + '\n🏆 النقاط: +' + welcomePoints + '\n❤️ الإعجابات: +' + welcomeLikes
+            : '🎉 ښه راغلاست! ستا د ښه راغلاست جایزه ستا حساب ته اضافه شوه.\n\n⭐ ستوري: +' + welcomeStars + '\n🏆 نمرې: +' + welcomePoints + '\n❤️ لایکونه: +' + welcomeLikes;
     try { await api.sendMessage({ chat_id: chatId, text: welcomeText }); } catch (e) { console.error('Welcome reward notification failed', e); }
   }
   const sessionBeforeMaintenance = await activeSessionFor(id);
