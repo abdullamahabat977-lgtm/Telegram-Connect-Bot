@@ -37,7 +37,9 @@ Random Connect د کاروونکي ثبت، اجباري غړیتوب، تصاد
 - د Telegram محدودیت له مخې بوټ د کارن اصلي پیغامونه په شخصي چټ کې نه شي حذفولای؛ د حذف تڼۍ یوازې د ملګري هغه کاپي شوي پیغامونه حذفوي چې بوټ په تېرو ۱۰ دقیقو کې کارن ته لېږلي وي.
 - د غړیتوب د کتلو لپاره بوټ باید په هر اجباري ګروپ یا چینل کې د اړینې اجازې لرونکی وي.
 - GitHub ته د کوډ ثبتول په خپله ژوندی Serverless کوډ نه بدلوي. لومړی کوډ Deploy/Push کړه، بیا د Database د Migration بدلونونه په دقت وګوره او تطبیق یې کړه. هېڅ خطرناک یا د حذف بدلون مه تاییدوه تر څو یې اغېز روښانه نه وي.
-- د users جدول کې نوي فیلډونه: `profile_photo_id`، `channel_username`، `stars`، `points`، `likes`، `last_active_at`، `connection_request_mode`، `welcome_reward_claimed`، `profile_visibility`، `search_gender` او `search_language` دي. د chat_sessions جدول کې `last_activity_at` او `end_reason` هم ورزیات شوي. د نوي کوډ له Deploy مخکې د موجودو معلوماتو له حذف پرته migration تطبیق کړه.
+- د prompt tracking لپاره `users.last_prompt_id` هم اړین دی؛ که په موجود جدول کې نه وي، د migration کرښه یې اجرا کړه. د `user_blocks` او `reports` جدولونه هم د `CREATE TABLE IF NOT EXISTS` له لارې جوړېږي او موجود معلومات نه حذفوي. که د دغو جدولونو/فیلډونو له ډلې کوم یو مخکې موجود وي، تکراري ALTER مه اجرا کوه.
+
+د users جدول کې نوي فیلډونه: `profile_photo_id`، `channel_username`، `stars`، `points`، `likes`، `last_active_at`، `connection_request_mode`، `welcome_reward_claimed`، `profile_visibility`، `search_gender` او `search_language` دي. د chat_sessions جدول کې `last_activity_at` او `end_reason` هم ورزیات شوي. د نوي کوډ له Deploy مخکې د موجودو معلوماتو له حذف پرته migration تطبیق کړه.
 - لاندې migration کې د پخوانیو او نویو فیلډونو ټول اړین ALTER او CREATE بیانونه راغلي. هر ALTER یوازې هغه وخت اجرا کړه چې فیلډ موجود نه وي؛ که موجود وي، هغه کرښه پرېږده.
 - د ښه راغلاست جایزه ډیفالټ ۱۰ ستوري، ۳ نمرې او ۲ لایکونه ده؛ هر کارن یې یوازې یو ځل اخلي. د ریفرل جایزه ډیفالټ ۱۵ ستوري، ۵ نمرې او ۲ لایکونه ده؛ دواړه جایزې د اډمین له پینل څخه بدلېدای شي.
 - د آنلاین شمېر معیار د وروستیو ۱۵ دقیقو فعالیت دی؛ د کارن پیغام او د بوټ بټن کلیک د فعالیت وخت تازه کوي.
@@ -56,6 +58,25 @@ ALTER TABLE users ADD COLUMN search_gender TEXT NOT NULL DEFAULT 'auto';
 ALTER TABLE users ADD COLUMN search_language TEXT NOT NULL DEFAULT 'auto';
 ALTER TABLE chat_sessions ADD COLUMN last_activity_at TEXT;
 ALTER TABLE chat_sessions ADD COLUMN end_reason TEXT;
+ALTER TABLE users ADD COLUMN last_prompt_id INTEGER NOT NULL DEFAULT 0;
+
+CREATE TABLE IF NOT EXISTS user_blocks (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  blocker_telegram_id INTEGER NOT NULL,
+  blocked_telegram_id INTEGER NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS reports (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  reporter_telegram_id INTEGER NOT NULL,
+  reported_telegram_id INTEGER NOT NULL,
+  reason TEXT,
+  status TEXT NOT NULL DEFAULT 'pending',
+  reviewed_by INTEGER,
+  reviewed_at TEXT,
+  created_at TEXT NOT NULL
+);
 
 CREATE TABLE IF NOT EXISTS connection_requests (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
