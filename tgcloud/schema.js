@@ -18,6 +18,10 @@ export const users = table('users', {
   likes: integer('likes').notNull().default(0),
   last_active_at: text('last_active_at'),
   connection_request_mode: text('connection_request_mode').notNull().default('all'),
+  welcome_reward_claimed: integer('welcome_reward_claimed').notNull().default(0),
+  profile_visibility: text('profile_visibility').notNull().default('everyone'),
+  search_gender: text('search_gender').notNull().default('auto'),
+  search_language: text('search_language').notNull().default('auto'),
   state: text('state').notNull().default('choose_language'),
   is_blocked: integer('is_blocked').notNull().default(0),
   referrer_id: integer('referrer_id'),
@@ -62,6 +66,8 @@ export const chat_sessions = table('chat_sessions', {
   created_at: text('created_at').notNull(),
   connected_at: text('connected_at'),
   ended_at: text('ended_at'),
+  last_activity_at: text('last_activity_at'),
+  end_reason: text('end_reason'),
 });
 
 export const user_blocks = table('user_blocks', {
@@ -80,4 +86,56 @@ export const reports = table('reports', {
   reviewed_by: integer('reviewed_by'),
   reviewed_at: text('reviewed_at'),
   created_at: text('created_at').notNull(),
+});
+
+export const connection_requests = table('connection_requests', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  requester_id: integer('requester_id').notNull(),
+  recipient_id: integer('recipient_id'),
+  status: text('status').notNull().default('searching'),
+  request_type: text('request_type').notNull().default('random'),
+  gender_filter: text('gender_filter').notNull().default('auto'),
+  language_filter: text('language_filter').notNull().default('auto'),
+  created_at: text('created_at').notNull(),
+  updated_at: text('updated_at').notNull(),
+});
+
+export const chat_messages = table('chat_messages', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  session_id: integer('session_id').notNull(),
+  sender_id: integer('sender_id').notNull(),
+  recipient_id: integer('recipient_id').notNull(),
+  recipient_message_id: integer('recipient_message_id').notNull(),
+  created_at: text('created_at').notNull(),
+});
+
+export const user_ratings = table('user_ratings', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  session_id: integer('session_id').notNull(),
+  rater_id: integer('rater_id').notNull(),
+  rated_id: integer('rated_id').notNull(),
+  rating: integer('rating').notNull(),
+  created_at: text('created_at').notNull(),
+});
+
+export const user_likes = table('user_likes', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  liker_id: integer('liker_id').notNull(),
+  liked_id: integer('liked_id').notNull(),
+  created_at: text('created_at').notNull(),
+});
+
+export const game_sessions = table('game_sessions', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  player_id: integer('player_id').notNull(),
+  opponent_id: integer('opponent_id'),
+  status: text('status').notNull().default('waiting'),
+  player_roll: integer('player_roll'),
+  opponent_roll: integer('opponent_roll'),
+  created_at: text('created_at').notNull(),
+  updated_at: text('updated_at').notNull(),
+  fee_stars: text('fee_stars').notNull().default('0.5'),
+  win_stars: text('win_stars').notNull().default('3'),
+  bot_loss_total_stars: text('bot_loss_total_stars').notNull().default('3.5'),
+  points_award: integer('points_award').notNull().default(1),
 });
