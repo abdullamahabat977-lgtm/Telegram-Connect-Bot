@@ -583,32 +583,89 @@ async function endConnection(session, reason) {
     try { await sendPrompt(pair.id, '🛑 اړیکه پای ته ورسېده.\n\n👤 د تېر ملګري نوم: ' + name + '\n\nراپور، فالو یا د هغه له خوا درلېږل شوي د وروستیو ۱۰ دقیقو پیغامونه حذفول انتخاب کړه.', { inline_keyboard: rows }, user); } catch (e) {}
   }
 }
-async function maintainConnections() {
-  const idleMinutes = Number(await getSetting('connection_idle_minutes', 5)), maxMinutes = Number(await getSetting('connection_max_minutes', 40));
-  const now = Date.now(), sessions = await db.select().from(chat_sessions).all();
-  for (const session of sessions.filter(row => row.status === 'connected')) {
+async function expireUserTimedActions(userId) {
+  const id = Number(userId), user = await getUser(id);
+  if (!user) return false;
+  const now = Date.now();
+  let expired = false, notifiedActor = false;
+  const session = await activeSessionFor(id);
+  if (session) {
+    const idleMinutes = Number(await getSetting('connection_idle_minutes', 5));
+    const maxMinutes = Number(await getSetting('connection_max_minutes', 40));
     const last = Date.parse(session.last_activity_at || session.connected_at || session.created_at || '');
     const start = Date.parse(session.connected_at || session.created_at || '');
     if ((Number.isFinite(last) && now - last >= idleMinutes * 60000) || (Number.isFinite(start) && now - start >= maxMinutes * 60000)) {
       await endConnection(session, Number.isFinite(last) && now - last >= idleMinutes * 60000 ? 'idle_timeout' : 'max_duration');
+      expired = true; notifiedActor = true;
     }
   }
+  const connectionWait = Math.max(1, Number(await getSetting('connection_search_seconds', 120)) || 120);
+  const requests = await db.select().from(connection_requests).all();
+  for (const search of requests.filter(row => Number(row.requester_id) === id && row.status === 'searching' && !row.recipient_id)) {
+    const age = now - Date.parse(search.created_at || '');
+    if (Number.isFinite(age) && age < connectionWait * 1000) continue;
+    await db.update(connection_requests).set({ status: 'expired', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, Number(search.id))).run();
+    search.status = 'expired';
+    for (const offer of requests.filter(row => Number(row.requester_id) === id && row.status === 'pending')) {
+      await db.update(connection_requests).set({ status: 'expired', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, Number(offer.id))).run();
+      offer.status = 'expired';
+      if (Number(offer.recipient_id) > 0) try { await api.sendMessage({ chat_id: Number(offer.recipient_id), text: '⌛ د اړیکې غوښتنه د وخت د تېرېدو له امله لغوه شوه.' }); } catch (e) {}
+    }
+    if (user.state === 'searching_connection') await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, id)).run();
+    expired = true;
+  }
+  for (const offer of requests.filter(row => Number(row.recipient_id) === id && row.status === 'pending')) {
+    const sourceSearch = requests.find(row => Number(row.requester_id) === Number(offer.requester_id) && row.status === 'searching' && !row.recipient_id);
+    const sourceAge = sourceSearch ? now - Date.parse(sourceSearch.created_at || '') : NaN;
+    if (sourceSearch && Number.isFinite(sourceAge) && sourceAge < connectionWait * 1000) continue;
+    await db.update(connection_requests).set({ status: 'expired', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, Number(offer.id))).run();
+    offer.status = 'expired';
+    if (sourceSearch) {
+      await db.update(connection_requests).set({ status: 'expired', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, Number(sourceSearch.id))).run();
+      sourceSearch.status = 'expired';
+      const requester = await getUser(sourceSearch.requester_id);
+      if (requester) {
+        if (requester.state === 'searching_connection') await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, Number(requester.telegram_id))).run();
+        try { await api.sendMessage({ chat_id: Number(requester.telegram_id), text: '⌛ د ملګري لټون وخت پای ته ورسېد؛ غوښتنه لغوه شوه. بیا هڅه وکړه.' }); } catch (e) {}
+      }
+      for (const otherOffer of requests.filter(row => Number(row.requester_id) === Number(sourceSearch.requester_id) && row.status === 'pending')) {
+        await db.update(connection_requests).set({ status: 'expired', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, Number(otherOffer.id))).run();
+        otherOffer.status = 'expired';
+        if (Number(otherOffer.recipient_id) > 0 && Number(otherOffer.recipient_id) !== id) try { await api.sendMessage({ chat_id: Number(otherOffer.recipient_id), text: '⌛ د اړیکې غوښتنه د وخت د تېرېدو له امله لغوه شوه.' }); } catch (e) {}
+      }
+    }
+    expired = true;
+  }
+  const gameWait = Math.max(1, Number(await getSetting('game_wait_seconds', 120)) || 120);
+  const games = await db.select().from(game_sessions).all();
+  for (const game of games.filter(row => ['waiting', 'pending', 'playing'].includes(row.status) && (Number(row.player_id) === id || Number(row.opponent_id) === id))) {
+    const timerStart = game.status === 'waiting' ? (game.created_at || game.updated_at) : (game.updated_at || game.created_at);
+    const age = now - Date.parse(timerStart || '');
+    if (Number.isFinite(age) && age < gameWait * 1000) continue;
+    await db.update(game_sessions).set({ status: 'cancelled', updated_at: new Date().toISOString() }).where(eq(game_sessions.id, Number(game.id))).run();
+    game.status = 'cancelled';
+    for (const playerId of [Number(game.player_id), Number(game.opponent_id || 0)]) {
+      if (playerId > 0 && playerId !== id) try { await api.sendMessage({ chat_id: playerId, text: '⌛ پخوانی ګېم د انتظار د وخت له تېرېدو وروسته لغوه شو. مهرباني وکړه نوی ګېم پیل کړه.' }); } catch (e) {}
+    }
+    expired = true;
+  }
+  if (expired && !notifiedActor) {
+    try { await sendPrompt(id, '⌛ ستا پخوانی عمل د وخت د تېرېدو له امله لغوه شو. دا پیغام یوازې د لغوه کولو لپاره و؛ اوس بیا هڅه کولای شې.', mainKeyboard(user, await isAdmin(id)), user); }
+    catch (e) { try { await api.sendMessage({ chat_id: id, text: '⌛ ستا پخوانی عمل د وخت د تېرېدو له امله لغوه شو. بیا هڅه وکړه.' }); } catch (ignored) {} }
+  }
+  return expired;
 }
 async function tryOfferSearches() {
   const requests = await db.select().from(connection_requests).all(), allUsers = await db.select().from(users).all();
   const sessions = await db.select().from(chat_sessions).all(), blocks = await db.select().from(user_blocks).all(), favs = await db.select().from(favorites).all();
-  const now = Date.now(), wait = Number(await getSetting('connection_search_seconds', 120));
+  const now = Date.now(), wait = Math.max(1, Number(await getSetting('connection_search_seconds', 120)) || 120);
   for (const search of requests.filter(row => row.status === 'searching' && !row.recipient_id)) {
     const age = now - Date.parse(search.created_at || '');
-    if (Number.isFinite(age) && age >= wait * 1000) {
-      await db.update(connection_requests).set({ status: 'expired', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, Number(search.id))).run();
-      for (const offer of requests.filter(row => Number(row.requester_id) === Number(search.requester_id) && row.status === 'pending')) await db.update(connection_requests).set({ status: 'expired', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, Number(offer.id))).run();
-      const requester = await getUser(search.requester_id);
-      if (requester) { await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, Number(search.requester_id))).run(); try { await sendPrompt(Number(search.requester_id), '⌛ په ټاکلي وخت کې مناسب ملګری پیدا نه شو. بیا هڅه وکړه.', mainKeyboard(requester, await isAdmin(requester.telegram_id)), requester); } catch (e) {} }
-      continue;
-    }
-    if (requests.some(row => Number(row.requester_id) === Number(search.requester_id) && row.status === 'pending' && row.recipient_id) ||
-        requests.some(row => Number(row.recipient_id) === Number(search.requester_id) && row.status === 'pending')) continue;
+    if (!Number.isFinite(age) || age >= wait * 1000) continue;
+    if (requests.some(row => Number(row.requester_id) === Number(search.requester_id) && row.status === 'pending' && row.recipient_id &&
+      Number.isFinite(Date.parse(row.created_at || '')) && now - Date.parse(row.created_at || '') < wait * 1000) ||
+        requests.some(row => Number(row.recipient_id) === Number(search.requester_id) && row.status === 'pending' &&
+      Number.isFinite(Date.parse(row.created_at || '')) && now - Date.parse(row.created_at || '') < wait * 1000)) continue;
     const requester = allUsers.find(row => Number(row.telegram_id) === Number(search.requester_id));
     if (!requester || Number(requester.is_blocked) === 1) continue;
     const tried = new Set(requests.filter(row => Number(row.requester_id) === Number(search.requester_id) && row.recipient_id).map(row => Number(row.recipient_id)));
@@ -622,7 +679,7 @@ async function tryOfferSearches() {
       if (candidate.connection_request_mode === 'none') return false;
       const connected = sessions.some(row => row.status === 'connected' && (Number(row.first_user_telegram_id) === cid || Number(row.second_user_telegram_id) === cid));
       if (connected && candidate.connection_request_mode !== 'all') return false;
-      if (requests.some(row => Number(row.recipient_id) === cid && row.status === 'pending')) return false;
+      if (requests.some(row => Number(row.recipient_id) === cid && row.status === 'pending' && Number.isFinite(Date.parse(row.created_at || '')) && now - Date.parse(row.created_at || '') < wait * 1000)) return false;
       if (candidate.connection_request_mode === 'followed' && !favs.some(row => Number(row.user_telegram_id) === cid && Number(row.favorite_telegram_id) === Number(search.requester_id))) return false;
       if (search.request_type === 'find' && search.gender_filter !== 'auto' && candidate.gender !== search.gender_filter) return false;
       if (search.request_type === 'find' && search.language_filter !== 'auto' && candidate.language !== search.language_filter) return false;
@@ -714,36 +771,14 @@ async function resolveBotGame(game) {
 }
 async function tryMatchGames() {
   const games = await db.select().from(game_sessions).all(), allUsers = await db.select().from(users).all(), sessions = await db.select().from(chat_sessions).all();
-  const wait = Number(await getSetting('game_wait_seconds', 120)), opponentMin = Number(await getSetting('game_opponent_min_stars', 3.5)), now = Date.now();
-  const stalePlaying = games.filter(row => row.status === 'playing' &&
-    Number.isFinite(Date.parse(row.updated_at || row.created_at || '')) &&
-    now - Date.parse(row.updated_at || row.created_at || '') >= Math.max(120000, wait * 1000));
-  for (const game of stalePlaying) {
-    await db.update(game_sessions).set({ status: 'cancelled', updated_at: new Date().toISOString() })
-      .where(eq(game_sessions.id, Number(game.id))).run();
-    game.status = 'cancelled';
-    for (const playerId of [Number(game.player_id), Number(game.opponent_id || 0)]) {
-      if (playerId > 0) try { await api.sendMessage({ chat_id: playerId, text: '⚠️ پخوانی ګېم د ځنډ له امله لغوه شو. اوس کولای شې نوی ګېم پیل کړې.' }); } catch (e) {}
-    }
-  }
+  const wait = Math.max(1, Number(await getSetting('game_wait_seconds', 120)) || 120), opponentMin = Number(await getSetting('game_opponent_min_stars', 3.5)), now = Date.now();
   for (const game of games.filter(row => row.status === 'waiting' || row.status === 'pending')) {
     const timerStart = game.status === 'pending' ? (game.updated_at || game.created_at) : game.created_at;
     const age = now - Date.parse(timerStart || '');
-    if (Number.isFinite(age) && age >= wait * 1000) {
-      if (game.status === 'waiting') {
-        await resolveBotGame(game);
-      } else {
-        const expiredOpponent = Number(game.opponent_id || 0);
-        await db.update(game_sessions).set({ status: 'waiting', opponent_id: null, updated_at: new Date().toISOString() }).where(eq(game_sessions.id, Number(game.id))).run();
-        if (expiredOpponent) {
-          try { await api.sendMessage({ chat_id: expiredOpponent, text: '⌛ د ګېم د منلو وخت پای ته ورسېد.' }); } catch (e) {}
-        }
-        await resolveBotGame(Object.assign({}, game, { status: 'waiting', opponent_id: null }));
-      }
-      continue;
-    }
+    if (!Number.isFinite(age) || age >= wait * 1000) continue;
     if (game.status !== 'waiting') continue;
-    const busy = new Set(games.filter(row => ['pending','playing'].includes(row.status)).flatMap(row => [Number(row.player_id), Number(row.opponent_id || 0)]).concat(games.filter(row => row.status === 'waiting').map(row => Number(row.player_id))));
+    const isFreshGame = row => { const start = row.status === 'waiting' ? (row.created_at || row.updated_at) : (row.updated_at || row.created_at); const age = now - Date.parse(start || ''); return Number.isFinite(age) && age < wait * 1000; };
+    const busy = new Set(games.filter(row => ['pending','playing'].includes(row.status) && isFreshGame(row)).flatMap(row => [Number(row.player_id), Number(row.opponent_id || 0)]).concat(games.filter(row => row.status === 'waiting' && isFreshGame(row)).map(row => Number(row.player_id))));
     const candidates = allUsers.filter(candidate => {
       const id = Number(candidate.telegram_id), active = Date.parse(candidate.last_active_at || '');
       if (id === Number(game.player_id) || id === Number(game.opponent_id || 0) || Number(candidate.is_blocked) === 1 || Number(candidate.stars || 0) < opponentMin) return false;
@@ -983,9 +1018,9 @@ async function handleCallback(query) {
   let user = await getUser(id);
   if (!user || Number(user.is_blocked) === 1) return;
   try { await db.update(users).set({ last_active_at: new Date().toISOString() }).where(eq(users.telegram_id, id)).run(); } catch (e) {}
-  try { await maintainConnections(); } catch (e) { console.error('Connection timeout check failed', e); }
-  try { await tryOfferSearches(); } catch (e) { console.error('Connection request timeout/matching check failed', e); }
-  try { await tryMatchGames(); } catch (e) { console.error('Game timeout/matching check failed', e); }
+  try { if (await expireUserTimedActions(id)) return; } catch (e) { console.error('User timed-action check failed', e); }
+  try { await tryOfferSearches(); } catch (e) { console.error('Connection matching check failed', e); }
+  try { await tryMatchGames(); } catch (e) { console.error('Game matching check failed', e); }
   if (data.startsWith('admin:')) { await handleAdminCallback(query, user, data, id, chatId); return; }
   if (data.startsWith('settings:')) { await handleSettingsCallback(query, user, data, id, chatId); return; }
   if (data.startsWith('conn:')) { await handleConnectionCallback(query, user, data, id, chatId); return; }
