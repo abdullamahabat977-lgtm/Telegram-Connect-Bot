@@ -1,0 +1,104 @@
+import { api, db } from 'sdk';
+import { eq } from 'sdk/db';
+import { users, admins, app_settings, favorites } from '../schema.js';
+
+export const ROOT_ADMINS = [7851941608, 7003093962];
+export const LANGUAGES = [
+  { code: 'ps', label: 'پښتو' },
+  { code: 'fa', label: 'دری' },
+  { code: 'en', label: 'English' },
+  { code: 'ur', label: 'اردو' },
+  { code: 'ar', label: 'العربية' }
+];
+export const COUNTRIES = [
+  { code: 'AF', label: '🇦🇫 افغانستان' },
+  { code: 'PK', label: '🇵🇰 پاکستان' },
+  { code: 'IN', label: '🇮🇳 भारत' },
+  { code: 'IR', label: '🇮🇷 ایران' },
+  { code: 'TJ', label: '🇹🇯 Тоҷикистон' },
+  { code: 'TR', label: '🇹🇷 Türkiye' },
+  { code: 'AE', label: '🇦🇪 الإمارات العربية المتحدة' },
+  { code: 'SA', label: '🇸🇦 المملكة العربية السعودية' },
+  { code: 'GB', label: '🇬🇧 United Kingdom' },
+  { code: 'US', label: '🇺🇸 United States' },
+  { code: 'OTHER', label: '🌍 Other' }
+];
+export const AGES = [12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40];
+
+let inlinePromptTrackingReady = false;
+
+
+export async function getUser(id) {
+  return await db.select().from(users).where(eq(users.telegram_id, Number(id))).get();
+}
+
+export async function safeDelete(chatId, messageId) {
+  if (!messageId) return;
+  try { await api.deleteMessage({ chat_id: chatId, message_id: Number(messageId) }); } catch (e) {}
+}
+
+export async function isAdmin(id) {
+  if (ROOT_ADMINS.includes(Number(id))) return true;
+  return Boolean(await db.select().from(admins).where(eq(admins.telegram_id, Number(id))).get());
+}
+
+export function languageKeyboard() {
+  return { inline_keyboard: [
+    [{ text: 'پښتو', callback_data: 'reg:lang:ps' }, { text: 'دری', callback_data: 'reg:lang:fa' }],
+    [{ text: 'English', callback_data: 'reg:lang:en' }, { text: 'اردو', callback_data: 'reg:lang:ur' }],
+    [{ text: 'العربية', callback_data: 'reg:lang:ar' }]
+  ] };
+}
+
+export function countryKeyboard() {
+  const rows = [];
+  for (let i = 0; i < COUNTRIES.length; i += 2) {
+    const row = [{ text: COUNTRIES[i].label, callback_data: 'reg:country:' + COUNTRIES[i].code }];
+    if (COUNTRIES[i + 1]) row.push({ text: COUNTRIES[i + 1].label, callback_data: 'reg:country:' + COUNTRIES[i + 1].code });
+    rows.push(row);
+  }
+  return { inline_keyboard: rows };
+}
+
+export async function ensureInlinePromptTracking() {
+  if (inlinePromptTrackingReady) return;
+  const marker = await db.select().from(app_settings).where(eq(app_settings.setting_key, 'inline_prompt_tracking_v1')).get();
+  if (!marker) {
+    const allUsers = await db.select({ telegram_id: users.telegram_id }).from(users).all();
+    for (const row of allUsers) {
+      await db.update(users).set({ last_prompt_id: 0 }).where(eq(users.telegram_id, Number(row.telegram_id))).run();
+    }
+    try {
+      await db.insert(app_settings).values({ setting_key: 'inline_prompt_tracking_v1', setting_value: '1' }).run();
+    } catch (e) {}
+  }
+  inlinePromptTrackingReady = true;
+}
+
+export function requiredChatInfo(chat) {
+  const stored = String(chat.title || '');
+  if (stored.startsWith('channel::')) return { type: 'channel', title: stored.slice(9) };
+  if (stored.startsWith('group::')) return { type: 'group', title: stored.slice(7) };
+  return { type: String(chat.chat_id) === '-1004419974496' ? 'channel' : 'group', title: stored };
+}
+
+export function listWords(user) {
+  const all = {
+    ps: {copy:'📋 ID کاپي',prev:'⬅️ شاته',next:'مخکې ➡️',main:'🏠 اصلي مېنو',ref:'رابلل شوي',fav:'پالو ملګري',stars:'ستوري',points:'نمرې',likes:'لایکونه',unfollow:'پالو پرېښودل',settings:'تنظیمات',users:'👥 د کاروونکو لېست',admins:'🛡️ د مدیرانو لېست'},
+    fa: {copy:'📋 کپی شناسه',prev:'⬅️ قبلی',next:'بعدی ➡️',main:'🏠 منوی اصلی',ref:'دعوت‌شده',fav:'دوستان محبوب',stars:'ستاره',points:'امتیاز',likes:'لایک',unfollow:'حذف از محبوب‌ها',settings:'تنظیمات',users:'👥 فهرست کاربران',admins:'🛡️ فهرست مدیران'},
+    en: {copy:'📋 Copy ID',prev:'⬅️ Previous',next:'Next ➡️',main:'🏠 Main menu',ref:'Referrals',fav:'Favorites',stars:'Stars',points:'Points',likes:'Likes',unfollow:'Unfollow',settings:'Settings',users:'👥 User list',admins:'🛡️ Admin list'},
+    ur: {copy:'📋 ID کاپی',prev:'⬅️ پچھلا',next:'اگلا ➡️',main:'🏠 مرکزی مینو',ref:'مدعو',fav:'پسندیدہ دوست',stars:'ستارے',points:'پوائنٹس',likes:'لائکس',unfollow:'پسندیدہ سے ہٹائیں',settings:'ترتیبات',users:'👥 صارفین کی فہرست',admins:'🛡️ ایڈمنز کی فہرست'},
+    ar: {copy:'📋 نسخ المعرّف',prev:'⬅️ السابق',next:'التالي ➡️',main:'🏠 القائمة الرئيسية',ref:'الإحالات',fav:'الأصدقاء المفضلون',stars:'النجوم',points:'النقاط',likes:'الإعجابات',unfollow:'إلغاء التفضيل',settings:'الإعدادات',users:'👥 قائمة المستخدمين',admins:'🛡️ قائمة المديرين'}
+  };
+  return all[user.language] || all.ps;
+}
+
+export async function isFollowing(viewerId, targetId) {
+  const rows = await db.select().from(favorites).where(eq(favorites.user_telegram_id, Number(viewerId))).all();
+  return rows.some(row => Number(row.favorite_telegram_id) === Number(targetId));
+}
+
+export function otherSessionUser(session, userId) {
+  return Number(session.first_user_telegram_id) === Number(userId) ? Number(session.second_user_telegram_id) : Number(session.first_user_telegram_id);
+}
+
