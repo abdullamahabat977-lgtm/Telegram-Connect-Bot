@@ -805,7 +805,8 @@ async function tryOfferSearches() {
       }
       continue;
     }
-    if (allRequests.some(row => Number(row.requester_id) === Number(search.requester_id) && row.status === 'pending' && row.recipient_id)) continue;
+    if (allRequests.some(row => Number(row.requester_id) === Number(search.requester_id) && row.status === 'pending' && row.recipient_id) ||
+        allRequests.some(row => Number(row.recipient_id) === Number(search.requester_id) && row.status === 'pending')) continue;
     const requester = allUsers.find(row => Number(row.telegram_id) === Number(search.requester_id));
     if (!requester || Number(requester.is_blocked) === 1) continue;
     const alreadyTried = new Set(allRequests.filter(row => Number(row.requester_id) === Number(search.requester_id) && row.recipient_id)
@@ -944,8 +945,16 @@ async function resolveBotGame(game) {
     await db.update(game_sessions).set({ status: 'cancelled', updated_at: new Date().toISOString() }).where(eq(game_sessions.id, Number(game.id))).run();
     return;
   }
-  const playerDice = await api.sendDice({ chat_id: Number(player.telegram_id), emoji: '🎲' });
-  const botDice = await api.sendDice({ chat_id: Number(player.telegram_id), emoji: '🎲' });
+  let playerDice, botDice;
+  try {
+    playerDice = await api.sendDice({ chat_id: Number(player.telegram_id), emoji: '🎲' });
+    botDice = await api.sendDice({ chat_id: Number(player.telegram_id), emoji: '🎲' });
+  } catch (error) {
+    console.error('Bot game dice failed', { gameId: game.id, playerId: player.telegram_id, error: error });
+    await db.update(game_sessions).set({ status: 'cancelled', updated_at: new Date().toISOString() }).where(eq(game_sessions.id, Number(game.id))).run();
+    try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: '⚠️ د ګېم تخنیکي ستونزه وه؛ ګېم لغوه شو او فیس نه دی اخیستل شوی. بیا هڅه وکړه.' }); } catch (e) {}
+    return;
+  }
   const playerRoll = Number(playerDice && playerDice.dice && playerDice.dice.value || 0);
   const botRoll = Number(botDice && botDice.dice && botDice.dice.value || 0);
   let outcome = '🤝 مساوي! هېڅ ستوري یا نمرې نه ګټل کېږي؛ یوازې د ګېم فیس حساب شو.';
