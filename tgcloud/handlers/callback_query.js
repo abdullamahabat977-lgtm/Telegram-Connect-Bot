@@ -359,6 +359,15 @@ async function handleAdminCallback(query, actor, data, actorId, chatId) {
     actor.state = 'admin_management_menu'; await db.update(users).set({ state: actor.state }).where(eq(users.telegram_id, actorId)).run();
     await sendPrompt(chatId, ui.managementIntro, adminManagementKeyboard(actor), actor); return;
   }
+  if (p[1] === 'setting') {
+    const key = p[2];
+    const allowed = ['welcome_reward_stars','welcome_reward_points','welcome_reward_likes','referral_reward_stars','referral_reward_points','referral_reward_likes','connection_search_seconds','connection_idle_minutes','connection_max_minutes','connection_cost_stars','game_min_stars','game_opponent_min_stars','game_fee_stars','game_win_stars','game_bot_loss_total_stars','game_win_points','game_wait_seconds'];
+    if (!allowed.includes(key)) return;
+    actor.state = 'admin_set_setting:' + key;
+    await db.update(users).set({ state: actor.state }).where(eq(users.telegram_id, actorId)).run();
+    const prompt = actor.language === 'en' ? 'Send the new numeric value. Decimal star values such as 0.5 are allowed; time values must be whole numbers.' : 'د دې تنظیم نوی عدد راولېږه. د ستورو لپاره اعشاري عدد لکه 0.5 منل کېږي؛ د وخت لپاره صحیح عدد ولیکه.';
+    await sendPrompt(chatId, prompt, { force_reply: true }, actor); return;
+  }
   if (p[1] === 'reward') {
     const field = p[2];
     if (!['stars','points','likes'].includes(field)) return;
@@ -419,6 +428,13 @@ async function handleSettingsCallback(query, actor, data, actorId, chatId) {
     const pair = b[actor.language] || b.ps;
     await sendPrompt(chatId, labels[actor.language] || labels.ps, { keyboard: [[{text:pair[0]}],[{text:pair[1]}],[{text:pair[2]}],[{text:pair[3]}]], resize_keyboard:true }, actor); return;
   }
+  if (p[1] === 'visibility') {
+    const visibility = p[2];
+    if (!['everyone','followers'].includes(visibility)) return;
+    await db.update(users).set({ profile_visibility: visibility, state: 'ready' }).where(eq(users.telegram_id, actorId)).run();
+    actor.profile_visibility = visibility; actor.state = 'ready';
+    await sendPrompt(chatId, visibility === 'followers' ? '🔒 ستا بشپړ پروفایل به یوازې ستا پالو ملګرو ته ښکاري؛ نورو ته به یوازې نوم او جنسیت ښکاري.' : '🌐 ستا پروفایل ټولو ته ښکاره دی، خو د ستورو بیلانس هېڅکله نورو ته نه ښکاري.', mainKeyboard(actor, await isAdmin(actorId)), actor); return;
+  }
   if (p[1] === 'connection') {
     const mode = p[2];
     if (!['all','followed','none'].includes(mode)) return;
@@ -430,7 +446,7 @@ async function handleSettingsCallback(query, actor, data, actorId, chatId) {
       none: { ps: '✅ د اړیکې پر مهال ټولې غوښتنې بندې شوې.', en: '✅ All requests while chatting disabled.' }
     };
     const lang = actor.language === 'en' ? 'en' : 'ps';
-    await sendPrompt(chatId, messages[mode][lang] + '\n\n' + (lang === 'en' ? 'Connection preferences are saved. They will take effect when the matching system is implemented.' : 'تنظیم ثبت شو؛ عملي اغېز به هغه وخت ولري چې د اړیکو نښلولو سیستم فعال شي.'), { keyboard: [[{ text: '👤 د پروفایل تنظیمات' }, { text: '❤️ د پالو ملګرو تنظیمات' }], [{ text: '🔔 د اړیکې تنظیمات' }, { text: '🔙 اصلي مېنو' }]], resize_keyboard: true }, actor); return;
+    await sendPrompt(chatId, messages[mode][lang] + '\n\n' + (lang === 'en' ? 'This preference is active for incoming connection requests.' : 'دا تنظیم د راتلونکو اړیکو په غوښتنو کې عملي کېږي.'), { keyboard: [[{ text: '👤 د پروفایل تنظیمات' }, { text: '❤️ د پالو ملګرو تنظیمات' }], [{ text: '🔔 د اړیکې تنظیمات' }, { text: '🔙 اصلي مېنو' }]], resize_keyboard: true }, actor); return;
   }
   if (p[1] === 'favorites' && p[2] === 'page') { await showFavoriteSettings(chatId, actor, Number(p[3])); return; }
   if (p[1] === 'unfavorite') {
@@ -855,14 +871,19 @@ async function handleCallback(query) {
   if (!Number.isSafeInteger(id) || id <= 0 || query.message.chat.type !== 'private') return;
   try { await api.answerCallbackQuery({ callback_query_id: query.id }); } catch (e) {}
   const data = String(query.data);
-  if ((data.startsWith('reg:') || data.startsWith('admin:') || data.startsWith('settings:')) && query.message.message_id) {
+  if ((data.startsWith('reg:') || data.startsWith('admin:') || data.startsWith('settings:') || data.startsWith('conn:') || data.startsWith('find:') || data.startsWith('game:')) && query.message.message_id) {
     await safeDelete(chatId, query.message.message_id);
   }
   let user = await getUser(id);
   if (!user || Number(user.is_blocked) === 1) return;
   try { await db.update(users).set({ last_active_at: new Date().toISOString() }).where(eq(users.telegram_id, id)).run(); } catch (e) {}
+  try { await maintainConnections(); await tryOfferSearches(); await tryMatchGames(); } catch (maintenanceError) { console.error('Random Connect maintenance error', maintenanceError); }
   if (data.startsWith('admin:')) { await handleAdminCallback(query, user, data, id, chatId); return; }
   if (data.startsWith('settings:')) { await handleSettingsCallback(query, user, data, id, chatId); return; }
+  if (data.startsWith('conn:')) { await handleConnectionCallback(query, user, data, id, chatId); return; }
+  if (data.startsWith('find:')) { await handleFindCallback(query, user, data, id, chatId); return; }
+  if (data.startsWith('session:')) { await handleSessionCallback(query, user, data, id, chatId); return; }
+  if (data.startsWith('game:')) { await handleGameCallback(query, user, data, id, chatId); return; }
   if (!data.startsWith('reg:')) return;
   const parts = data.split(':');
   const kind = parts[1];
