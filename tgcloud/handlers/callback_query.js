@@ -967,6 +967,25 @@ async function handleGameCallback(query, actor, data, actorId, chatId) {
     return;
   }
   if (!game || !['waiting','pending'].includes(game.status)) { await sendPrompt(chatId, '⌛ دا ګېم نور فعال نه دی.', mainKeyboard(actor, await isAdmin(actorId)), actor); return; }
+  // An old pending offer must not be accepted after its matchmaking window expires.
+  if (game.status === 'pending') {
+    const waitSeconds = Math.max(1, Number(await getSetting('game_wait_seconds', 120)) || 120);
+    const offerAge = Date.now() - Date.parse(game.updated_at || game.created_at || '');
+    if (!Number.isFinite(offerAge) || offerAge >= waitSeconds * 1000) {
+      const expired = await db.update(game_sessions)
+        .set({ status: 'cancelled', updated_at: new Date().toISOString() })
+        .where(and(eq(game_sessions.id, gameId), eq(game_sessions.status, 'pending'), eq(game_sessions.opponent_id, Number(game.opponent_id))))
+        .returning({ id: game_sessions.id }).run();
+      if (expired && Array.isArray(expired.rows) && expired.rows.length > 0) {
+        for (const targetId of [Number(game.player_id), Number(game.opponent_id)]) {
+          if (!targetId) continue;
+          try { await api.sendMessage({ chat_id: targetId, text: '⌛ د ګېم غوښتنې وخت پای ته رسېدلی؛ دا ګېم نور فعال نه دی. نوې غوښتنه پیلولای شې.' }); } catch (e) {}
+        }
+      }
+      await sendPrompt(chatId, '⌛ د دې ګېم وخت پای ته رسېدلی یا ګېم نور فعال نه دی.', mainKeyboard(actor, await isAdmin(actorId)), actor);
+      return;
+    }
+  }
   if (action === 'reject' && Number(game.opponent_id) === actorId) {
     const rejectedAt = new Date().toISOString();
     await db.update(game_sessions).set({ status: 'rejected', updated_at: rejectedAt }).where(eq(game_sessions.id, gameId)).run();
