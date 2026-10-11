@@ -256,9 +256,10 @@ function menuKeyboard(user, admin) {
     [{ text: m[0] }, { text: m[1] }],
     [{ text: m[2] }, { text: m[3] }],
     [{ text: m[4] }, { text: m[5] }],
-    [{ text: m[6] }, { text: m[7] }]
+    [{ text: m[6] }, { text: m[7] }],
+    [{ text: m[9] }]
   ];
-  if (admin) { rows.push([{ text: m[8] }]); if (tx(user).adminButtons[6]) rows.push([{ text: tx(user).adminButtons[6] }]); }
+  if (admin) rows.push([{ text: m[8] }]);
   return keyboard(rows);
 }
 function languageKeyboard() {
@@ -314,7 +315,7 @@ function favoriteSettingsKeyboard(user) {
 }
 function adminKeyboard(user) {
   const b = tx(user).adminButtons;
-  return keyboard([[{ text: b[0] }, { text: b[1] }], [{ text: b[2] }, { text: b[3] }], [{ text: b[4] }, { text: b[5] }]]);
+  return keyboard([[{ text: b[0] }], [{ text: b[1] }, { text: b[2] }], [{ text: b[3] }, { text: b[4] }], [{ text: b[5] }], [{ text: b[6] }], [{ text: b[7] }, { text: b[8] }]]);
 }
 function adminManagementKeyboard(user) {
   const b = tx(user).adminManagementButtons;
@@ -384,21 +385,21 @@ function actionFor(input) {
     const t = T[lang], m = t.menu;
     const pairs = [
       ['find', m[0]], ['favorites', m[1]], ['random', m[2]], ['invite', m[3]], ['profile', m[4]],
-      ['language', m[5]], ['settings', m[6]], ['stats', m[7]], ['admin', m[8]], ['joined', t.joined],
+      ['language', m[5]], ['settings', m[6]], ['stats', m[7]], ['admin', m[8]], ['game', m[9]], ['joined', t.joined],
       ['country', t.profileSettingsButtons[0]], ['gender', t.profileSettingsButtons[1]], ['age', t.profileSettingsButtons[2]],
       ['name', t.profileSettingsButtons[3]], ['surname', t.profileSettingsButtons[4]],
-      ['photoSettings', t.profileSettingsButtons[5]], ['channelSettings', t.profileSettingsButtons[6]],
+      ['photoSettings', t.profileSettingsButtons[5]], ['channelSettings', t.profileSettingsButtons[6]], ['profileVisibility', t.profileSettingsButtons[7]],
       ['profileSettings', t.settingsButtons[0]], ['favoriteSettings', t.settingsButtons[1]],
       ['connectionSettings', t.settingsButtons[2]], ['rewardSettings', t.adminButtons[6]],
       ['adminManagement', t.adminButtons[0]], ['channels', t.adminButtons[1]], ['broadcast', t.adminButtons[2]],
-      ['userSettings', t.adminButtons[3]], ['usersList', t.adminButtons[4]],
+      ['userSettings', t.adminButtons[3]], ['usersList', t.adminButtons[4]], ['rewardSettings', t.adminButtons[6]], ['connectionAdminSettings', t.adminButtons[7]], ['gameAdminSettings', t.adminButtons[8]],
       ['adminAdd', t.adminManagementButtons[0]], ['adminRemove', t.adminManagementButtons[1]],
       ['adminsList', t.adminManagementButtons[2]], ['cancel', t.cancel], ['skip', t.skip],
       ['photoSet', t.photoSettingsButtons[0]], ['photoRemove', t.photoSettingsButtons[1]],
       ['channelSet', t.channelSettingsButtons[0]], ['channelRemoveProfile', t.channelSettingsButtons[1]],
       ['favoritesList', t.favoriteSettingsButtons[0]]
     ];
-    const backLabels = [t.settingsButtons[3], t.profileSettingsButtons[7], t.photoSettingsButtons[2],
+    const backLabels = [t.settingsButtons[3], t.profileSettingsButtons[8], t.photoSettingsButtons[2],
       t.channelSettingsButtons[2], t.favoriteSettingsButtons[1], t.adminManagementButtons[3]];
     for (const label of backLabels) if (label === input) return 'back';
     for (const pair of pairs) if (pair[1] === input) return pair[0];
@@ -1034,7 +1035,8 @@ async function processMessage(message) {
   }
   if (user.state === 'profile_settings_menu') {
     const i = tx(user).profileSettingsButtons.indexOf(input);
-    const field = i >= 0 ? ['country','gender','age','name','surname','photoSettings','channelSettings','back'][i] : action;
+    const field = i >= 0 ? ['country','gender','age','name','surname','photoSettings','channelSettings','profileVisibility','back'][i] : action;
+    if (field === 'profileVisibility') { await sendPrompt(chatId, '🔒 د خپل پروفایل د ښکاره کېدو حالت وټاکه:', { inline_keyboard: [[{ text: '🌐 ټولو ته ښکاره', callback_data: 'settings:visibility:everyone' }], [{ text: '❤️ یوازې پالو ملګرو ته', callback_data: 'settings:visibility:followers' }], [{ text: '🔙 بېرته', callback_data: 'settings:open' }]] }, user); return; }
     if (field === 'photoSettings') { user.state = 'settings_photo_menu'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, '🖼 د پروفایل عکس تنظیمات:', photoSettingsKeyboard(user), user); return; }
     if (field === 'channelSettings') { user.state = 'settings_channel_menu'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, '📢 د عام چینل تنظیمات:\n\n' + (user.channel_username || 'چینل نه دی ثبت شوی'), channelSettingsKeyboard(user), user); return; }
     if (field === 'back') { user.state = 'settings_menu'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, tx(user).settings, settingsKeyboard(user), user); return; }
