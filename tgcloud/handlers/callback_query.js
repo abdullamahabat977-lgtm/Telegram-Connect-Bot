@@ -443,6 +443,411 @@ async function handleSettingsCallback(query, actor, data, actorId, chatId) {
     await showFavoriteSettings(chatId, actor, page); return;
   }
 }
+
+async function isFollowing(viewerId, targetId) {
+  const rows = await db.select().from(favorites).where(eq(favorites.user_telegram_id, Number(viewerId))).all();
+  return rows.some(row => Number(row.favorite_telegram_id) === Number(targetId));
+}
+async function activeSessionFor(userId) {
+  const rows = await db.select().from(chat_sessions).all();
+  return rows.find(row => row.status === 'connected' && (Number(row.first_user_telegram_id) === Number(userId) || Number(row.second_user_telegram_id) === Number(userId))) || null;
+}
+function otherSessionUser(session, userId) {
+  return Number(session.first_user_telegram_id) === Number(userId) ? Number(session.second_user_telegram_id) : Number(session.first_user_telegram_id);
+}
+async function blockedPair(firstId, secondId) {
+  const rows = await db.select().from(user_blocks).all();
+  return rows.some(row => (Number(row.blocker_telegram_id) === Number(firstId) && Number(row.blocked_telegram_id) === Number(secondId)) ||
+    (Number(row.blocker_telegram_id) === Number(secondId) && Number(row.blocked_telegram_id) === Number(firstId)));
+}
+async function publicProfileText(target, viewerId) {
+  const name = [target.name || target.first_name || 'کارن', target.surname || ''].filter(Boolean).join(' ');
+  const gender = target.gender === 'female' ? 'ښځینه' : target.gender === 'male' ? 'نارینه' : 'نه دی ثبت';
+  if (target.profile_visibility === 'followers' && !(await isFollowing(viewerId, target.telegram_id))) {
+    return '👤 نوم: ' + name + '\n\n⚧ جنسیت: ' + gender + '\n\n🔒 د بشپړ پروفایل لپاره لومړی دا کارن فالو کړه.';
+  }
+  const country = COUNTRIES.find(item => item.code === target.country), language = LANGUAGES.find(item => item.code === target.language);
+  const favCount = await db.$count(favorites, eq(favorites.user_telegram_id, Number(target.telegram_id)));
+  return '👤 نوم: ' + name + '\n\n⚧ جنسیت: ' + gender + '\n\n🌍 هېواد: ' + (country ? country.label : '—') +
+    '\n\n🎂 عمر: ' + (target.age || '—') + '\n\n🗣️ ژبه: ' + (language ? language.label : target.language || '—') +
+    '\n\n📢 عام چینل: ' + (target.channel_username || '—') + '\n\n📨 ریفرلونه: ' + Number(target.referral_count || 0) +
+    '\n\n👥 پالو ملګري: ' + favCount + '\n\n🏆 نمرې: ' + Number(target.points || 0) + '\n\n❤️ لایکونه: ' + Number(target.likes || 0);
+}
+function sessionKeyboard(targetId, sessionId, following, liked) {
+  return { inline_keyboard: [
+    [{ text: following ? '❤️ فالو شوی' : '➕ فالو کول', callback_data: 'session:follow:' + targetId + ':' + sessionId },
+     { text: liked ? '💔 لایک بېرته اخستل' : '❤️ لایک', callback_data: 'session:like:' + targetId + ':' + sessionId }],
+    [{ text: '⭐ 1', callback_data: 'session:rate:' + targetId + ':1:' + sessionId },
+     { text: '⭐ 2', callback_data: 'session:rate:' + targetId + ':2:' + sessionId },
+     { text: '⭐ 3', callback_data: 'session:rate:' + targetId + ':3:' + sessionId },
+     { text: '⭐ 4', callback_data: 'session:rate:' + targetId + ':4:' + sessionId },
+     { text: '⭐ 5', callback_data: 'session:rate:' + targetId + ':5:' + sessionId }],
+    [{ text: '👤 پروفایل لیدل', callback_data: 'session:profile:' + targetId + ':' + sessionId },
+     { text: '🛑 اړیکه پای ته رسول', callback_data: 'session:end:' + sessionId }],
+    [{ text: '🚩 راپور', callback_data: 'session:report:' + targetId + ':' + sessionId },
+     { text: '🗑 د وروستیو ۱۰ دقیقو پیغامونه حذفول', callback_data: 'session:delete_recent:' + targetId + ':' + sessionId }]
+  ] };
+}
+async function showSessionProfile(session, viewerId) {
+  const targetId = otherSessionUser(session, viewerId), target = await getUser(targetId), viewer = await getUser(viewerId);
+  if (!target || !viewer) return;
+  const following = await isFollowing(viewerId, targetId);
+  const likes = await db.select().from(user_likes).where(eq(user_likes.liker_id, Number(viewerId))).all();
+  const liked = likes.some(row => Number(row.liked_id) === targetId);
+  await sendPrompt(viewerId, '🤝 اړیکه فعاله ده.\n\n' + await publicProfileText(target, viewerId), sessionKeyboard(targetId, session.id, following, liked), viewer);
+}
+async function endConnection(session, reason) {
+  if (!session || session.status !== 'connected') return;
+  await db.update(chat_sessions).set({ status: 'ended', ended_at: new Date().toISOString(), end_reason: reason || 'ended' })
+    .where(eq(chat_sessions.id, Number(session.id))).run();
+  for (const pair of [{ id: Number(session.first_user_telegram_id), partnerId: Number(session.second_user_telegram_id) },
+    { id: Number(session.second_user_telegram_id), partnerId: Number(session.first_user_telegram_id) }]) {
+    const user = await getUser(pair.id), partner = await getUser(pair.partnerId);
+    if (!user) continue;
+    await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, pair.id)).run();
+    const name = partner ? [partner.name || partner.first_name || 'کارن', partner.surname || ''].filter(Boolean).join(' ') : 'کارن';
+    const following = await isFollowing(pair.id, pair.partnerId);
+    const rows = [];
+    if (!following) rows.push([{ text: '➕ ' + name + ' فالو کول', callback_data: 'session:follow:' + pair.partnerId + ':' + session.id }]);
+    rows.push([{ text: '🚩 راپور کول', callback_data: 'session:report:' + pair.partnerId + ':' + session.id }]);
+    rows.push([{ text: '🗑 د وروستیو ۱۰ دقیقو پیغامونه حذفول', callback_data: 'session:delete_recent:' + pair.partnerId + ':' + session.id }]);
+    rows.push([{ text: '🔙 اصلي مېنو', callback_data: 'settings:main' }]);
+    try { await sendPrompt(pair.id, '🛑 اړیکه پای ته ورسېده.\n\n👤 د تېر ملګري نوم: ' + name + '\n\nراپور، فالو یا د هغه له خوا درلېږل شوي د وروستیو ۱۰ دقیقو پیغامونه حذفول انتخاب کړه.', { inline_keyboard: rows }, user); } catch (e) {}
+  }
+}
+async function maintainConnections() {
+  const idleMinutes = Number(await getSetting('connection_idle_minutes', 5)), maxMinutes = Number(await getSetting('connection_max_minutes', 40));
+  const now = Date.now(), sessions = await db.select().from(chat_sessions).all();
+  for (const session of sessions.filter(row => row.status === 'connected')) {
+    const last = Date.parse(session.last_activity_at || session.connected_at || session.created_at || '');
+    const start = Date.parse(session.connected_at || session.created_at || '');
+    if ((Number.isFinite(last) && now - last >= idleMinutes * 60000) || (Number.isFinite(start) && now - start >= maxMinutes * 60000)) {
+      await endConnection(session, Number.isFinite(last) && now - last >= idleMinutes * 60000 ? 'idle_timeout' : 'max_duration');
+    }
+  }
+}
+async function tryOfferSearches() {
+  const requests = await db.select().from(connection_requests).all(), allUsers = await db.select().from(users).all();
+  const sessions = await db.select().from(chat_sessions).all(), blocks = await db.select().from(user_blocks).all(), favs = await db.select().from(favorites).all();
+  const now = Date.now(), wait = Number(await getSetting('connection_search_seconds', 120));
+  for (const search of requests.filter(row => row.status === 'searching' && !row.recipient_id)) {
+    const age = now - Date.parse(search.created_at || '');
+    if (Number.isFinite(age) && age >= wait * 1000) {
+      await db.update(connection_requests).set({ status: 'expired', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, Number(search.id))).run();
+      const requester = await getUser(search.requester_id);
+      if (requester) { await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, Number(search.requester_id))).run(); try { await sendPrompt(Number(search.requester_id), '⌛ په ټاکلي وخت کې مناسب ملګری پیدا نه شو. بیا هڅه وکړه.', mainKeyboard(requester, await isAdmin(requester.telegram_id)), requester); } catch (e) {} }
+      continue;
+    }
+    if (requests.some(row => Number(row.requester_id) === Number(search.requester_id) && row.status === 'pending' && row.recipient_id)) continue;
+    const requester = allUsers.find(row => Number(row.telegram_id) === Number(search.requester_id));
+    if (!requester || Number(requester.is_blocked) === 1) continue;
+    const tried = new Set(requests.filter(row => Number(row.requester_id) === Number(search.requester_id) && row.recipient_id).map(row => Number(row.recipient_id)));
+    const candidates = allUsers.filter(candidate => {
+      const cid = Number(candidate.telegram_id);
+      if (cid === Number(search.requester_id) || Number(candidate.is_blocked) === 1 || !candidate.country || !candidate.gender || !candidate.age) return false;
+      const active = Date.parse(candidate.last_active_at || '');
+      if (!Number.isFinite(active) || now - active > 120000 || tried.has(cid)) return false;
+      if (blocks.some(row => (Number(row.blocker_telegram_id) === cid && Number(row.blocked_telegram_id) === Number(search.requester_id)) ||
+        (Number(row.blocker_telegram_id) === Number(search.requester_id) && Number(row.blocked_telegram_id) === cid))) return false;
+      if (candidate.connection_request_mode === 'none') return false;
+      const connected = sessions.some(row => row.status === 'connected' && (Number(row.first_user_telegram_id) === cid || Number(row.second_user_telegram_id) === cid));
+      if (connected && candidate.connection_request_mode !== 'all') return false;
+      if (requests.some(row => Number(row.requester_id) === cid && row.status === 'searching')) return false;
+      if (requests.some(row => Number(row.recipient_id) === cid && row.status === 'pending')) return false;
+      if (candidate.connection_request_mode === 'followed' && !favs.some(row => Number(row.user_telegram_id) === cid && Number(row.favorite_telegram_id) === Number(search.requester_id))) return false;
+      if (search.request_type === 'find' && search.gender_filter !== 'auto' && candidate.gender !== search.gender_filter) return false;
+      if (search.request_type === 'find' && search.language_filter !== 'auto' && candidate.language !== search.language_filter) return false;
+      return true;
+    });
+    if (!candidates.length) continue;
+    const rank = item => {
+      const cid = Number(item.telegram_id);
+      if (sessions.some(row => row.status === 'connected' && (Number(row.first_user_telegram_id) === cid || Number(row.second_user_telegram_id) === cid))) return 1;
+      if (favs.some(row => Number(row.user_telegram_id) === Number(search.requester_id) && Number(row.favorite_telegram_id) === cid)) return 2;
+      return 0;
+    };
+    candidates.sort((a,b) => rank(a)-rank(b) || Date.parse(b.last_active_at || '')-Date.parse(a.last_active_at || ''));
+    const candidate = candidates[0], nowIso = new Date().toISOString();
+    await db.insert(connection_requests).values({ requester_id: Number(search.requester_id), recipient_id: Number(candidate.telegram_id), status: 'pending',
+      request_type: search.request_type, gender_filter: search.gender_filter, language_filter: search.language_filter, created_at: nowIso, updated_at: nowIso }).run();
+    const all = await db.select().from(connection_requests).all();
+    const offer = all.filter(row => Number(row.requester_id) === Number(search.requester_id) && Number(row.recipient_id) === Number(candidate.telegram_id) && row.status === 'pending').sort((a,b)=>Number(b.id)-Number(a.id))[0];
+    requests.push(offer);
+    try { await api.sendMessage({ chat_id: Number(candidate.telegram_id),
+      text: '🎲 یو ناڅاپي کس د اړیکې غوښتنه کړې ده.\n\nد غوښتونکي هېڅ معلومات نه ښکاري. که ومنې، اړیکه به وصل شي؛ که رد یې کړې، بل کس ته به غوښتنه ولاړه شي.',
+      reply_markup: { inline_keyboard: [[{ text: '✅ غوښتنه منل', callback_data: 'conn:accept:' + offer.id }, { text: '❌ ردول', callback_data: 'conn:reject:' + offer.id }]] } }); }
+    catch (e) { await db.update(connection_requests).set({ status: 'rejected', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, Number(offer.id))).run(); }
+  }
+}
+async function startConnectionSearch(userId, type) {
+  const user = await getUser(userId), cost = Number(await getSetting('connection_cost_stars', 1));
+  if (!user) return;
+  if (Number(user.stars || 0) < cost) { await sendPrompt(userId, '⭐ د اړیکې لپاره ' + cost + ' ستوري پکار دي. ستا بیلانس: ' + Number(user.stars || 0), mainKeyboard(user, await isAdmin(userId)), user); return; }
+  if (await activeSessionFor(userId)) { await sendPrompt(userId, '⚠️ ته لا له یوه کس سره په اړیکه کې یې. لومړی اړیکه پای ته ورسوه.', mainKeyboard(user, await isAdmin(userId)), user); return; }
+  const requests = await db.select().from(connection_requests).where(eq(connection_requests.requester_id, Number(userId))).all();
+  if (requests.some(row => row.status === 'searching' && !row.recipient_id)) { await sendPrompt(userId, '🔎 ستا د ملګري لټون لا روان دی.', { inline_keyboard: [[{ text: '❌ لټون لغوه کول', callback_data: 'conn:cancel_search' }]] }, user); return; }
+  const now = new Date().toISOString();
+  await db.insert(connection_requests).values({ requester_id: Number(userId), recipient_id: null, status: 'searching', request_type: type,
+    gender_filter: type === 'find' ? user.search_gender || 'auto' : 'auto', language_filter: type === 'find' ? user.search_language || 'auto' : 'auto',
+    created_at: now, updated_at: now }).run();
+  const all = await db.select().from(connection_requests).all();
+  const search = all.filter(row => Number(row.requester_id) === Number(userId) && row.status === 'searching' && !row.recipient_id).sort((a,b)=>Number(b.id)-Number(a.id))[0];
+  await db.update(users).set({ state: 'searching_connection' }).where(eq(users.telegram_id, Number(userId))).run();
+  await sendPrompt(userId, '🔎 د ملګري لټون پیل شو.\n\n⏳ تر ۲ دقیقو پورې انتظار وکړه. که مناسب کس پیدا شي، غوښتنه به ورولېږل شي.\n\n⭐ د منلو پر مهال به ' + cost + ' ستوری کم شي.',
+    { inline_keyboard: [[{ text: '❌ لټون لغوه کول', callback_data: 'conn:cancel_search:' + search.id }]] }, user);
+  await tryOfferSearches();
+}
+async function showConnectedPair(session) {
+  const first = await getUser(session.first_user_telegram_id), second = await getUser(session.second_user_telegram_id);
+  if (!first || !second) return;
+  await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, Number(first.telegram_id))).run();
+  await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, Number(second.telegram_id))).run();
+  try { await api.sendMessage({ chat_id: Number(first.telegram_id), text: '✅ غوښتنه ومنل شوه! اړیکه وصل شوه.\n\n⭐ له غوښتونکي څخه د اړیکې قیمت کم شوی دی.' }); } catch (e) {}
+  try { await api.sendMessage({ chat_id: Number(second.telegram_id), text: '✅ غوښتنه ومنل شوه! اړیکه وصل شوه.\n\nاوس کولای شئ یو بل ته پیغامونه واستوئ.' }); } catch (e) {}
+  await showSessionProfile(session, Number(first.telegram_id));
+  await showSessionProfile(session, Number(second.telegram_id));
+}
+async function resolveBotGame(game) {
+  if (!game || game.status !== 'waiting') return;
+  const player = await getUser(game.player_id);
+  if (!player) return;
+  const fee = Number(await getSetting('game_fee_stars', 0.5)), winStars = Number(await getSetting('game_win_stars', 3));
+  const totalLoss = Number(await getSetting('game_bot_loss_total_stars', 3.5)), points = Number(await getSetting('game_win_points', 1));
+  const balance = Number(player.stars || 0);
+  if (balance < Number(await getSetting('game_min_stars', 3.5))) {
+    await db.update(game_sessions).set({ status: 'cancelled', updated_at: new Date().toISOString() }).where(eq(game_sessions.id, Number(game.id))).run(); return;
+  }
+  await db.update(users).set({ stars: balance - fee }).where(eq(users.telegram_id, Number(player.telegram_id))).run();
+  const playerDice = await api.sendDice({ chat_id: Number(player.telegram_id), emoji: '🎲' });
+  const botDice = await api.sendDice({ chat_id: Number(player.telegram_id), emoji: '🎲' });
+  const pRoll = Number(playerDice && playerDice.dice && playerDice.dice.value || 0), bRoll = Number(botDice && botDice.dice && botDice.dice.value || 0);
+  let current = balance - fee, outcome = '🤝 مساوي! د لوبې فیس حساب شو؛ اضافي جایزه نشته.';
+  if (pRoll > bRoll) {
+    current += winStars;
+    await db.update(users).set({ stars: current, points: Number(player.points || 0) + points }).where(eq(users.telegram_id, Number(player.telegram_id))).run();
+    outcome = '🎉 ته وګټلې! +' + winStars + ' ستوري او +' + points + ' نمره.';
+  } else if (bRoll > pRoll) {
+    const extra = Math.min(Math.max(0, totalLoss - fee), current);
+    current -= extra;
+    await db.update(users).set({ stars: current }).where(eq(users.telegram_id, Number(player.telegram_id))).run();
+    outcome = '🤖 بوټ وګټله! ټول لګښت: ' + (fee + extra) + ' ستوري.';
+  } else await db.update(users).set({ stars: current }).where(eq(users.telegram_id, Number(player.telegram_id))).run();
+  await db.update(game_sessions).set({ status: 'completed', player_roll: pRoll, opponent_roll: bRoll, updated_at: new Date().toISOString() }).where(eq(game_sessions.id, Number(game.id))).run();
+  try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: '🎲 د ګېم پایله\n\nستا 🎲: ' + pRoll + '\n\nد بوټ 🎲: ' + bRoll + '\n\n' + outcome + '\n\n⭐ اوسنی بیلانس: ' + current }); } catch (e) {}
+}
+async function tryMatchGames() {
+  const games = await db.select().from(game_sessions).all(), allUsers = await db.select().from(users).all(), sessions = await db.select().from(chat_sessions).all();
+  const wait = Number(await getSetting('game_wait_seconds', 120)), opponentMin = Number(await getSetting('game_opponent_min_stars', 3.5)), now = Date.now();
+  for (const game of games.filter(row => row.status === 'waiting' || row.status === 'pending')) {
+    const age = now - Date.parse(game.created_at || '');
+    if (Number.isFinite(age) && age >= wait * 1000) {
+      if (game.status === 'waiting') await resolveBotGame(game);
+      else await db.update(game_sessions).set({ status: 'waiting', opponent_id: null, updated_at: new Date().toISOString() }).where(eq(game_sessions.id, Number(game.id))).run();
+      continue;
+    }
+    if (game.status !== 'waiting') continue;
+    const busy = new Set(games.filter(row => ['waiting','pending','playing'].includes(row.status)).flatMap(row => [Number(row.player_id), Number(row.opponent_id || 0)]));
+    const candidates = allUsers.filter(candidate => {
+      const id = Number(candidate.telegram_id), active = Date.parse(candidate.last_active_at || '');
+      if (id === Number(game.player_id) || Number(candidate.is_blocked) === 1 || Number(candidate.stars || 0) < opponentMin) return false;
+      if (!Number.isFinite(active) || now - active > 120000 || busy.has(id)) return false;
+      if (sessions.some(row => row.status === 'connected' && (Number(row.first_user_telegram_id) === id || Number(row.second_user_telegram_id) === id))) return false;
+      return true;
+    }).sort((a,b)=>Date.parse(b.last_active_at || '')-Date.parse(a.last_active_at || ''));
+    if (!candidates.length) continue;
+    const candidate = candidates[0];
+    await db.update(game_sessions).set({ opponent_id: Number(candidate.telegram_id), status: 'pending', updated_at: new Date().toISOString() }).where(eq(game_sessions.id, Number(game.id))).run();
+    try { await api.sendMessage({ chat_id: Number(candidate.telegram_id), text: '🎲 یو فعال کارن غواړي له تا سره د ګېم لوبه وکړي. د منلو یا ردولو انتخاب وکړه.',
+      reply_markup: { inline_keyboard: [[{ text: '✅ ګېم منل', callback_data: 'game:accept:' + game.id }, { text: '❌ ردول', callback_data: 'game:reject:' + game.id }]] } }); }
+    catch (e) { await db.update(game_sessions).set({ status: 'waiting', opponent_id: null, updated_at: new Date().toISOString() }).where(eq(game_sessions.id, Number(game.id))).run(); }
+  }
+}
+async function resolveUserGame(game) {
+  if (!game || game.status !== 'pending' || !game.opponent_id) return;
+  const player = await getUser(game.player_id), opponent = await getUser(game.opponent_id);
+  if (!player || !opponent) return;
+  const fee = Number(await getSetting('game_fee_stars', 0.5)), winStars = Number(await getSetting('game_win_stars', 3)), points = Number(await getSetting('game_win_points', 1));
+  if (Number(player.stars || 0) < fee || Number(opponent.stars || 0) < fee) {
+    await db.update(game_sessions).set({ status: 'cancelled', updated_at: new Date().toISOString() }).where(eq(game_sessions.id, Number(game.id))).run();
+    try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: '⚠️ د لوبې لپاره د یوه لوبغاړي بیلانس کافي نه دی.' }); } catch (e) {}
+    try { await api.sendMessage({ chat_id: Number(opponent.telegram_id), text: '⚠️ د لوبې لپاره د یوه لوبغاړي بیلانس کافي نه دی.' }); } catch (e) {}
+    return;
+  }
+  const playerBalance = Number(player.stars || 0) - fee, opponentBalance = Number(opponent.stars || 0) - fee;
+  await db.update(users).set({ stars: playerBalance }).where(eq(users.telegram_id, Number(player.telegram_id))).run();
+  await db.update(users).set({ stars: opponentBalance }).where(eq(users.telegram_id, Number(opponent.telegram_id))).run();
+  const pDice = await api.sendDice({ chat_id: Number(player.telegram_id), emoji: '🎲' });
+  const oDice = await api.sendDice({ chat_id: Number(opponent.telegram_id), emoji: '🎲' });
+  try { if (pDice && pDice.message_id) await api.copyMessage({ chat_id: Number(opponent.telegram_id), from_chat_id: Number(player.telegram_id), message_id: Number(pDice.message_id) }); } catch (e) {}
+  try { if (oDice && oDice.message_id) await api.copyMessage({ chat_id: Number(player.telegram_id), from_chat_id: Number(opponent.telegram_id), message_id: Number(oDice.message_id) }); } catch (e) {}
+  const pRoll = Number(pDice && pDice.dice && pDice.dice.value || 0), oRoll = Number(oDice && oDice.dice && oDice.dice.value || 0);
+  let pFinal = playerBalance, oFinal = opponentBalance, result = '🤝 مساوي! دواړه یوازې د لوبې فیس ورکوي.';
+  if (pRoll > oRoll) {
+    pFinal += winStars; oFinal = Math.max(0, oFinal - winStars);
+    await db.update(users).set({ stars: pFinal, points: Number(player.points || 0) + points }).where(eq(users.telegram_id, Number(player.telegram_id))).run();
+    await db.update(users).set({ stars: oFinal }).where(eq(users.telegram_id, Number(opponent.telegram_id))).run();
+    result = '🏆 ' + (player.name || player.first_name || 'لومړي لوبغاړي') + ' وګټله.';
+  } else if (oRoll > pRoll) {
+    oFinal += winStars; pFinal = Math.max(0, pFinal - winStars);
+    await db.update(users).set({ stars: oFinal, points: Number(opponent.points || 0) + points }).where(eq(users.telegram_id, Number(opponent.telegram_id))).run();
+    await db.update(users).set({ stars: pFinal }).where(eq(users.telegram_id, Number(player.telegram_id))).run();
+    result = '🏆 ' + (opponent.name || opponent.first_name || 'دویم لوبغاړي') + ' وګټله.';
+  }
+  await db.update(game_sessions).set({ status: 'completed', player_roll: pRoll, opponent_roll: oRoll, updated_at: new Date().toISOString() }).where(eq(game_sessions.id, Number(game.id))).run();
+  for (const pair of [{ id: Number(player.telegram_id), mine: pRoll, other: oRoll, balance: pFinal }, { id: Number(opponent.telegram_id), mine: oRoll, other: pRoll, balance: oFinal }]) {
+    try { await api.sendMessage({ chat_id: pair.id, text: '🎲 د ګېم پایله\n\nستا 🎲: ' + pair.mine + '\n\nد سیال 🎲: ' + pair.other + '\n\n' + result + '\n\n⭐ اوسنی بیلانس: ' + pair.balance }); } catch (e) {}
+  }
+}
+async function handleConnectionCallback(query, actor, data, actorId, chatId) {
+  const p = data.split(':');
+  if (p[1] === 'confirm') { await startConnectionSearch(actorId, p[2] === 'find' ? 'find' : 'random'); return; }
+  if (p[1] === 'cancel') {
+    const rows = await db.select().from(connection_requests).where(eq(connection_requests.requester_id, actorId)).all();
+    for (const row of rows.filter(item => item.status === 'searching' || item.status === 'pending')) await db.update(connection_requests).set({ status: 'cancelled', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, Number(row.id))).run();
+    await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, actorId)).run();
+    actor.state = 'ready'; await showMain(chatId, actor, '❌ لټون لغوه شو.'); return;
+  }
+  if (p[1] === 'cancel_search') {
+    const rows = await db.select().from(connection_requests).where(eq(connection_requests.requester_id, actorId)).all();
+    for (const row of rows.filter(item => item.status === 'searching' || item.status === 'pending')) await db.update(connection_requests).set({ status: 'cancelled', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, Number(row.id))).run();
+    await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, actorId)).run();
+    actor.state = 'ready'; await showMain(chatId, actor, '❌ لټون لغوه شو.'); return;
+  }
+  if (p[1] === 'reject' || p[1] === 'accept') {
+    const offerId = Number(p[2]), rows = await db.select().from(connection_requests).all();
+    const offer = rows.find(row => Number(row.id) === offerId && Number(row.recipient_id) === actorId && row.status === 'pending');
+    if (!offer) { await sendPrompt(chatId, '⌛ دا غوښتنه نوره فعاله نه ده.', mainKeyboard(actor, await isAdmin(actorId)), actor); return; }
+    const search = rows.find(row => Number(row.requester_id) === Number(offer.requester_id) && row.status === 'searching' && !row.recipient_id);
+    if (p[1] === 'reject') {
+      await db.update(connection_requests).set({ status: 'rejected', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, offerId)).run();
+      await tryOfferSearches(); return;
+    }
+    if (!search) { await db.update(connection_requests).set({ status: 'expired', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, offerId)).run(); await sendPrompt(chatId, '⌛ د غوښتونکي لټون پای ته رسېدلی.', mainKeyboard(actor, await isAdmin(actorId)), actor); return; }
+    const requester = await getUser(offer.requester_id), cost = Number(await getSetting('connection_cost_stars', 1));
+    if (!requester || Number(requester.stars || 0) < cost) {
+      await db.update(connection_requests).set({ status: 'rejected', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, offerId)).run();
+      if (requester) try { await api.sendMessage({ chat_id: Number(requester.telegram_id), text: '⚠️ د اړیکې لپاره ستوري نور کافي نه دي. لټون پای ته ورسېد.' }); } catch (e) {}
+      await tryOfferSearches(); return;
+    }
+    const oldSession = await activeSessionFor(actorId);
+    if (oldSession) await endConnection(oldSession, 'accepted_new_request');
+    const requesterSession = await activeSessionFor(requester.telegram_id);
+    if (requesterSession) { await sendPrompt(chatId, '⚠️ غوښتونکی لا له بل کس سره په اړیکه کې دی.', mainKeyboard(actor, await isAdmin(actorId)), actor); return; }
+    await db.update(users).set({ stars: Number(requester.stars || 0) - cost, state: 'ready' }).where(eq(users.telegram_id, Number(requester.telegram_id))).run();
+    await db.update(connection_requests).set({ status: 'connected', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, Number(search.id))).run();
+    await db.update(connection_requests).set({ status: 'accepted', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, offerId)).run();
+    for (const row of rows.filter(item => Number(item.requester_id) === Number(requester.telegram_id) && item.status === 'pending')) await db.update(connection_requests).set({ status: 'cancelled', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, Number(row.id))).run();
+    const now = new Date().toISOString();
+    await db.insert(chat_sessions).values({ first_user_telegram_id: Number(requester.telegram_id), second_user_telegram_id: actorId, status: 'connected',
+      created_at: now, connected_at: now, last_activity_at: now, ended_at: null, end_reason: null }).run();
+    const sessions = await db.select().from(chat_sessions).all();
+    const session = sessions.filter(row => row.status === 'connected' && ((Number(row.first_user_telegram_id) === Number(requester.telegram_id) && Number(row.second_user_telegram_id) === actorId) || (Number(row.first_user_telegram_id) === actorId && Number(row.second_user_telegram_id) === Number(requester.telegram_id)))).sort((a,b)=>Number(b.id)-Number(a.id))[0];
+    actor.state = 'ready'; await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, actorId)).run();
+    await showConnectedPair(session);
+    return;
+  }
+}
+async function handleFindCallback(query, actor, data, actorId, chatId) {
+  const p = data.split(':');
+  if (p[1] === 'cancel') { await showMain(chatId, actor, '❌ لغوه شو.'); return; }
+  if (p[1] === 'gender') {
+    if (!['male','female','auto'].includes(p[2])) return;
+    await db.update(users).set({ search_gender: p[2], state: 'find_choose_language' }).where(eq(users.telegram_id, actorId)).run();
+    actor.search_gender = p[2]; actor.state = 'find_choose_language';
+    await sendPrompt(chatId, '🌐 د کومې ژبې ملګری غواړې؟', { inline_keyboard: [[{ text: 'پښتو', callback_data: 'find:language:ps' }, { text: 'دري', callback_data: 'find:language:fa' }], [{ text: 'English', callback_data: 'find:language:en' }, { text: 'اردو', callback_data: 'find:language:ur' }], [{ text: 'العربية', callback_data: 'find:language:ar' }], [{ text: '🌐 اتومات', callback_data: 'find:language:auto' }], [{ text: '❌ لغوه', callback_data: 'find:cancel' }]] }, actor); return;
+  }
+  if (p[1] === 'language') {
+    if (!['ps','fa','en','ur','ar','auto'].includes(p[2])) return;
+    await db.update(users).set({ search_language: p[2], state: 'ready' }).where(eq(users.telegram_id, actorId)).run();
+    actor.search_language = p[2]; actor.state = 'ready';
+    const cost = Number(await getSetting('connection_cost_stars', 1));
+    if (Number(actor.stars || 0) < cost) { await sendPrompt(chatId, '⭐ د ملګري لټون لپاره ' + cost + ' ستوري پکار دي. ستا بیلانس: ' + Number(actor.stars || 0), mainKeyboard(actor, await isAdmin(actorId)), actor); return; }
+    const gender = actor.search_gender === 'male' ? 'نارینه' : actor.search_gender === 'female' ? 'ښځینه' : 'اتومات';
+    const language = p[2] === 'auto' ? 'اتومات' : (LANGUAGES.find(item => item.code === p[2]) || {}).label || p[2];
+    await sendPrompt(chatId, '🔎 د ملګري لټون تایید کړه.\n\n👤 جنسیت: ' + gender + '\n\n🌐 ژبه: ' + language + '\n\n⭐ د اړیکې پر منلو به ' + cost + ' ستوری کم شي.', { inline_keyboard: [[{ text: '✅ تایید او لټون پیلول', callback_data: 'conn:confirm:find' }, { text: '❌ لغوه', callback_data: 'conn:cancel' }]] }, actor); return;
+  }
+}
+async function handleSessionCallback(query, actor, data, actorId, chatId) {
+  const p = data.split(':'), action = p[1], targetId = Number(p[2]), sessionId = Number(p[p.length - 1]);
+  if (action === 'end') {
+    const id = Number(p[2]), session = await db.select().from(chat_sessions).where(eq(chat_sessions.id, id)).get();
+    if (session && session.status === 'connected' && (Number(session.first_user_telegram_id) === actorId || Number(session.second_user_telegram_id) === actorId)) await endConnection(session, 'user_ended');
+    return;
+  }
+  if (!Number.isSafeInteger(targetId) || targetId <= 0) return;
+  const target = await getUser(targetId);
+  if (!target) return;
+  if (action === 'follow') {
+    const rows = await db.select().from(favorites).where(eq(favorites.user_telegram_id, actorId)).all();
+    if (!rows.some(row => Number(row.favorite_telegram_id) === targetId)) await db.insert(favorites).values({ user_telegram_id: actorId, favorite_telegram_id: targetId, created_at: new Date().toISOString() }).run();
+    const session = await db.select().from(chat_sessions).where(eq(chat_sessions.id, sessionId)).get();
+    if (session && session.status === 'connected') await showSessionProfile(session, actorId);
+    else await sendPrompt(chatId, '❤️ کارن فالو شو.\n\n' + await publicProfileText(target, actorId), mainKeyboard(actor, await isAdmin(actorId)), actor);
+    return;
+  }
+  if (action === 'like') {
+    const rows = await db.select().from(user_likes).where(eq(user_likes.liker_id, actorId)).all(), existing = rows.find(row => Number(row.liked_id) === targetId);
+    if (existing) {
+      await db.delete(user_likes).where(eq(user_likes.id, Number(existing.id))).run();
+      await db.update(users).set({ likes: Math.max(0, Number(target.likes || 0) - 1) }).where(eq(users.telegram_id, targetId)).run();
+    } else {
+      await db.insert(user_likes).values({ liker_id: actorId, liked_id: targetId, created_at: new Date().toISOString() }).run();
+      await db.update(users).set({ likes: Number(target.likes || 0) + 1 }).where(eq(users.telegram_id, targetId)).run();
+    }
+    const session = await db.select().from(chat_sessions).where(eq(chat_sessions.id, sessionId)).get();
+    if (session && session.status === 'connected') await showSessionProfile(session, actorId);
+    return;
+  }
+  if (action === 'rate') {
+    const rating = Number(p[3]);
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) return;
+    const rows = await db.select().from(user_ratings).where(eq(user_ratings.session_id, sessionId)).all();
+    if (rows.some(row => Number(row.rater_id) === actorId && Number(row.rated_id) === targetId)) {
+      await sendPrompt(chatId, '⭐ په دې اړیکه کې دې مخکې نمره ورکړې ده.', mainKeyboard(actor, await isAdmin(actorId)), actor); return;
+    }
+    await db.insert(user_ratings).values({ session_id: sessionId, rater_id: actorId, rated_id: targetId, rating, created_at: new Date().toISOString() }).run();
+    await db.update(users).set({ points: Number(target.points || 0) + rating }).where(eq(users.telegram_id, targetId)).run();
+    await sendPrompt(chatId, '✅ ' + rating + ' نمرې دې کارن ته ورکړې.', mainKeyboard(actor, await isAdmin(actorId)), actor); return;
+  }
+  if (action === 'profile') {
+    const session = await db.select().from(chat_sessions).where(eq(chat_sessions.id, sessionId)).get();
+    if (session && session.status === 'connected') await showSessionProfile(session, actorId);
+    else await sendPrompt(chatId, await publicProfileText(target, actorId), mainKeyboard(actor, await isAdmin(actorId)), actor);
+    return;
+  }
+  if (action === 'report') {
+    await db.insert(reports).values({ reporter_telegram_id: actorId, reported_telegram_id: targetId, reason: 'Random Connect connection report', status: 'pending', created_at: new Date().toISOString() }).run();
+    await sendPrompt(chatId, '🚩 راپور ثبت شو. مننه چې خبر دې راکړ.', mainKeyboard(actor, await isAdmin(actorId)), actor); return;
+  }
+  if (action === 'delete_recent') {
+    const cutoff = Date.now() - 10 * 60000, rows = await db.select().from(chat_messages).all();
+    let deleted = 0;
+    for (const row of rows.filter(item => Number(item.sender_id) === targetId && Number(item.recipient_id) === actorId && Number(item.session_id) === sessionId && Date.parse(item.created_at || '') >= cutoff && Number(item.recipient_message_id) > 0)) {
+      try { await api.deleteMessage({ chat_id: actorId, message_id: Number(row.recipient_message_id) }); deleted += 1; } catch (e) {}
+      await db.update(chat_messages).set({ recipient_message_id: 0 }).where(eq(chat_messages.id, Number(row.id))).run();
+    }
+    await sendPrompt(chatId, '🗑 د وروستیو ۱۰ دقیقو د ملګري ' + deleted + ' لېږل شوي پیغامونه حذف شول. د Telegram د محدودیت له امله د کارن خپل اصلي پیغامونه نه حذف کېږي.', mainKeyboard(actor, await isAdmin(actorId)), actor); return;
+  }
+}
+async function handleGameCallback(query, actor, data, actorId, chatId) {
+  const p = data.split(':'), action = p[1], gameId = Number(p[2]);
+  const rows = await db.select().from(game_sessions).all(), game = rows.find(row => Number(row.id) === gameId);
+  if (action === 'cancel') {
+    for (const row of rows.filter(item => Number(item.player_id) === actorId && ['waiting','pending'].includes(item.status))) await db.update(game_sessions).set({ status: 'cancelled', updated_at: new Date().toISOString() }).where(eq(game_sessions.id, Number(row.id))).run();
+    await showMain(chatId, actor, '❌ ګېم لغوه شو.'); return;
+  }
+  if (!game || !['waiting','pending'].includes(game.status)) { await sendPrompt(chatId, '⌛ دا ګېم نور فعال نه دی.', mainKeyboard(actor, await isAdmin(actorId)), actor); return; }
+  if (action === 'reject' && Number(game.opponent_id) === actorId) {
+    await db.update(game_sessions).set({ status: 'waiting', opponent_id: null, updated_at: new Date().toISOString() }).where(eq(game_sessions.id, gameId)).run();
+    await tryMatchGames(); return;
+  }
+  if (action === 'accept' && Number(game.opponent_id) === actorId) {
+    await db.update(game_sessions).set({ status: 'playing', updated_at: new Date().toISOString() }).where(eq(game_sessions.id, gameId)).run();
+    const playing = Object.assign({}, game, { status: 'playing' });
+    await resolveUserGame(playing); return;
+  }
+}
+
 async function handleCallback(query) {
   if (!query || !query.from || !query.message || !query.message.chat || !query.data) return;
   const id = Number(query.from.id);
