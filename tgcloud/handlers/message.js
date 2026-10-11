@@ -257,8 +257,7 @@ function menuKeyboard(user, admin) {
     [{ text: m[2] }, { text: m[3] }],
     [{ text: m[4] }, { text: m[5] }],
     [{ text: m[6] }, { text: m[7] }],
-    [{ text: m[9] }],
-    [{ text: m[10] }]
+    [{ text: m[9] }, { text: m[10] }]
   ];
   if (admin) rows.push([{ text: m[8] }]);
   return keyboard(rows);
@@ -806,7 +805,8 @@ async function tryOfferSearches() {
       }
       continue;
     }
-    if (allRequests.some(row => Number(row.requester_id) === Number(search.requester_id) && row.status === 'pending' && row.recipient_id)) continue;
+    if (allRequests.some(row => Number(row.requester_id) === Number(search.requester_id) && row.status === 'pending' && row.recipient_id) ||
+        allRequests.some(row => Number(row.recipient_id) === Number(search.requester_id) && row.status === 'pending')) continue;
     const requester = allUsers.find(row => Number(row.telegram_id) === Number(search.requester_id));
     if (!requester || Number(requester.is_blocked) === 1) continue;
     const alreadyTried = new Set(allRequests.filter(row => Number(row.requester_id) === Number(search.requester_id) && row.recipient_id)
@@ -824,8 +824,6 @@ async function tryOfferSearches() {
       const connected = allSessions.some(row => row.status === 'connected' &&
         (Number(row.first_user_telegram_id) === candidateId || Number(row.second_user_telegram_id) === candidateId));
       if (connected && candidate.connection_request_mode !== 'all') return false;
-      const searching = allRequests.some(row => Number(row.requester_id) === candidateId && row.status === 'searching');
-      if (searching) return false;
       const pendingForCandidate = allRequests.some(row => Number(row.recipient_id) === candidateId && row.status === 'pending');
       if (pendingForCandidate) return false;
       if (candidate.connection_request_mode === 'followed' &&
@@ -947,8 +945,16 @@ async function resolveBotGame(game) {
     await db.update(game_sessions).set({ status: 'cancelled', updated_at: new Date().toISOString() }).where(eq(game_sessions.id, Number(game.id))).run();
     return;
   }
-  const playerDice = await api.sendDice({ chat_id: Number(player.telegram_id), emoji: '🎲' });
-  const botDice = await api.sendDice({ chat_id: Number(player.telegram_id), emoji: '🎲' });
+  let playerDice, botDice;
+  try {
+    playerDice = await api.sendDice({ chat_id: Number(player.telegram_id), emoji: '🎲' });
+    botDice = await api.sendDice({ chat_id: Number(player.telegram_id), emoji: '🎲' });
+  } catch (error) {
+    console.error('Bot game dice failed', { gameId: game.id, playerId: player.telegram_id, error: error });
+    await db.update(game_sessions).set({ status: 'cancelled', updated_at: new Date().toISOString() }).where(eq(game_sessions.id, Number(game.id))).run();
+    try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: '⚠️ د ګېم تخنیکي ستونزه وه؛ ګېم لغوه شو او فیس نه دی اخیستل شوی. بیا هڅه وکړه.' }); } catch (e) {}
+    return;
+  }
   const playerRoll = Number(playerDice && playerDice.dice && playerDice.dice.value || 0);
   const botRoll = Number(botDice && botDice.dice && botDice.dice.value || 0);
   let outcome = '🤝 مساوي! هېڅ ستوري یا نمرې نه ګټل کېږي؛ یوازې د ګېم فیس حساب شو.';
@@ -976,6 +982,17 @@ async function tryMatchGames() {
   const waitSeconds = Number(await getSetting('game_wait_seconds', 120));
   const opponentMin = Number(await getSetting('game_opponent_min_stars', 3.5));
   const now = Date.now();
+  const stalePlaying = rows.filter(row => row.status === 'playing' &&
+    Number.isFinite(Date.parse(row.updated_at || row.created_at || '')) &&
+    now - Date.parse(row.updated_at || row.created_at || '') >= Math.max(120000, waitSeconds * 1000));
+  for (const game of stalePlaying) {
+    await db.update(game_sessions).set({ status: 'cancelled', updated_at: new Date().toISOString() })
+      .where(eq(game_sessions.id, Number(game.id))).run();
+    game.status = 'cancelled';
+    for (const playerId of [Number(game.player_id), Number(game.opponent_id || 0)]) {
+      if (playerId > 0) try { await api.sendMessage({ chat_id: playerId, text: '⚠️ پخوانی ګېم د ځنډ له امله لغوه شو. اوس کولای شې نوی ګېم پیل کړې.' }); } catch (e) {}
+    }
+  }
   for (const game of rows.filter(row => row.status === 'waiting' || row.status === 'pending')) {
     const timerStart = game.status === 'pending' ? (game.updated_at || game.created_at) : game.created_at;
     const age = now - Date.parse(timerStart || '');
