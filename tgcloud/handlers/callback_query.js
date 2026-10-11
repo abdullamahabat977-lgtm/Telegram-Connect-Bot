@@ -707,10 +707,19 @@ async function tryMatchGames() {
   const games = await db.select().from(game_sessions).all(), allUsers = await db.select().from(users).all(), sessions = await db.select().from(chat_sessions).all();
   const wait = Number(await getSetting('game_wait_seconds', 120)), opponentMin = Number(await getSetting('game_opponent_min_stars', 3.5)), now = Date.now();
   for (const game of games.filter(row => row.status === 'waiting' || row.status === 'pending')) {
-    const age = now - Date.parse(game.created_at || '');
+    const timerStart = game.status === 'pending' ? (game.updated_at || game.created_at) : game.created_at;
+    const age = now - Date.parse(timerStart || '');
     if (Number.isFinite(age) && age >= wait * 1000) {
-      if (game.status === 'waiting') await resolveBotGame(game);
-      else await db.update(game_sessions).set({ status: 'waiting', updated_at: new Date().toISOString() }).where(eq(game_sessions.id, Number(game.id))).run();
+      if (game.status === 'waiting') {
+        await resolveBotGame(game);
+      } else {
+        const expiredOpponent = Number(game.opponent_id || 0);
+        await db.update(game_sessions).set({ status: 'waiting', opponent_id: null, updated_at: new Date().toISOString() }).where(eq(game_sessions.id, Number(game.id))).run();
+        if (expiredOpponent) {
+          try { await api.sendMessage({ chat_id: expiredOpponent, text: '⌛ د ګېم د منلو وخت پای ته ورسېد.' }); } catch (e) {}
+        }
+        await resolveBotGame(Object.assign({}, game, { status: 'waiting', opponent_id: null }));
+      }
       continue;
     }
     if (game.status !== 'waiting') continue;
