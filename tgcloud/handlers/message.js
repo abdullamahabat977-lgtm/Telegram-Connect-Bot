@@ -1556,7 +1556,7 @@ async function processMessage(message) {
     else await sendPrompt(chatId, '🎲 ناڅاپي اړیکه پیل کړو؟\n\nد غوښتنې د منلو پر مهال به ' + cost + ' ستوری کم شي.\n\nغواړې غوښتنه واستوې؟', { inline_keyboard: [[{ text: '✅ تایید او غوښتنه واستوه', callback_data: 'conn:confirm:random' }, { text: '❌ لغوه', callback_data: 'conn:cancel' }]] }, user);
   }
   else if (field === 'game') await startDiceGame(chatId, user);
-  else if (field === 'leaderboards') await sendPrompt(chatId, '🏆 لوړ رتبه کسان\\n\\nلاندې درجه‌بندي وټاکه:', { inline_keyboard: [[{ text: '🏆 تر ټولو ډېرې نمرې', callback_data: 'admin:rank:points' }], [{ text: '📨 تر ټولو ډېر ریفرلونه', callback_data: 'admin:rank:referrals' }], [{ text: '👥 تر ټولو ډېر فالو', callback_data: 'admin:rank:follows' }], [{ text: '❤️ تر ټولو ډېر لایکونه', callback_data: 'admin:rank:likes' }], [{ text: '🔙 اصلي مېنو', callback_data: 'admin:main' }]] }, user);
+  else if (field === 'leaderboards') await sendPrompt(chatId, '🏆 لوړ رتبه کسان\n\nلاندې درجه‌بندي وټاکه:', { inline_keyboard: [[{ text: '🏆 تر ټولو ډېرې نمرې', callback_data: 'admin:rank:points' }], [{ text: '📨 تر ټولو ډېر ریفرلونه', callback_data: 'admin:rank:referrals' }], [{ text: '👥 تر ټولو ډېر فالو', callback_data: 'admin:rank:follows' }], [{ text: '❤️ تر ټولو ډېر لایکونه', callback_data: 'admin:rank:likes' }], [{ text: '🔙 اصلي مېنو', callback_data: 'admin:main' }]] }, user);
   else if (field === 'favorites') await showFavorites(chatId, user);
   else if (field === 'invite') await showReferral(chatId, user);
   else if (field === 'profile') await showProfile(chatId, user);
