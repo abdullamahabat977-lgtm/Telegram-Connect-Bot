@@ -537,7 +537,7 @@ async function tryOfferSearches() {
       Number.isFinite(Date.parse(row.created_at || '')) && now - Date.parse(row.created_at || '') < wait * 1000)) continue;
     const requester = allUsers.find(row => Number(row.telegram_id) === Number(search.requester_id));
     if (!requester || Number(requester.is_blocked) === 1) continue;
-    const tried = new Set(requests.filter(row => Number(row.requester_id) === Number(search.requester_id) && row.recipient_id).map(row => Number(row.recipient_id)));
+    const tried = new Set(requests.filter(row => Number(row.requester_id) === Number(search.requester_id) && row.recipient_id && Number(row.id) > Number(search.id)).map(row => Number(row.recipient_id)));
     const candidates = allUsers.filter(candidate => {
       const cid = Number(candidate.telegram_id);
       if (cid === Number(search.requester_id) || Number(candidate.is_blocked) === 1 || !candidate.country || !candidate.gender || !candidate.age) return false;
@@ -590,7 +590,7 @@ async function startConnectionSearch(userId, type) {
   await db.update(users).set({ state: 'searching_connection' }).where(eq(users.telegram_id, Number(userId))).run();
   await sendPrompt(userId, '🔎 د ملګري لټون پیل شو.\n\n⏳ د مناسب کس لټون تر ۲ دقیقو دوام کوي. که وخت تېر شي، د ستا راتلونکي پیغام یا تڼۍ پر مهال به لټون لغوه شي.\n\n⭐ د منلو پر مهال به ' + cost + ' ستوری کم شي.',
     { inline_keyboard: [[{ text: '❌ لټون لغوه کول', callback_data: 'conn:cancel_search:' + search.id }]] }, user);
-  await tryOfferSearches();
+  try { await tryOfferSearches(); } catch (error) { console.error('Connection search matching failed after request creation', { userId: Number(userId), type: type, error: error }); }
 }
 async function showConnectedPair(session) {
   const first = await getUser(session.first_user_telegram_id), second = await getUser(session.second_user_telegram_id);
@@ -652,6 +652,8 @@ async function tryMatchGames() {
       const id = Number(candidate.telegram_id), active = Date.parse(candidate.last_active_at || '');
       if (id === Number(game.player_id) || id === Number(game.opponent_id || 0) || Number(candidate.is_blocked) === 1 || Number(candidate.stars || 0) < opponentMin) return false;
       if (!Number.isFinite(active) || now - active > 120000 || busy.has(id)) return false;
+      const recentlyRejected = games.some(row => row.status === 'rejected' && Number(row.player_id) === Number(game.player_id) && Number(row.opponent_id) === id && Number.isFinite(Date.parse(row.updated_at || '')) && now - Date.parse(row.updated_at || '') < wait * 1000);
+      if (recentlyRejected) return false;
       if (sessions.some(row => row.status === 'connected' && (Number(row.first_user_telegram_id) === id || Number(row.second_user_telegram_id) === id))) return false;
       return true;
     }).sort((a,b)=>Date.parse(b.last_active_at || '')-Date.parse(a.last_active_at || ''));
@@ -730,14 +732,16 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
     const search = rows.find(row => Number(row.requester_id) === Number(offer.requester_id) && row.status === 'searching' && !row.recipient_id);
     if (p[1] === 'reject') {
       await db.update(connection_requests).set({ status: 'rejected', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, offerId)).run();
-      await tryOfferSearches(); return;
+      try { await tryOfferSearches(); } catch (error) { console.error('Connection retry after rejection failed', { offerId: offerId, actorId: actorId, error: error }); }
+      return;
     }
     if (!search) { await db.update(connection_requests).set({ status: 'expired', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, offerId)).run(); await sendPrompt(chatId, '⌛ د غوښتونکي لټون پای ته رسېدلی.', mainKeyboard(actor, await isAdmin(actorId)), actor); return; }
     const requester = await getUser(offer.requester_id), cost = Number(await getSetting('connection_cost_stars', 1));
     if (!requester || Number(requester.stars || 0) < cost) {
       await db.update(connection_requests).set({ status: 'rejected', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, offerId)).run();
       if (requester) try { await api.sendMessage({ chat_id: Number(requester.telegram_id), text: '⚠️ د اړیکې لپاره ستوري نور کافي نه دي. لټون پای ته ورسېد.' }); } catch (e) {}
-      await tryOfferSearches(); return;
+      try { await tryOfferSearches(); } catch (error) { console.error('Connection retry after insufficient balance failed', { offerId: offerId, actorId: actorId, error: error }); }
+      return;
     }
     const requesterSession = await activeSessionFor(requester.telegram_id);
     if (requesterSession) { await sendPrompt(chatId, '⚠️ غوښتونکی لا له بل کس سره په اړیکه کې دی.', mainKeyboard(actor, await isAdmin(actorId)), actor); return; }
@@ -856,19 +860,34 @@ async function handleGameCallback(query, actor, data, actorId, chatId) {
   }
   if (!game || !['waiting','pending'].includes(game.status)) { await sendPrompt(chatId, '⌛ دا ګېم نور فعال نه دی.', mainKeyboard(actor, await isAdmin(actorId)), actor); return; }
   if (action === 'reject' && Number(game.opponent_id) === actorId) {
-    await db.update(game_sessions).set({ status: 'waiting', opponent_id: null, updated_at: new Date().toISOString() }).where(eq(game_sessions.id, gameId)).run();
-    await tryMatchGames(); return;
+    const rejectedAt = new Date().toISOString();
+    await db.update(game_sessions).set({ status: 'rejected', updated_at: rejectedAt }).where(eq(game_sessions.id, gameId)).run();
+    await db.insert(game_sessions).values({
+      player_id: Number(game.player_id), opponent_id: null, status: 'waiting',
+      created_at: rejectedAt, updated_at: rejectedAt,
+      fee_stars: Number(game.fee_stars ?? await getSetting('game_fee_stars', 0.5)),
+      win_stars: Number(game.win_stars ?? await getSetting('game_win_stars', 3)),
+      bot_loss_total_stars: Number(game.bot_loss_total_stars ?? await getSetting('game_bot_loss_total_stars', 3.5)),
+      points_award: Number(game.points_award ?? await getSetting('game_win_points', 1))
+    }).run();
+    const player = await getUser(game.player_id);
+    if (player) await sendPrompt(Number(player.telegram_id), '❌ سیال غوښتنه رد کړه؛ د بل سیال لټون روان دی.\n\nکه غواړې، لټون لغوه کولای شې.', { inline_keyboard: [[{ text: '❌ ګېم لغوه کول', callback_data: 'game:cancel' }]] }, player);
+    await sendPrompt(chatId, '❌ د ګېم غوښتنه رد شوه.', mainKeyboard(actor, await isAdmin(actorId)), actor);
+    try { await tryMatchGames(); } catch (error) { console.error('Game rematch after rejection failed', { gameId: gameId, actorId: actorId, error: error }); }
+    return;
   }
   if (action === 'accept' && Number(game.opponent_id) === actorId) {
-    await db.update(game_sessions).set({ status: 'playing', updated_at: new Date().toISOString() }).where(eq(game_sessions.id, gameId)).run();
-    const playing = Object.assign({}, game, { status: 'playing' });
     try {
+      await db.update(game_sessions).set({ status: 'playing', updated_at: new Date().toISOString() }).where(eq(game_sessions.id, gameId)).run();
+      const playing = Object.assign({}, game, { status: 'playing' });
       await resolveUserGame(playing);
     } catch (error) {
-      console.error('User game resolution failed', { gameId: gameId, actorId: actorId, error: error });
-      await db.update(game_sessions).set({ status: 'cancelled', updated_at: new Date().toISOString() }).where(eq(game_sessions.id, gameId)).run();
-      try { await api.sendMessage({ chat_id: Number(game.player_id), text: '⚠️ دا ګېم تخنیکي ستونزې له امله بشپړ نه شو. که لوبه نه وي ترسره شوې، فیس نه دی اخیستل شوی.' }); } catch (e) {}
-      try { if (game.opponent_id) await api.sendMessage({ chat_id: Number(game.opponent_id), text: '⚠️ دا ګېم تخنیکي ستونزې له امله بشپړ نه شو. بیا هڅه کولای شئ.' }); } catch (e) {}
+      console.error('User game acceptance/resolution failed', { gameId: gameId, actorId: actorId, error: error });
+      try { await db.update(game_sessions).set({ status: 'cancelled', updated_at: new Date().toISOString() }).where(eq(game_sessions.id, gameId)).run(); } catch (cleanupError) {
+        console.error('Failed to mark failed game as cancelled', { gameId: gameId, error: cleanupError });
+      }
+      try { await api.sendMessage({ chat_id: Number(game.player_id), text: '⚠️ دا ګېم د تخنیکي ستونزې له امله بشپړ نه شو. که پایله نه وي ثبت شوې، فیس نه دی اخیستل شوی. بیا هڅه وکړه.' }); } catch (e) {}
+      try { if (game.opponent_id) await api.sendMessage({ chat_id: Number(game.opponent_id), text: '⚠️ دا ګېم د تخنیکي ستونزې له امله بشپړ نه شو. که پایله نه وي ثبت شوې، فیس نه دی اخیستل شوی. بیا هڅه وکړه.' }); } catch (e) {}
     }
     return;
   }
@@ -887,7 +906,7 @@ async function handleCallback(query) {
   let user = await getUser(id);
   if (!user || Number(user.is_blocked) === 1) return;
   try { await db.update(users).set({ last_active_at: new Date().toISOString() }).where(eq(users.telegram_id, id)).run(); } catch (e) {}
-  try { if (await expireUserTimedActions(id)) return; } catch (e) { console.error('User timed-action check failed', e); }
+  try { await expireUserTimedActions(id); } catch (e) { console.error('User timed-action check failed', e); }
   try { await tryOfferSearches(); } catch (e) { console.error('Connection matching check failed', e); }
   try { await tryMatchGames(); } catch (e) { console.error('Game matching check failed', e); }
   if (data.startsWith('admin:')) { await handleAdminCallback(query, user, data, id, chatId); return; }

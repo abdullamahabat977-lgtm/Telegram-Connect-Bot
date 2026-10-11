@@ -560,7 +560,7 @@ async function tryOfferSearches() {
       Number.isFinite(Date.parse(row.created_at || '')) && now - Date.parse(row.created_at || '') < waitSeconds * 1000)) continue;
     const requester = allUsers.find(row => Number(row.telegram_id) === Number(search.requester_id));
     if (!requester || Number(requester.is_blocked) === 1) continue;
-    const alreadyTried = new Set(allRequests.filter(row => Number(row.requester_id) === Number(search.requester_id) && row.recipient_id)
+    const alreadyTried = new Set(allRequests.filter(row => Number(row.requester_id) === Number(search.requester_id) && row.recipient_id && Number(row.id) > Number(search.id))
       .map(row => Number(row.recipient_id)));
     const candidates = allUsers.filter(candidate => {
       const candidateId = Number(candidate.telegram_id);
@@ -642,7 +642,7 @@ async function beginConnectionSearch(chatId, user, type) {
   user.state = 'searching_connection';
   await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, Number(user.telegram_id))).run();
   await sendPrompt(chatId, '🔎 د ملګري لټون پیل شو.\n\n⏳ د مناسب کس لټون تر ۲ دقیقو دوام کوي. که وخت تېر شي، د ستا راتلونکي پیغام یا تڼۍ پر مهال به لټون لغوه شي.\n\n⭐ د اړیکې منلو پر مهال به له تا ' + cost + ' ستوری کم شي.', { inline_keyboard: [[{ text: '❌ لټون لغوه کول', callback_data: 'conn:cancel_search:' + search.id }]] }, user);
-  await tryOfferSearches();
+  try { await tryOfferSearches(); } catch (error) { console.error('Connection search matching failed after request creation', { userId: Number(user.telegram_id), type: type, error: error }); }
 }
 async function relayConnectionMessage(message, session) {
   const senderId = Number(message.from.id), recipientId = otherSessionUser(session, senderId);
@@ -867,7 +867,7 @@ async function processMessage(message) {
             : '🎉 ښه راغلاست! ستا د ښه راغلاست جایزه ستا حساب ته اضافه شوه.\n\n⭐ ستوري: ' + welcomeStars + '\n🏆 نمرې: ' + welcomePoints + '\n❤️ لایکونه: ' + welcomeLikes;
     try { await api.sendMessage({ chat_id: chatId, text: welcomeText }); } catch (e) { console.error('Welcome reward notification failed', e); }
   }
-  try { if (await expireUserTimedActions(id)) return; } catch (e) { console.error('User timed-action check failed', e); }
+  try { await expireUserTimedActions(id); } catch (e) { console.error('User timed-action check failed', e); }
   try { await tryOfferSearches(); } catch (e) { console.error('Connection matching check failed', e); }
   try { await tryMatchGames(); } catch (e) { console.error('Game matching check failed', e); }
   // Keep user messages visible; only replace the bot's previous prompt.
