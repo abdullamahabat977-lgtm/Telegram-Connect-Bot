@@ -1,5 +1,5 @@
 import { api, db } from 'sdk';
-import { eq } from 'sdk/db';
+import { and, eq } from 'sdk/db';
 import { users, admins, required_chats, app_settings, favorites, chat_sessions, connection_requests, chat_messages, user_ratings, user_likes, game_sessions, user_blocks, reports } from '../schema.js';
 import { ROOT_ADMINS, LANGUAGES, COUNTRIES, AGES, languageKeyboard, countryKeyboard, ensureInlinePromptTracking, requiredChatInfo, listWords, isFollowing, otherSessionUser, getUser, safeDelete, isAdmin } from '../lib/shared.js';
 import { T } from '../lib/message-text.js';
@@ -593,23 +593,51 @@ async function tryOfferSearches() {
         allFavorites.some(row => Number(row.user_telegram_id) === Number(search.requester_id) && Number(row.favorite_telegram_id) === Number(item.telegram_id)) ? 2 : 0;
       return rank(a) - rank(b) || Date.parse(b.last_active_at || '') - Date.parse(a.last_active_at || '');
     });
-    const candidate = candidates[0], nowIso = new Date().toISOString();
-    await db.insert(connection_requests).values({
-      requester_id: Number(search.requester_id), recipient_id: Number(candidate.telegram_id), status: 'pending',
-      request_type: search.request_type, gender_filter: search.gender_filter, language_filter: search.language_filter,
-      created_at: nowIso, updated_at: nowIso
-    }).run();
-    const pendingRows = await db.select().from(connection_requests).all();
-    const offer = pendingRows.filter(row => Number(row.requester_id) === Number(search.requester_id) &&
-      Number(row.recipient_id) === Number(candidate.telegram_id) && row.status === 'pending').sort((a,b) => Number(b.id)-Number(a.id))[0];
-    allRequests.push(offer);
+    const candidate = candidates[0];
+    const claimAt = new Date().toISOString();
+    const claim = await db.update(connection_requests).set({ status: 'matching', updated_at: claimAt })
+      .where(and(eq(connection_requests.id, Number(search.id)), eq(connection_requests.status, 'searching')))
+      .returning({ id: connection_requests.id });
+    if (!claim || claim.length === 0) continue;
+    let offer;
+    try {
+      const nowIso = new Date().toISOString();
+      const inserted = await db.insert(connection_requests).values({
+        requester_id: Number(search.requester_id), recipient_id: Number(candidate.telegram_id), status: 'pending',
+        request_type: search.request_type, gender_filter: search.gender_filter, language_filter: search.language_filter,
+        created_at: nowIso, updated_at: nowIso
+      }).returning();
+      offer = inserted && inserted[0];
+      if (!offer) throw new Error('Connection offer insert returned no row');
+      const released = await db.update(connection_requests).set({ status: 'searching', updated_at: new Date().toISOString() })
+        .where(and(eq(connection_requests.id, Number(search.id)), eq(connection_requests.status, 'matching'), eq(connection_requests.updated_at, claimAt)))
+        .returning({ id: connection_requests.id });
+      if (!released || released.length === 0) {
+        await db.update(connection_requests).set({ status: 'rejected', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, Number(offer.id))).run();
+        console.error('Could not release claimed connection search', { searchId: search.id, offerId: offer.id });
+        continue;
+      }
+      allRequests.push(offer);
+    } catch (error) {
+      try {
+        await db.update(connection_requests).set({ status: 'searching', updated_at: new Date().toISOString() })
+          .where(and(eq(connection_requests.id, Number(search.id)), eq(connection_requests.status, 'matching'), eq(connection_requests.updated_at, claimAt)))
+          .run();
+      } catch (releaseError) {
+        console.error('Failed to release connection search after offer creation error', { searchId: search.id, error: releaseError });
+      }
+      console.error('Failed to create connection offer', { searchId: search.id, requesterId: search.requester_id, candidateId: candidate.telegram_id, error });
+      continue;
+    }
     try {
       await api.sendMessage({ chat_id: Number(candidate.telegram_id),
         text: '🎲 یو ناڅاپي کس غواړي له تا سره اړیکه پیل کړي.\n\nته د غوښتونکي نوم، عکس، جنسیت او نور معلومات نه وینې. که غوښتنه ومنې، اړیکه به وصل شي؛ که رد یې کړې، بل کس ته به غوښتنه واستول شي.',
         reply_markup: { inline_keyboard: [[{ text: '✅ غوښتنه منل', callback_data: 'conn:accept:' + offer.id }, { text: '❌ ردول', callback_data: 'conn:reject:' + offer.id }]] }
       });
-    } catch (e) {
-      await db.update(connection_requests).set({ status: 'rejected', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, Number(offer.id))).run();
+    } catch (error) {
+      console.error('Failed to send connection offer to candidate', { searchId: search.id, offerId: offer.id, candidateId: candidate.telegram_id, error });
+      await db.update(connection_requests).set({ status: 'rejected', updated_at: new Date().toISOString() })
+        .where(and(eq(connection_requests.id, Number(offer.id)), eq(connection_requests.status, 'pending'))).run();
     }
   }
 }
@@ -625,7 +653,7 @@ async function beginConnectionSearch(chatId, user, type) {
     return;
   }
   const requests = await db.select().from(connection_requests).where(eq(connection_requests.requester_id, Number(user.telegram_id))).all();
-  if (requests.some(row => row.status === 'searching' && !row.recipient_id)) {
+  if (requests.some(row => ['searching', 'matching'].includes(row.status) && !row.recipient_id)) {
     await sendPrompt(chatId, '🔎 د ملګري لټون لا روان دی. مهرباني وکړه لږ انتظار وکړه.', { inline_keyboard: [[{ text: '❌ لټون لغوه کول', callback_data: 'conn:cancel_search' }]] }, user);
     return;
   }
