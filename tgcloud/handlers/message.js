@@ -1477,7 +1477,7 @@ async function processMessage(message) {
     if (field === 'rewardSettings') { await renderAdminRewardSettings(chatId, user); return; }
     if (field === 'connectionAdminSettings') { await renderAdminConnectionSettings(chatId, user); return; }
     if (field === 'gameAdminSettings') { await renderAdminGameSettings(chatId, user); return; }
-    if (field === 'leaderboards') { await sendPrompt(chatId, '🏆 لوړ رتبه کسان\\n\\nلاندې درجه‌بندي وټاکه:', { inline_keyboard: [[{ text: '🏆 تر ټولو ډېرې نمرې', callback_data: 'admin:rank:points' }], [{ text: '📨 تر ټولو ډېر ریفرلونه', callback_data: 'admin:rank:referrals' }], [{ text: '👥 تر ټولو ډېر فالو', callback_data: 'admin:rank:follows' }], [{ text: '❤️ تر ټولو ډېر لایکونه', callback_data: 'admin:rank:likes' }], [{ text: '🔙 اډمین پینل', callback_data: 'admin:panel' }]] }, user); return; }
+    if (field === 'leaderboards') { await sendPrompt(chatId, '🏆 لوړ رتبه کسان\n\nلاندې درجه‌بندي وټاکه:', { inline_keyboard: [[{ text: '🏆 تر ټولو ډېرې نمرې', callback_data: 'admin:rank:points' }], [{ text: '📨 تر ټولو ډېر ریفرلونه', callback_data: 'admin:rank:referrals' }], [{ text: '👥 تر ټولو ډېر فالو', callback_data: 'admin:rank:follows' }], [{ text: '❤️ تر ټولو ډېر لایکونه', callback_data: 'admin:rank:likes' }], [{ text: '🔙 اډمین پینل', callback_data: 'admin:panel' }]] }, user); return; }
     if (field === 'adminManagement') {
       user.state = 'admin_management_menu'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run();
       await sendPrompt(chatId, tx(user).adminManagementIntro, adminManagementKeyboard(user), user);
