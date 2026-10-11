@@ -1091,9 +1091,12 @@ async function processMessage(message) {
     const welcomeLikes = Number(await getSetting('welcome_reward_likes', 2));
     await db.update(users).set({ stars: Number(user.stars || 0) + welcomeStars, points: Number(user.points || 0) + welcomePoints, likes: Number(user.likes || 0) + welcomeLikes, welcome_reward_claimed: 1 }).where(eq(users.telegram_id, id)).run();
     user.stars = Number(user.stars || 0) + welcomeStars; user.points = Number(user.points || 0) + welcomePoints; user.likes = Number(user.likes || 0) + welcomeLikes; user.welcome_reward_claimed = 1;
-    try { await api.sendMessage({ chat_id: chatId, text: '🎉 ښه راغلاست! ستا د ښه راغلاست جایزه درکړل شوه.\n\n⭐ +' + welcomeStars + ' ستوري\n\n🏆 +' + welcomePoints + ' نمرې\n\n❤️ +' + welcomeLikes + ' لایکونه' }); } catch (e) {}
+    const welcomeText = user.language === 'en' ? '🎉 Welcome! Your welcome reward has been added.\\n\\n⭐ +' + welcomeStars + ' stars\\n\\n🏆 +' + welcomePoints + ' points\\n\\n❤️ +' + welcomeLikes + ' likes' : user.language === 'fa' ? '🎉 خوش آمدی! جایزه خوش‌آمدگویی اضافه شد.\\n\\n⭐ +' + welcomeStars + ' ستاره\\n\\n🏆 +' + welcomePoints + ' امتیاز\\n\\n❤️ +' + welcomeLikes + ' لایک' : user.language === 'ur' ? '🎉 خوش آمدید! آپ کا استقبالی انعام شامل کر دیا گیا ہے۔\\n\\n⭐ +' + welcomeStars + ' ستارے\\n\\n🏆 +' + welcomePoints + ' پوائنٹس\\n\\n❤️ +' + welcomeLikes + ' لائکس' : user.language === 'ar' ? '🎉 أهلاً بك! تمت إضافة مكافأة الترحيب.\\n\\n⭐ +' + welcomeStars + ' نجوم\\n\\n🏆 +' + welcomePoints + ' نقاط\\n\\n❤️ +' + welcomeLikes + ' إعجابات' : '🎉 ښه راغلاست! ستا د ښه راغلاست جایزه درکړل شوه.\\n\\n⭐ +' + welcomeStars + ' ستوري\\n\\n🏆 +' + welcomePoints + ' نمرې\\n\\n❤️ +' + welcomeLikes + ' لایکونه';
+    try { await api.sendMessage({ chat_id: chatId, text: welcomeText.replaceAll('\\\\n','\\n') }); } catch (e) {}
   }
+  const sessionBeforeMaintenance = await activeSessionFor(id);
   await maintainConnections();
+  if (sessionBeforeMaintenance && !(await activeSessionFor(id))) return;
   await tryOfferSearches();
   await tryMatchGames();
   // Keep user messages visible; only replace the bot's previous prompt.
