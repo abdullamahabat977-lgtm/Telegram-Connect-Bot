@@ -753,11 +753,9 @@ async function resolveUserGame(game) {
     try { await api.sendMessage({ chat_id: Number(opponent.telegram_id), text: '⚠️ د لوبې لپاره د یوه لوبغاړي بیلانس کافي نه دی.' }); } catch (e) {}
     return;
   }
-  const playerBalance = Number(player.stars || 0) - fee, opponentBalance = Number(opponent.stars || 0) - fee;
-  await db.update(users).set({ stars: playerBalance }).where(eq(users.telegram_id, Number(player.telegram_id))).run();
-  await db.update(users).set({ stars: opponentBalance }).where(eq(users.telegram_id, Number(opponent.telegram_id))).run();
   const pDice = await api.sendDice({ chat_id: Number(player.telegram_id), emoji: '🎲' });
   const oDice = await api.sendDice({ chat_id: Number(opponent.telegram_id), emoji: '🎲' });
+  const playerBalance = Number(player.stars || 0) - fee, opponentBalance = Number(opponent.stars || 0) - fee;
   try { if (pDice && pDice.message_id) await api.copyMessage({ chat_id: Number(opponent.telegram_id), from_chat_id: Number(player.telegram_id), message_id: Number(pDice.message_id) }); } catch (e) {}
   try { if (oDice && oDice.message_id) await api.copyMessage({ chat_id: Number(player.telegram_id), from_chat_id: Number(opponent.telegram_id), message_id: Number(oDice.message_id) }); } catch (e) {}
   const pRoll = Number(pDice && pDice.dice && pDice.dice.value || 0), oRoll = Number(oDice && oDice.dice && oDice.dice.value || 0);
@@ -772,6 +770,9 @@ async function resolveUserGame(game) {
     await db.update(users).set({ stars: oFinal, points: Number(opponent.points || 0) + points }).where(eq(users.telegram_id, Number(opponent.telegram_id))).run();
     await db.update(users).set({ stars: pFinal }).where(eq(users.telegram_id, Number(player.telegram_id))).run();
     result = '🏆 ' + (opponent.name || opponent.first_name || 'دویم لوبغاړي') + ' وګټله.';
+  } else {
+    await db.update(users).set({ stars: pFinal }).where(eq(users.telegram_id, Number(player.telegram_id))).run();
+    await db.update(users).set({ stars: oFinal }).where(eq(users.telegram_id, Number(opponent.telegram_id))).run();
   }
   await db.update(game_sessions).set({ status: 'completed', player_roll: pRoll, opponent_roll: oRoll, updated_at: new Date().toISOString() }).where(eq(game_sessions.id, Number(game.id))).run();
   for (const pair of [{ id: Number(player.telegram_id), mine: pRoll, other: oRoll, balance: pFinal }, { id: Number(opponent.telegram_id), mine: oRoll, other: pRoll, balance: oFinal }]) {
@@ -924,7 +925,15 @@ async function handleGameCallback(query, actor, data, actorId, chatId) {
   if (action === 'accept' && Number(game.opponent_id) === actorId) {
     await db.update(game_sessions).set({ status: 'playing', updated_at: new Date().toISOString() }).where(eq(game_sessions.id, gameId)).run();
     const playing = Object.assign({}, game, { status: 'playing' });
-    await resolveUserGame(playing); return;
+    try {
+      await resolveUserGame(playing);
+    } catch (error) {
+      console.error('User game resolution failed', { gameId: gameId, actorId: actorId, error: error });
+      await db.update(game_sessions).set({ status: 'cancelled', updated_at: new Date().toISOString() }).where(eq(game_sessions.id, gameId)).run();
+      try { await api.sendMessage({ chat_id: Number(game.player_id), text: '⚠️ دا ګېم تخنیکي ستونزې له امله بشپړ نه شو. که لوبه نه وي ترسره شوې، فیس نه دی اخیستل شوی.' }); } catch (e) {}
+      try { if (game.opponent_id) await api.sendMessage({ chat_id: Number(game.opponent_id), text: '⚠️ دا ګېم تخنیکي ستونزې له امله بشپړ نه شو. بیا هڅه کولای شئ.' }); } catch (e) {}
+    }
+    return;
   }
 }
 
