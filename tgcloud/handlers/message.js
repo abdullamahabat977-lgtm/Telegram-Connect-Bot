@@ -699,13 +699,38 @@ async function startDiceGame(chatId, user) {
     return;
   }
   const rows = await db.select().from(game_sessions).all();
-  if (rows.some(row => row.status === 'settlement_error' &&
-      (Number(row.player_id) === Number(user.telegram_id) || Number(row.opponent_id) === Number(user.telegram_id)))) {
+  const userId = Number(user.telegram_id);
+  const waitSeconds = Math.max(1, Number(await getSetting('game_wait_seconds', 120)) || 120);
+  const nowMs = Date.now();
+  // Expire only this user's stale waiting/offered games. Conditional status updates
+  // prevent this cleanup from overwriting a concurrent accept/cancel transition.
+  for (const row of rows) {
+    const isOwnGame = Number(row.player_id) === userId;
+    const isIncomingOffer = Number(row.opponent_id) === userId && row.status === 'pending';
+    if (!isOwnGame && !isIncomingOffer) continue;
+    if (!['waiting', 'pending'].includes(row.status)) continue;
+    const stamp = row.status === 'waiting' ? (row.created_at || row.updated_at) : (row.updated_at || row.created_at);
+    const age = nowMs - Date.parse(stamp || '');
+    if (Number.isFinite(age) && age < waitSeconds * 1000) continue;
+    const expired = await db.update(game_sessions)
+      .set({ status: 'cancelled', updated_at: new Date().toISOString() })
+      .where(and(eq(game_sessions.id, Number(row.id)), eq(game_sessions.status, row.status)))
+      .returning({ id: game_sessions.id }).run();
+    if (expired && Array.isArray(expired.rows) && expired.rows.length > 0 && row.status === 'pending') {
+      const otherId = isOwnGame ? Number(row.opponent_id || 0) : Number(row.player_id);
+      if (otherId > 0 && otherId !== userId) {
+        try { await api.sendMessage({ chat_id: otherId, text: '⌛ د ګېم غوښتنې وخت پای ته رسېدلی؛ دا ګېم نور فعال نه دی.' }); } catch (e) {}
+      }
+    }
+  }
+  const freshRows = await db.select().from(game_sessions).all();
+  if (freshRows.some(row => row.status === 'settlement_error' &&
+      (Number(row.player_id) === userId || Number(row.opponent_id) === userId))) {
     await sendPrompt(chatId, '⚠️ ستا په یوه پخواني ګېم کې تخنیکي ستونزه ثبت شوې ده. د فیس او پایلې د کتنې لپاره له اډمین سره اړیکه ونیسه؛ تر هغې نوی ګېم مه پیلوه.', menuKeyboard(user, await isAdmin(user.telegram_id)), user);
     return;
   }
-  if (rows.some(row => Number(row.player_id) === Number(user.telegram_id) && ['waiting','pending','playing'].includes(row.status)) ||
-      rows.some(row => Number(row.opponent_id) === Number(user.telegram_id) && ['pending','playing'].includes(row.status))) {
+  if (freshRows.some(row => Number(row.player_id) === userId && ['waiting','pending','playing'].includes(row.status)) ||
+      freshRows.some(row => Number(row.opponent_id) === userId && ['pending','playing'].includes(row.status))) {
     await sendPrompt(chatId, '🎲 ستا د ګېم غوښتنه لا روانه ده.', menuKeyboard(user, await isAdmin(user.telegram_id)), user);
     return;
   }
