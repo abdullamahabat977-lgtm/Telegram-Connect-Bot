@@ -680,7 +680,7 @@ async function tryMatchGames() {
     if (!Number.isFinite(age) || age >= wait * 1000) continue;
     if (game.status !== 'waiting') continue;
     const isFreshGame = row => { const start = row.status === 'waiting' ? (row.created_at || row.updated_at) : (row.updated_at || row.created_at); const age = now - Date.parse(start || ''); return Number.isFinite(age) && age < wait * 1000; };
-    const busy = new Set(games.filter(row => ['pending','playing'].includes(row.status) && isFreshGame(row)).flatMap(row => [Number(row.player_id), Number(row.opponent_id || 0)]).concat(games.filter(row => row.status === 'waiting' && isFreshGame(row)).map(row => Number(row.player_id))));
+    const busy = new Set(games.filter(row => ['pending','playing'].includes(row.status) && isFreshGame(row)).flatMap(row => [Number(row.player_id), Number(row.opponent_id || 0)]).concat(games.filter(row => row.status === 'waiting' && isFreshGame(row)).map(row => Number(row.player_id))).concat(games.filter(row => row.status === 'settlement_error').flatMap(row => [Number(row.player_id), Number(row.opponent_id || 0)])));
     const candidates = allUsers.filter(candidate => {
       const id = Number(candidate.telegram_id), active = Date.parse(candidate.last_active_at || '');
       if (id === Number(game.player_id) || id === Number(game.opponent_id || 0) || Number(candidate.is_blocked) === 1 || Number(candidate.stars || 0) < opponentMin) return false;
