@@ -839,6 +839,7 @@ async function tryOfferSearches() {
     const pendingRows = await db.select().from(connection_requests).all();
     const offer = pendingRows.filter(row => Number(row.requester_id) === Number(search.requester_id) &&
       Number(row.recipient_id) === Number(candidate.telegram_id) && row.status === 'pending').sort((a,b) => Number(b.id)-Number(a.id))[0];
+    allRequests.push(offer);
     try {
       await api.sendMessage({ chat_id: Number(candidate.telegram_id),
         text: '🎲 یو ناڅاپي کس غواړي له تا سره اړیکه پیل کړي.\n\nته د غوښتونکي نوم، عکس، جنسیت او نور معلومات نه وینې. که غوښتنه ومنې، اړیکه به وصل شي؛ که رد یې کړې، بل کس ته به غوښتنه واستول شي.',
@@ -972,11 +973,11 @@ async function tryMatchGames() {
       continue;
     }
     if (game.status !== 'waiting') continue;
-    const busyGameIds = new Set(rows.filter(row => ['waiting','pending','playing'].includes(row.status))
-      .flatMap(row => [Number(row.player_id), Number(row.opponent_id || 0)]));
+    const busyGameIds = new Set(rows.filter(row => ['pending','playing'].includes(row.status))
+      .flatMap(row => [Number(row.player_id), Number(row.opponent_id || 0)]).concat(rows.filter(row => row.status === 'waiting').map(row => Number(row.player_id))));
     const candidates = allUsers.filter(candidate => {
       const id = Number(candidate.telegram_id);
-      if (id === Number(game.player_id) || Number(candidate.is_blocked) === 1 || Number(candidate.stars || 0) < opponentMin) return false;
+      if (id === Number(game.player_id) || id === Number(game.opponent_id || 0) || Number(candidate.is_blocked) === 1 || Number(candidate.stars || 0) < opponentMin) return false;
       const last = Date.parse(candidate.last_active_at || '');
       if (!Number.isFinite(last) || now - last > 120000) return false;
       if (busyGameIds.has(id)) return false;
@@ -987,6 +988,7 @@ async function tryMatchGames() {
     const candidate = candidates[0];
     await db.update(game_sessions).set({ opponent_id: Number(candidate.telegram_id), status: 'pending', updated_at: new Date().toISOString() })
       .where(eq(game_sessions.id, Number(game.id))).run();
+    game.status = 'pending'; game.opponent_id = Number(candidate.telegram_id);
     try {
       await api.sendMessage({ chat_id: Number(candidate.telegram_id), text: '🎲 یو فعال کارن غواړي له تا سره د ګېم لوبه وکړي.\n\nد لوبې د منلو لپاره باید لږ تر لږه ' + opponentMin + ' ستوري ولرې. د منلو یا ردولو انتخاب وکړه.',
         reply_markup: { inline_keyboard: [[{ text: '✅ ګېم منل', callback_data: 'game:accept:' + game.id }, { text: '❌ ردول', callback_data: 'game:reject:' + game.id }]] } });
