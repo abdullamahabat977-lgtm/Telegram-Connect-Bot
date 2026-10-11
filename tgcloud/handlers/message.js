@@ -947,7 +947,6 @@ async function resolveBotGame(game) {
     await db.update(game_sessions).set({ status: 'cancelled', updated_at: new Date().toISOString() }).where(eq(game_sessions.id, Number(game.id))).run();
     return;
   }
-  await db.update(users).set({ stars: balance - fee }).where(eq(users.telegram_id, Number(player.telegram_id))).run();
   const playerDice = await api.sendDice({ chat_id: Number(player.telegram_id), emoji: '🎲' });
   const botDice = await api.sendDice({ chat_id: Number(player.telegram_id), emoji: '🎲' });
   const playerRoll = Number(playerDice && playerDice.dice && playerDice.dice.value || 0);
