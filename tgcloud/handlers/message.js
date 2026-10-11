@@ -1,7 +1,7 @@
 import { api, db } from 'sdk';
 import { eq } from 'sdk/db';
 import { users, admins, required_chats, app_settings, favorites, chat_sessions, connection_requests, chat_messages, user_ratings, user_likes, game_sessions, user_blocks, reports } from '../schema.js';
-import { ROOT_ADMINS, LANGUAGES, COUNTRIES, AGES, languageKeyboard, countryKeyboard, ensureInlinePromptTracking, requiredChatInfo, listWords, isFollowing, otherSessionUser } from '../lib/shared.js';
+import { ROOT_ADMINS, LANGUAGES, COUNTRIES, AGES, languageKeyboard, countryKeyboard, ensureInlinePromptTracking, requiredChatInfo, listWords, isFollowing, otherSessionUser, getUser, safeDelete, isAdmin } from '../lib/shared.js';
 import { T } from '../lib/message-text.js';
 
 
@@ -153,10 +153,6 @@ function actionFor(input) {
   }
   return null;
 }
-async function safeDelete(chatId, messageId) {
-  if (!messageId) return;
-  try { await api.deleteMessage({ chat_id: chatId, message_id: messageId }); } catch (e) {}
-}
 async function sendPrompt(chatId, text, markup, user, parseMode) {
   await ensureInlinePromptTracking();
   if (user) {
@@ -175,7 +171,6 @@ async function sendPrompt(chatId, text, markup, user, parseMode) {
   }
   return sent;
 }
-async function getUser(id) { return await db.select().from(users).where(eq(users.telegram_id, Number(id))).get(); }
 async function getSetting(key, fallback) {
   const row = await db.select().from(app_settings).where(eq(app_settings.setting_key, key)).get();
   const value = Number(row && row.setting_value);
@@ -185,10 +180,6 @@ async function setSetting(key, value) {
   const old = await db.select().from(app_settings).where(eq(app_settings.setting_key, key)).get();
   if (old) await db.update(app_settings).set({ setting_value: String(value) }).where(eq(app_settings.setting_key, key)).run();
   else await db.insert(app_settings).values({ setting_key: key, setting_value: String(value) }).run();
-}
-async function isAdmin(id) {
-  if (ROOT_ADMINS.includes(Number(id))) return true;
-  return Boolean(await db.select().from(admins).where(eq(admins.telegram_id, Number(id))).get());
 }
 async function ensureDefaults() {
   const seed = await db.select().from(app_settings).where(eq(app_settings.setting_key, 'initial_required_chat_seeded')).get();
