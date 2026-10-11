@@ -719,7 +719,7 @@ async function startConnectionSearch(userId, type) {
   const all = await db.select().from(connection_requests).all();
   const search = all.filter(row => Number(row.requester_id) === Number(userId) && row.status === 'searching' && !row.recipient_id).sort((a,b)=>Number(b.id)-Number(a.id))[0];
   await db.update(users).set({ state: 'searching_connection' }).where(eq(users.telegram_id, Number(userId))).run();
-  await sendPrompt(userId, '🔎 د ملګري لټون پیل شو.\n\n⏳ تر ۲ دقیقو پورې انتظار وکړه. که مناسب کس پیدا شي، غوښتنه به ورولېږل شي.\n\n⭐ د منلو پر مهال به ' + cost + ' ستوری کم شي.',
+  await sendPrompt(userId, '🔎 د ملګري لټون پیل شو.\n\n⏳ د مناسب کس لټون تر ۲ دقیقو دوام کوي. که وخت تېر شي، د ستا راتلونکي پیغام یا تڼۍ پر مهال به لټون لغوه شي.\n\n⭐ د منلو پر مهال به ' + cost + ' ستوری کم شي.',
     { inline_keyboard: [[{ text: '❌ لټون لغوه کول', callback_data: 'conn:cancel_search:' + search.id }]] }, user);
   await tryOfferSearches();
 }
