@@ -257,8 +257,7 @@ function menuKeyboard(user, admin) {
     [{ text: m[2] }, { text: m[3] }],
     [{ text: m[4] }, { text: m[5] }],
     [{ text: m[6] }, { text: m[7] }],
-    [{ text: m[9] }],
-    [{ text: m[10] }]
+    [{ text: m[9] }, { text: m[10] }]
   ];
   if (admin) rows.push([{ text: m[8] }]);
   return keyboard(rows);
@@ -824,8 +823,6 @@ async function tryOfferSearches() {
       const connected = allSessions.some(row => row.status === 'connected' &&
         (Number(row.first_user_telegram_id) === candidateId || Number(row.second_user_telegram_id) === candidateId));
       if (connected && candidate.connection_request_mode !== 'all') return false;
-      const searching = allRequests.some(row => Number(row.requester_id) === candidateId && row.status === 'searching');
-      if (searching) return false;
       const pendingForCandidate = allRequests.some(row => Number(row.recipient_id) === candidateId && row.status === 'pending');
       if (pendingForCandidate) return false;
       if (candidate.connection_request_mode === 'followed' &&
@@ -976,6 +973,17 @@ async function tryMatchGames() {
   const waitSeconds = Number(await getSetting('game_wait_seconds', 120));
   const opponentMin = Number(await getSetting('game_opponent_min_stars', 3.5));
   const now = Date.now();
+  const stalePlaying = rows.filter(row => row.status === 'playing' &&
+    Number.isFinite(Date.parse(row.updated_at || row.created_at || '')) &&
+    now - Date.parse(row.updated_at || row.created_at || '') >= Math.max(120000, waitSeconds * 1000));
+  for (const game of stalePlaying) {
+    await db.update(game_sessions).set({ status: 'cancelled', updated_at: new Date().toISOString() })
+      .where(eq(game_sessions.id, Number(game.id))).run();
+    game.status = 'cancelled';
+    for (const playerId of [Number(game.player_id), Number(game.opponent_id || 0)]) {
+      if (playerId > 0) try { await api.sendMessage({ chat_id: playerId, text: '⚠️ پخوانی ګېم د ځنډ له امله لغوه شو. اوس کولای شې نوی ګېم پیل کړې.' }); } catch (e) {}
+    }
+  }
   for (const game of rows.filter(row => row.status === 'waiting' || row.status === 'pending')) {
     const timerStart = game.status === 'pending' ? (game.updated_at || game.created_at) : game.created_at;
     const age = now - Date.parse(timerStart || '');
