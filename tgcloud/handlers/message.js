@@ -927,8 +927,8 @@ async function startDiceGame(chatId, user) {
   }
   const now = new Date().toISOString();
   await db.insert(game_sessions).values({ player_id: Number(user.telegram_id), opponent_id: null, status: 'waiting',
-    created_at: now, updated_at: now, fee_stars: String(await getSetting('game_fee_stars', 0.5)),
-    win_stars: String(await getSetting('game_win_stars', 3)), bot_loss_total_stars: String(await getSetting('game_bot_loss_total_stars', 3.5)),
+    created_at: now, updated_at: now, fee_stars: Number(await getSetting('game_fee_stars', 0.5)),
+    win_stars: Number(await getSetting('game_win_stars', 3)), bot_loss_total_stars: Number(await getSetting('game_bot_loss_total_stars', 3.5)),
     points_award: Number(await getSetting('game_win_points', 1)) }).run();
   await sendPrompt(chatId, '🎲 د ګېم سیال لټول کېږي.\n\n⏳ که په ۲ دقیقو کې بل فعال لوبغاړی پیدا نه شي، له بوټ سره به لوبه وکړې.', { inline_keyboard: [[{ text: '❌ ګېم لغوه کول', callback_data: 'game:cancel' }]] }, user);
   await tryMatchGames();
