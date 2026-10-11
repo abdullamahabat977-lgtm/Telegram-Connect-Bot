@@ -124,7 +124,7 @@ async function ensureInlinePromptTracking() {
   }
   inlinePromptTrackingReady = true;
 }
-async function sendPrompt(chatId, text, markup, user) {
+async function sendPrompt(chatId, text, markup, user, parseMode) {
   await ensureInlinePromptTracking();
   if (user) {
     const latest = await db.select({ last_prompt_id: users.last_prompt_id }).from(users)
@@ -132,7 +132,7 @@ async function sendPrompt(chatId, text, markup, user) {
     user.last_prompt_id = Number(latest && latest.last_prompt_id || 0);
   }
   if (user && Number(user.last_prompt_id) > 0) await safeDelete(chatId, user.last_prompt_id);
-  const sent = await api.sendMessage({ chat_id: chatId, text: text, reply_markup: markup });
+  const sent = await api.sendMessage({ chat_id: chatId, text: text, reply_markup: markup, ...(parseMode ? { parse_mode: parseMode } : {}) });
   if (user) {
     const inlineId = markup && Array.isArray(markup.inline_keyboard) && sent && sent.message_id ? sent.message_id : 0;
     await db.update(users).set({ last_prompt_id: inlineId }).where(eq(users.telegram_id, Number(user.telegram_id))).run();
@@ -375,6 +375,33 @@ async function handleAdminCallback(query, actor, data, actorId, chatId) {
     await db.update(users).set({ state: actor.state }).where(eq(users.telegram_id, actorId)).run();
     const label = { stars: '⭐ Stars', points: '🏆 Points', likes: '❤️ Likes' }[field];
     await sendPrompt(chatId, 'Send the new whole-number amount for ' + label + ' per successful referral. Zero is allowed.', { force_reply: true }, actor); return;
+  }
+  if (p[1] === 'rank') {
+    const kind = p[2];
+    if (!['points','referrals','follows','likes'].includes(kind)) return;
+    const allUsers = await db.select().from(users).all();
+    const followRows = kind === 'follows' ? await db.select().from(favorites).all() : [];
+    const counts = new Map();
+    for (const row of followRows) counts.set(Number(row.favorite_telegram_id), (counts.get(Number(row.favorite_telegram_id)) || 0) + 1);
+    const config = {
+      points: { title: '🏆 تر ټولو ډېرې نمرې', value: row => Number(row.points || 0), label: 'نمرې' },
+      referrals: { title: '📨 تر ټولو ډېر ریفرلونه', value: row => Number(row.referral_count || 0), label: 'ریفرلونه' },
+      follows: { title: '👥 تر ټولو ډېر فالو شوي کسان', value: row => Number(counts.get(Number(row.telegram_id)) || 0), label: 'فالو' },
+      likes: { title: '❤️ تر ټولو ډېر لایکونه', value: row => Number(row.likes || 0), label: 'لایکونه' }
+    }[kind];
+    const ranked = allUsers.map(row => ({ row, score: config.value(row) })).filter(item => item.score > 0)
+      .sort((a, b) => b.score - a.score || Number(a.row.telegram_id) - Number(b.row.telegram_id)).slice(0, 5);
+    const escapeHtml = value => String(value == null ? '' : value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const text = config.title + '\n━━━━━━━━━━━━━━\n\n' + (ranked.length
+      ? ranked.map((item, i) => (i + 1) + '. ' + escapeHtml([item.row.name || item.row.first_name || item.row.username || 'کارن', item.row.surname || ''].filter(Boolean).join(' ')) +
+        '\n   ' + config.label + ': ' + item.score + '\n   ID: <code>' + Number(item.row.telegram_id) + '</code>').join('\n\n')
+      : 'تر اوسه په دې درجه‌بندۍ کې نمره نه شته.');
+    await sendPrompt(chatId, text, { inline_keyboard: [[{ text: '🔙 لوړ رتبه کسان', callback_data: 'admin:rank_menu' }], [{ text: '🔙 اډمین پینل', callback_data: 'admin:panel' }]] }, actor, 'HTML');
+    return;
+  }
+  if (p[1] === 'rank_menu') {
+    await sendPrompt(chatId, '🏆 لوړ رتبه کسان\n\nلاندې درجه‌بندي وټاکه:', { inline_keyboard: [[{ text: '🏆 تر ټولو ډېرې نمرې', callback_data: 'admin:rank:points' }], [{ text: '📨 تر ټولو ډېر ریفرلونه', callback_data: 'admin:rank:referrals' }], [{ text: '👥 تر ټولو ډېر فالو', callback_data: 'admin:rank:follows' }], [{ text: '❤️ تر ټولو ډېر لایکونه', callback_data: 'admin:rank:likes' }], [{ text: '🔙 اډمین پینل', callback_data: 'admin:panel' }]] }, actor);
+    return;
   }
   if (p[1] === 'users' && p[2] === 'page') { await showUserListPage(chatId, actor, Number(p[3])); return; }
   if (p[1] === 'admins' && p[2] === 'page') { await showAdminListPage(chatId, actor, Number(p[3])); return; }
@@ -879,7 +906,9 @@ async function handleCallback(query) {
   let user = await getUser(id);
   if (!user || Number(user.is_blocked) === 1) return;
   try { await db.update(users).set({ last_active_at: new Date().toISOString() }).where(eq(users.telegram_id, id)).run(); } catch (e) {}
-  try { await maintainConnections(); await tryOfferSearches(); await tryMatchGames(); } catch (maintenanceError) { console.error('Random Connect maintenance error', maintenanceError); }
+  try { await maintainConnections(); } catch (e) { console.error('Connection timeout check failed', e); }
+  try { await tryOfferSearches(); } catch (e) { console.error('Connection request timeout/matching check failed', e); }
+  try { await tryMatchGames(); } catch (e) { console.error('Game timeout/matching check failed', e); }
   if (data.startsWith('admin:')) { await handleAdminCallback(query, user, data, id, chatId); return; }
   if (data.startsWith('settings:')) { await handleSettingsCallback(query, user, data, id, chatId); return; }
   if (data.startsWith('conn:')) { await handleConnectionCallback(query, user, data, id, chatId); return; }
@@ -971,7 +1000,7 @@ export default async function (query) {
   try {
     await handleCallback(query);
   } catch (error) {
-    console.error('Random Connect callback_query handler error', error);
+    console.error('Random Connect callback_query handler error', { data: query && query.data, from: query && query.from && query.from.id, error });
     if (query && query.message && query.message.chat && query.message.chat.id) {
       try { await api.sendMessage({ chat_id: query.message.chat.id, text: '⚠️ تخنیکي ستونزه رامنځته شوه. بیا هڅه وکړه.' }); } catch (e) {}
     }
