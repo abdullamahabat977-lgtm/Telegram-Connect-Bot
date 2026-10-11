@@ -566,8 +566,8 @@ async function tryOfferSearches() {
     const claimAt = new Date().toISOString();
     const claim = await db.update(connection_requests).set({ status: 'matching', updated_at: claimAt })
       .where(and(eq(connection_requests.id, Number(search.id)), eq(connection_requests.status, 'searching')))
-      .returning({ id: connection_requests.id });
-    if (!claim || claim.length === 0) continue;
+      .returning({ id: connection_requests.id }).run();
+    if (!claim || !Array.isArray(claim.rows) || claim.rows.length === 0) continue;
     let offer;
     try {
       const nowIso = new Date().toISOString();
@@ -575,13 +575,13 @@ async function tryOfferSearches() {
         requester_id: Number(search.requester_id), recipient_id: Number(candidate.telegram_id), status: 'pending',
         request_type: search.request_type, gender_filter: search.gender_filter, language_filter: search.language_filter,
         created_at: nowIso, updated_at: nowIso
-      }).returning();
-      offer = inserted && inserted[0];
+      }).returning().run();
+      offer = inserted && Array.isArray(inserted.rows) ? inserted.rows[0] : null;
       if (!offer) throw new Error('Connection offer insert returned no row');
       const released = await db.update(connection_requests).set({ status: 'searching', updated_at: new Date().toISOString() })
         .where(and(eq(connection_requests.id, Number(search.id)), eq(connection_requests.status, 'matching'), eq(connection_requests.updated_at, claimAt)))
-        .returning({ id: connection_requests.id });
-      if (!released || released.length === 0) {
+        .returning({ id: connection_requests.id }).run();
+      if (!released || !Array.isArray(released.rows) || released.rows.length === 0) {
         await db.update(connection_requests).set({ status: 'rejected', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, Number(offer.id))).run();
         console.error('Could not release claimed connection search', { searchId: search.id, offerId: offer.id });
         continue;
@@ -938,8 +938,8 @@ async function handleGameCallback(query, actor, data, actorId, chatId) {
           eq(game_sessions.status, 'pending'),
           eq(game_sessions.opponent_id, actorId)
         ))
-        .returning({ id: game_sessions.id });
-      if (!claimed || claimed.length === 0) {
+        .returning({ id: game_sessions.id }).run();
+      if (!claimed || !Array.isArray(claimed.rows) || claimed.rows.length === 0) {
         await sendPrompt(chatId, '⌛ دا ګېم نور فعال نه دی یا مخکې منل شوی دی.', mainKeyboard(actor, await isAdmin(actorId)), actor);
         return;
       }
