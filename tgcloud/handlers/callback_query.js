@@ -652,6 +652,8 @@ async function tryMatchGames() {
       const id = Number(candidate.telegram_id), active = Date.parse(candidate.last_active_at || '');
       if (id === Number(game.player_id) || id === Number(game.opponent_id || 0) || Number(candidate.is_blocked) === 1 || Number(candidate.stars || 0) < opponentMin) return false;
       if (!Number.isFinite(active) || now - active > 120000 || busy.has(id)) return false;
+      const recentlyRejected = games.some(row => row.status === 'rejected' && Number(row.player_id) === Number(game.player_id) && Number(row.opponent_id) === id && Number.isFinite(Date.parse(row.updated_at || '')) && now - Date.parse(row.updated_at || '') < wait * 1000);
+      if (recentlyRejected) return false;
       if (sessions.some(row => row.status === 'connected' && (Number(row.first_user_telegram_id) === id || Number(row.second_user_telegram_id) === id))) return false;
       return true;
     }).sort((a,b)=>Date.parse(b.last_active_at || '')-Date.parse(a.last_active_at || ''));
@@ -856,8 +858,21 @@ async function handleGameCallback(query, actor, data, actorId, chatId) {
   }
   if (!game || !['waiting','pending'].includes(game.status)) { await sendPrompt(chatId, '⌛ دا ګېم نور فعال نه دی.', mainKeyboard(actor, await isAdmin(actorId)), actor); return; }
   if (action === 'reject' && Number(game.opponent_id) === actorId) {
-    await db.update(game_sessions).set({ status: 'waiting', opponent_id: null, updated_at: new Date().toISOString() }).where(eq(game_sessions.id, gameId)).run();
-    await tryMatchGames(); return;
+    const rejectedAt = new Date().toISOString();
+    await db.update(game_sessions).set({ status: 'rejected', updated_at: rejectedAt }).where(eq(game_sessions.id, gameId)).run();
+    await db.insert(game_sessions).values({
+      player_id: Number(game.player_id), opponent_id: null, status: 'waiting',
+      created_at: rejectedAt, updated_at: rejectedAt,
+      fee_stars: Number(game.fee_stars ?? await getSetting('game_fee_stars', 0.5)),
+      win_stars: Number(game.win_stars ?? await getSetting('game_win_stars', 3)),
+      bot_loss_total_stars: Number(game.bot_loss_total_stars ?? await getSetting('game_bot_loss_total_stars', 3.5)),
+      points_award: Number(game.points_award ?? await getSetting('game_win_points', 1))
+    }).run();
+    const player = await getUser(game.player_id);
+    if (player) await sendPrompt(Number(player.telegram_id), '❌ سیال غوښتنه رد کړه؛ د بل سیال لټون روان دی.\n\nکه غواړې، لټون لغوه کولای شې.', { inline_keyboard: [[{ text: '❌ ګېم لغوه کول', callback_data: 'game:cancel' }]] }, player);
+    await sendPrompt(chatId, '❌ د ګېم غوښتنه رد شوه.', mainKeyboard(actor, await isAdmin(actorId)), actor);
+    await tryMatchGames();
+    return;
   }
   if (action === 'accept' && Number(game.opponent_id) === actorId) {
     await db.update(game_sessions).set({ status: 'playing', updated_at: new Date().toISOString() }).where(eq(game_sessions.id, gameId)).run();
