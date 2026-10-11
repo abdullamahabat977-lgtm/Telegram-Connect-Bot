@@ -550,6 +550,7 @@ async function tryOfferSearches() {
     const age = now - Date.parse(search.created_at || '');
     if (Number.isFinite(age) && age >= wait * 1000) {
       await db.update(connection_requests).set({ status: 'expired', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, Number(search.id))).run();
+      for (const offer of requests.filter(row => Number(row.requester_id) === Number(search.requester_id) && row.status === 'pending')) await db.update(connection_requests).set({ status: 'expired', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, Number(offer.id))).run();
       const requester = await getUser(search.requester_id);
       if (requester) { await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, Number(search.requester_id))).run(); try { await sendPrompt(Number(search.requester_id), '⌛ په ټاکلي وخت کې مناسب ملګری پیدا نه شو. بیا هڅه وکړه.', mainKeyboard(requester, await isAdmin(requester.telegram_id)), requester); } catch (e) {} }
       continue;
@@ -658,14 +659,14 @@ async function tryMatchGames() {
     const age = now - Date.parse(game.created_at || '');
     if (Number.isFinite(age) && age >= wait * 1000) {
       if (game.status === 'waiting') await resolveBotGame(game);
-      else await db.update(game_sessions).set({ status: 'waiting', opponent_id: null, updated_at: new Date().toISOString() }).where(eq(game_sessions.id, Number(game.id))).run();
+      else await db.update(game_sessions).set({ status: 'waiting', updated_at: new Date().toISOString() }).where(eq(game_sessions.id, Number(game.id))).run();
       continue;
     }
     if (game.status !== 'waiting') continue;
-    const busy = new Set(games.filter(row => ['waiting','pending','playing'].includes(row.status)).flatMap(row => [Number(row.player_id), Number(row.opponent_id || 0)]));
+    const busy = new Set(games.filter(row => ['pending','playing'].includes(row.status)).flatMap(row => [Number(row.player_id), Number(row.opponent_id || 0)]).concat(games.filter(row => row.status === 'waiting').map(row => Number(row.player_id))));
     const candidates = allUsers.filter(candidate => {
       const id = Number(candidate.telegram_id), active = Date.parse(candidate.last_active_at || '');
-      if (id === Number(game.player_id) || Number(candidate.is_blocked) === 1 || Number(candidate.stars || 0) < opponentMin) return false;
+      if (id === Number(game.player_id) || id === Number(game.opponent_id || 0) || Number(candidate.is_blocked) === 1 || Number(candidate.stars || 0) < opponentMin) return false;
       if (!Number.isFinite(active) || now - active > 120000 || busy.has(id)) return false;
       if (sessions.some(row => row.status === 'connected' && (Number(row.first_user_telegram_id) === id || Number(row.second_user_telegram_id) === id))) return false;
       return true;
@@ -673,13 +674,14 @@ async function tryMatchGames() {
     if (!candidates.length) continue;
     const candidate = candidates[0];
     await db.update(game_sessions).set({ opponent_id: Number(candidate.telegram_id), status: 'pending', updated_at: new Date().toISOString() }).where(eq(game_sessions.id, Number(game.id))).run();
+    game.status = 'pending'; game.opponent_id = Number(candidate.telegram_id);
     try { await api.sendMessage({ chat_id: Number(candidate.telegram_id), text: '🎲 یو فعال کارن غواړي له تا سره د ګېم لوبه وکړي. د منلو یا ردولو انتخاب وکړه.',
       reply_markup: { inline_keyboard: [[{ text: '✅ ګېم منل', callback_data: 'game:accept:' + game.id }, { text: '❌ ردول', callback_data: 'game:reject:' + game.id }]] } }); }
     catch (e) { await db.update(game_sessions).set({ status: 'waiting', opponent_id: null, updated_at: new Date().toISOString() }).where(eq(game_sessions.id, Number(game.id))).run(); }
   }
 }
 async function resolveUserGame(game) {
-  if (!game || game.status !== 'pending' || !game.opponent_id) return;
+  if (!game || !['pending','playing'].includes(game.status) || !game.opponent_id) return;
   const player = await getUser(game.player_id), opponent = await getUser(game.opponent_id);
   if (!player || !opponent) return;
   const fee = Number(await getSetting('game_fee_stars', 0.5)), winStars = Number(await getSetting('game_win_stars', 3)), points = Number(await getSetting('game_win_points', 1));
@@ -854,7 +856,7 @@ async function handleGameCallback(query, actor, data, actorId, chatId) {
   }
   if (!game || !['waiting','pending'].includes(game.status)) { await sendPrompt(chatId, '⌛ دا ګېم نور فعال نه دی.', mainKeyboard(actor, await isAdmin(actorId)), actor); return; }
   if (action === 'reject' && Number(game.opponent_id) === actorId) {
-    await db.update(game_sessions).set({ status: 'waiting', opponent_id: null, updated_at: new Date().toISOString() }).where(eq(game_sessions.id, gameId)).run();
+    await db.update(game_sessions).set({ status: 'waiting', updated_at: new Date().toISOString() }).where(eq(game_sessions.id, gameId)).run();
     await tryMatchGames(); return;
   }
   if (action === 'accept' && Number(game.opponent_id) === actorId) {
