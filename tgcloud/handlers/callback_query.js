@@ -896,14 +896,18 @@ async function handleSessionCallback(query, actor, data, actorId, chatId) {
     return;
   }
   if (action === 'like') {
-    const rows = await db.select().from(user_likes).where(eq(user_likes.liker_id, actorId)).all(), existing = rows.find(row => Number(row.liked_id) === targetId);
-    if (existing) {
-      await db.delete(user_likes).where(eq(user_likes.id, Number(existing.id))).run();
-      await db.update(users).set({ likes: Math.max(0, Number(target.likes || 0) - 1) }).where(eq(users.telegram_id, targetId)).run();
+    const rows = await db.select().from(user_likes).where(eq(user_likes.liker_id, actorId)).all();
+    const existing = rows.filter(row => Number(row.liked_id) === targetId);
+    if (existing.length) {
+      for (const row of existing) {
+        await db.delete(user_likes).where(eq(user_likes.id, Number(row.id))).run();
+      }
     } else {
       await db.insert(user_likes).values({ liker_id: actorId, liked_id: targetId, created_at: new Date().toISOString() }).run();
-      await db.update(users).set({ likes: Number(target.likes || 0) + 1 }).where(eq(users.telegram_id, targetId)).run();
     }
+    // Rebuild the displayed counter from the source-of-truth rows so old duplicates or failed updates cannot drift it.
+    const currentLikes = await db.select().from(user_likes).where(eq(user_likes.liked_id, targetId)).all();
+    await db.update(users).set({ likes: currentLikes.length }).where(eq(users.telegram_id, targetId)).run();
     const session = await db.select().from(chat_sessions).where(eq(chat_sessions.id, sessionId)).get();
     if (session && session.status === 'connected') await showSessionProfile(session, actorId);
     return;
