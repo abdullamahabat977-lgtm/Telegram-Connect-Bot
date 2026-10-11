@@ -1,6 +1,6 @@
 import { api, db } from 'sdk';
 import { eq } from 'sdk/db';
-import { users, admins, required_chats, app_settings, favorites } from '../schema.js';
+import { users, admins, required_chats, app_settings, favorites, chat_sessions, connection_requests, chat_messages, user_ratings, user_likes, game_sessions, user_blocks, reports } from '../schema.js';
 
 const ROOT_ADMINS = [7851941608, 7003093962];
 const LANGUAGES = [
@@ -26,7 +26,7 @@ const COUNTRIES = [
 const AGES = [12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40];
 const TEXT = {
   ps: {
-    menu: ['🔎 ملګری پیدا کړه', '👥 پالو ملګري', '🎲 ناڅاپي اړیکه', '📨 ملګری رابلل', '👤 زما پروفایل', '🌍 د ژبې بدلول', '⚙️ تنظیمات', '📊 احصائیې', '🛡️ د اډمین پینل'],
+    menu: ['🔎 ملګری پیدا کړه', '👥 پالو ملګري', '🎲 ناڅاپي اړیکه', '📨 ملګری رابلل', '👤 زما پروفایل', '🌍 د ژبې بدلول', '⚙️ تنظیمات', '📊 احصائیې', '🛡️ د اډمین پینل', '🎲 ګېم کول'],
     country: '🌍 خپل هېواد وټاکه:', gender: '👤 خپل جنسیت وټاکه:',
     age: '🎂 خپل نږدې عمر وټاکه. عمرونه له ۱۲ څخه تر ۴۰ پورې دي؛ نږدې عمر انتخاب کړه:',
     surname: '📝 تخلص اختیاري دی. که یې نه لیکې، لاندې بټن کېکاږه:',
@@ -35,7 +35,7 @@ const TEXT = {
     ready: '🎉 ستا پروفایل جوړ شو!', main: 'اصلي مېنو:', saved: '✅ بدلون ثبت شو.'
   },
   fa: {
-    menu: ['🔎 پیدا کردن دوست', '👥 دوستان محبوب', '🎲 ارتباط تصادفی', '📨 دعوت از دوست', '👤 پروفایل من', '🌍 تغییر زبان', '⚙️ تنظیمات', '📊 آمار', '🛡️ پنل مدیریت'],
+    menu: ['🔎 پیدا کردن دوست', '👥 دوستان محبوب', '🎲 ارتباط تصادفی', '📨 دعوت از دوست', '👤 پروفایل من', '🌍 تغییر زبان', '⚙️ تنظیمات', '📊 آمار', '🛡️ پنل مدیریت', '🎲 بازی'],
     country: '🌍 کشور خود را انتخاب کنید:', gender: '👤 جنسیت خود را انتخاب کنید:',
     age: '🎂 نزدیک‌ترین سن خود را از ۱۲ تا ۴۰ سال انتخاب کنید:',
     surname: '📝 نام خانوادگی اختیاری است. برای رد کردن، دکمه زیر را بزنید:',
@@ -44,7 +44,7 @@ const TEXT = {
     ready: '🎉 پروفایل شما آماده شد!', main: 'منوی اصلی:', saved: '✅ تغییرات ذخیره شد.'
   },
   en: {
-    menu: ['🔎 Find a friend', '👥 Favorite friends', '🎲 Random connection', '📨 Invite a friend', '👤 My profile', '🌍 Change language', '⚙️ Settings', '📊 Statistics', '🛡️ Admin panel'],
+    menu: ['🔎 Find a friend', '👥 Favorite friends', '🎲 Random connection', '📨 Invite a friend', '👤 My profile', '🌍 Change language', '⚙️ Settings', '📊 Statistics', '🛡️ Admin panel', '🎲 Play game'],
     country: '🌍 Choose your country:', gender: '👤 Choose your gender:',
     age: '🎂 Choose the closest age from 12 to 40:',
     surname: '📝 Surname is optional. Press below to skip:',
@@ -53,7 +53,7 @@ const TEXT = {
     ready: '🎉 Your profile is ready!', main: 'Main menu:', saved: '✅ Changes saved.'
   },
   ur: {
-    menu: ['🔎 دوست تلاش کریں', '👥 پسندیدہ دوست', '🎲 اچانک رابطہ', '📨 دوست کو بلائیں', '👤 میرا پروفائل', '🌍 زبان تبدیل کریں', '⚙️ ترتیبات', '📊 اعدادوشمار', '🛡️ ایڈمن پینل'],
+    menu: ['🔎 دوست تلاش کریں', '👥 پسندیدہ دوست', '🎲 اچانک رابطہ', '📨 دوست کو بلائیں', '👤 میرا پروفائل', '🌍 زبان تبدیل کریں', '⚙️ ترتیبات', '📊 اعدادوشمار', '🛡️ ایڈمن پینل', '🎲 گیم کھیلیں'],
     country: '🌍 اپنا ملک منتخب کریں:', gender: '👤 اپنی جنس منتخب کریں:',
     age: '🎂 12 سے 40 سال کے درمیان اپنی قریب ترین عمر منتخب کریں:',
     surname: '📝 خاندانی نام اختیاری ہے۔ چھوڑنے کے لیے نیچے بٹن دبائیں:',
@@ -62,7 +62,7 @@ const TEXT = {
     ready: '🎉 آپ کا پروفائل تیار ہے!', main: 'مرکزی مینو:', saved: '✅ تبدیلی محفوظ ہوگئی۔'
   },
   ar: {
-    menu: ['🔎 ابحث عن صديق', '👥 الأصدقاء المفضلون', '🎲 اتصال عشوائي', '📨 دعوة صديق', '👤 ملفي الشخصي', '🌍 تغيير اللغة', '⚙️ الإعدادات', '📊 الإحصائيات', '🛡️ لوحة الإدارة'],
+    menu: ['🔎 ابحث عن صديق', '👥 الأصدقاء المفضلون', '🎲 اتصال عشوائي', '📨 دعوة صديق', '👤 ملفي الشخصي', '🌍 تغيير اللغة', '⚙️ الإعدادات', '📊 الإحصائيات', '🛡️ لوحة الإدارة', '🎲 العب'],
     country: '🌍 اختر بلدك:', gender: '👤 اختر جنسك:',
     age: '🎂 اختر عمرك الأقرب من 12 إلى 40 سنة:',
     surname: '📝 اسم العائلة اختياري. اضغط أدناه للتخطي:',
@@ -74,27 +74,27 @@ const TEXT = {
 
 const ADMIN_UI = {
   ps: {
-    buttons: ['👥 د مدیرانو تنظیمات','📢 د غړیتوب ګروپونه','📣 ډله‌ییز اعلان','⚙️ د کارن تنظیمات','👥 د کاروونکو لېست','🔙 اصلي مېنو','🎁 د ریفرل جایزې'],
+    buttons: ['👥 د مدیرانو تنظیمات','📢 د غړیتوب ګروپونه','📣 ډله‌ییز اعلان','⚙️ د کارن تنظیمات','👥 د کاروونکو لېست','🔙 اصلي مېنو','🎁 د جایزو تنظیمات','🔗 د اړیکو تنظیمات','🎲 د ګېم تنظیمات'],
     management: ['➕ مدیر زیاتول','➖ مدیر لرې کول','📋 د مدیرانو لېست','🔙 اډمین پینل'],
     intro: '🛡️ د اډمین پینل:', managementIntro: '👥 د مدیرانو اداره:', noAccess: '⛔ دا برخه یوازې د مجاز مدیرانو لپاره ده.', userMissing: 'دا کارن له بوټ سره نه دی یوځای شوی.'
   },
   fa: {
-    buttons: ['👥 مدیریت مدیران','📢 عضویت اجباری','📣 پیام همگانی','⚙️ تنظیمات کاربر','👥 فهرست کاربران','🔙 منوی اصلی','🎁 پاداش دعوت'],
+    buttons: ['👥 مدیریت مدیران','📢 عضویت اجباری','📣 پیام همگانی','⚙️ تنظیمات کاربر','👥 فهرست کاربران','🔙 منوی اصلی','🎁 تنظیمات جوایز','🔗 تنظیمات ارتباطات','🎲 تنظیمات بازی'],
     management: ['➕ افزودن مدیر','➖ حذف مدیر','📋 فهرست مدیران','🔙 پنل مدیریت'],
     intro: '🛡️ پنل مدیریت:', managementIntro: '👥 مدیریت مدیران:', noAccess: '⛔ این بخش فقط برای مدیران مجاز است.', userMissing: 'این کاربر هنوز ربات را شروع نکرده است.'
   },
   en: {
-    buttons: ['👥 Admin management','📢 Required membership','📣 Broadcast','⚙️ User settings','👥 User list','🔙 Main menu','🎁 Referral rewards'],
+    buttons: ['👥 Admin management','📢 Required membership','📣 Broadcast','⚙️ User settings','👥 User list','🔙 Main menu','🎁 Reward settings','🔗 Connection settings','🎲 Game settings'],
     management: ['➕ Add admin','➖ Remove admin','📋 Admin list','🔙 Admin panel'],
     intro: '🛡️ Admin panel:', managementIntro: '👥 Admin management:', noAccess: '⛔ This section is for authorized admins only.', userMissing: 'This user has not started the bot.'
   },
   ur: {
-    buttons: ['👥 ایڈمن مینجمنٹ','📢 لازمی رکنیت','📣 سب کو پیغام','⚙️ صارف کی ترتیبات','👥 صارفین کی فہرست','🔙 مرکزی مینو','🎁 دعوتی انعامات'],
+    buttons: ['👥 ایڈمن مینجمنٹ','📢 لازمی رکنیت','📣 سب کو پیغام','⚙️ صارف کی ترتیبات','👥 صارفین کی فہرست','🔙 مرکزی مینو','🎁 انعامات کی ترتیبات','🔗 رابطے کی ترتیبات','🎲 گیم کی ترتیبات'],
     management: ['➕ ایڈمن شامل کریں','➖ ایڈمن ہٹائیں','📋 ایڈمن فہرست','🔙 ایڈمن پینل'],
     intro: '🛡️ ایڈمن پینل:', managementIntro: '👥 ایڈمن مینجمنٹ:', noAccess: '⛔ یہ حصہ صرف مجاز ایڈمنز کے لیے ہے۔', userMissing: 'اس صارف نے ابھی بوٹ شروع نہیں کیا۔'
   },
   ar: {
-    buttons: ['👥 إدارة المديرين','📢 العضوية الإلزامية','📣 رسالة جماعية','⚙️ إعدادات المستخدم','👥 قائمة المستخدمين','🔙 القائمة الرئيسية','🎁 مكافآت الدعوة'],
+    buttons: ['👥 إدارة المديرين','📢 العضوية الإلزامية','📣 رسالة جماعية','⚙️ إعدادات المستخدم','👥 قائمة المستخدمين','🔙 القائمة الرئيسية','🎁 إعدادات المكافآت','🔗 إعدادات الاتصال','🎲 إعدادات اللعبة'],
     management: ['➕ إضافة مدير','➖ إزالة مدير','📋 قائمة المديرين','🔙 لوحة الإدارة'],
     intro: '🛡️ لوحة الإدارة:', managementIntro: '👥 إدارة المديرين:', noAccess: '⛔ هذا القسم للمديرين المصرح لهم فقط.', userMissing: 'هذا المستخدم لم يبدأ البوت بعد.'
   }
@@ -213,14 +213,15 @@ function mainKeyboard(user, admin) {
     [{ text: m[0] }, { text: m[1] }],
     [{ text: m[2] }, { text: m[3] }],
     [{ text: m[4] }, { text: m[5] }],
-    [{ text: m[6] }, { text: m[7] }]
+    [{ text: m[6] }, { text: m[7] }],
+    [{ text: m[9] }]
   ];
   if (admin) rows.push([{ text: m[8] }]);
   return { keyboard: rows, resize_keyboard: true };
 }
 function adminKeyboard(user) {
   const b = (ADMIN_UI[user.language] || ADMIN_UI.ps).buttons;
-  return { keyboard: [[{ text: b[0] }], [{ text: b[1] }, { text: b[2] }], [{ text: b[3] }, { text: b[4] }], [{ text: b[5] }], ...(b[6] ? [[{ text: b[6] }]] : [])], resize_keyboard: true };
+  return { keyboard: [[{ text: b[0] }], [{ text: b[1] }, { text: b[2] }], [{ text: b[3] }, { text: b[4] }], [{ text: b[5] }], ...(b[6] ? [[{ text: b[6] }]] : []), ...(b[7] ? [[{ text: b[7] }, { text: b[8] }]] : [])], resize_keyboard: true };
 }
 function adminManagementKeyboard(user) {
   const b = (ADMIN_UI[user.language] || ADMIN_UI.ps).management;
