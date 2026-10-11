@@ -692,11 +692,18 @@ async function tryMatchGames() {
     }).sort((a,b)=>Date.parse(b.last_active_at || '')-Date.parse(a.last_active_at || ''));
     if (!candidates.length) continue;
     const candidate = candidates[0];
-    await db.update(game_sessions).set({ opponent_id: Number(candidate.telegram_id), status: 'pending', updated_at: new Date().toISOString() }).where(eq(game_sessions.id, Number(game.id))).run();
+    const claimed = await db.update(game_sessions)
+      .set({ opponent_id: Number(candidate.telegram_id), status: 'pending', updated_at: new Date().toISOString() })
+      .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'waiting')))
+      .returning({ id: game_sessions.id }).run();
+    if (!claimed || !Array.isArray(claimed.rows) || claimed.rows.length === 0) continue;
     game.status = 'pending'; game.opponent_id = Number(candidate.telegram_id);
     try { await api.sendMessage({ chat_id: Number(candidate.telegram_id), text: '🎲 یو فعال کارن غواړي له تا سره د ګېم لوبه وکړي. د منلو یا ردولو انتخاب وکړه.',
       reply_markup: { inline_keyboard: [[{ text: '✅ ګېم منل', callback_data: 'game:accept:' + game.id }, { text: '❌ ردول', callback_data: 'game:reject:' + game.id }]] } }); }
-    catch (e) { await db.update(game_sessions).set({ status: 'waiting', opponent_id: null, updated_at: new Date().toISOString() }).where(eq(game_sessions.id, Number(game.id))).run(); }
+    catch (e) {
+      await db.update(game_sessions).set({ status: 'waiting', opponent_id: null, updated_at: new Date().toISOString() })
+        .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'pending'), eq(game_sessions.opponent_id, Number(candidate.telegram_id)))).run();
+    }
   }
 }
 async function resolveUserGame(game) {
@@ -910,21 +917,25 @@ async function handleGameCallback(query, actor, data, actorId, chatId) {
     // has not changed since we read it. Never cancel a game already in settlement.
     let cancelledCount = 0;
     const notifiedOpponents = new Set();
-    for (const row of rows.filter(item =>
-      Number(item.player_id) === actorId && ['waiting', 'pending'].includes(item.status)
-    )) {
-      const cancelled = await db.update(game_sessions)
-        .set({ status: 'cancelled', updated_at: new Date().toISOString() })
-        .where(and(
-          eq(game_sessions.id, Number(row.id)),
-          eq(game_sessions.player_id, actorId),
-          eq(game_sessions.status, row.status)
-        ))
-        .returning({ id: game_sessions.id }).run();
-      if (!cancelled || !Array.isArray(cancelled.rows) || cancelled.rows.length === 0) continue;
-      cancelledCount++;
-      if (row.status === 'pending' && Number(row.opponent_id) > 0) {
-        notifiedOpponents.add(Number(row.opponent_id));
+    // Re-read twice to catch a waiting -> pending transition racing this cancel.
+    for (let pass = 0; pass < 2; pass++) {
+      const currentRows = pass === 0 ? rows : await db.select().from(game_sessions).all();
+      for (const row of currentRows.filter(item =>
+        Number(item.player_id) === actorId && ['waiting', 'pending'].includes(item.status)
+      )) {
+        const cancelled = await db.update(game_sessions)
+          .set({ status: 'cancelled', updated_at: new Date().toISOString() })
+          .where(and(
+            eq(game_sessions.id, Number(row.id)),
+            eq(game_sessions.player_id, actorId),
+            eq(game_sessions.status, row.status)
+          ))
+          .returning({ id: game_sessions.id }).run();
+        if (!cancelled || !Array.isArray(cancelled.rows) || cancelled.rows.length === 0) continue;
+        cancelledCount++;
+        if (row.status === 'pending' && Number(row.opponent_id) > 0) {
+          notifiedOpponents.add(Number(row.opponent_id));
+        }
       }
     }
     for (const opponentId of notifiedOpponents) {
