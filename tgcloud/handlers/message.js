@@ -941,7 +941,7 @@ async function beginConnectionSearch(chatId, user, type) {
     .sort((a,b) => Number(b.id)-Number(a.id))[0];
   user.state = 'searching_connection';
   await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, Number(user.telegram_id))).run();
-  await sendPrompt(chatId, '🔎 د ملګري لټون پیل شو.\n\n⏳ تر ۲ دقیقو پورې انتظار وکړه. که مناسب کس پیدا شي، غوښتنه به ورولېږل شي.\n\n⭐ د اړیکې منلو پر مهال به له تا ' + cost + ' ستوری کم شي.', { inline_keyboard: [[{ text: '❌ لټون لغوه کول', callback_data: 'conn:cancel_search:' + search.id }]] }, user);
+  await sendPrompt(chatId, '🔎 د ملګري لټون پیل شو.\n\n⏳ د مناسب کس لټون تر ۲ دقیقو دوام کوي. که وخت تېر شي، د ستا راتلونکي پیغام یا تڼۍ پر مهال به لټون لغوه شي.\n\n⭐ د اړیکې منلو پر مهال به له تا ' + cost + ' ستوری کم شي.', { inline_keyboard: [[{ text: '❌ لټون لغوه کول', callback_data: 'conn:cancel_search:' + search.id }]] }, user);
   await tryOfferSearches();
 }
 async function relayConnectionMessage(message, session) {
