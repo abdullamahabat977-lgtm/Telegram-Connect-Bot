@@ -906,8 +906,54 @@ async function handleGameCallback(query, actor, data, actorId, chatId) {
   const p = data.split(':'), action = p[1], gameId = Number(p[2]);
   const rows = await db.select().from(game_sessions).all(), game = rows.find(row => Number(row.id) === gameId);
   if (action === 'cancel') {
-    for (const row of rows.filter(item => Number(item.player_id) === actorId && ['waiting','pending'].includes(item.status))) await db.update(game_sessions).set({ status: 'cancelled', updated_at: new Date().toISOString() }).where(eq(game_sessions.id, Number(row.id))).run();
-    await showMain(chatId, actor, '❌ ګېم لغوه شو.'); return;
+    // Cancel only this user's own waiting/pending games, and only if the status
+    // has not changed since we read it. Never cancel a game already in settlement.
+    let cancelledCount = 0;
+    const notifiedOpponents = new Set();
+    for (const row of rows.filter(item =>
+      Number(item.player_id) === actorId && ['waiting', 'pending'].includes(item.status)
+    )) {
+      const cancelled = await db.update(game_sessions)
+        .set({ status: 'cancelled', updated_at: new Date().toISOString() })
+        .where(and(
+          eq(game_sessions.id, Number(row.id)),
+          eq(game_sessions.player_id, actorId),
+          eq(game_sessions.status, row.status)
+        ))
+        .returning({ id: game_sessions.id }).run();
+      if (!cancelled || !Array.isArray(cancelled.rows) || cancelled.rows.length === 0) continue;
+      cancelledCount++;
+      if (row.status === 'pending' && Number(row.opponent_id) > 0) {
+        notifiedOpponents.add(Number(row.opponent_id));
+      }
+    }
+    for (const opponentId of notifiedOpponents) {
+      try {
+        await api.sendMessage({
+          chat_id: opponentId,
+          text: '⌛ د ګېم غوښتونکی خپله غوښتنه لغوه کړه. دا ګېم نور فعال نه دی.'
+        });
+      } catch (error) {
+        console.error('Could not notify opponent about cancelled game', { actorId, opponentId, error });
+      }
+    }
+    const latestRows = await db.select().from(game_sessions).all();
+    const stillPlaying = latestRows.some(row =>
+      Number(row.player_id) === actorId && row.status === 'playing'
+    );
+    const stillPending = latestRows.some(row =>
+      Number(row.player_id) === actorId && ['waiting', 'pending'].includes(row.status)
+    );
+    if (stillPlaying) {
+      await showMain(chatId, actor, '⚠️ ګېم لا پیل شوی دی؛ د خوندیتوب لپاره یې له دې تڼۍ لغوه کول نه شو کولای.');
+    } else if (stillPending) {
+      await showMain(chatId, actor, '⚠️ د ګېم غوښتنه لا فعاله ده. لږ شېبه وروسته بیا د لغوه کولو هڅه وکړه.');
+    } else if (cancelledCount > 0) {
+      await showMain(chatId, actor, '❌ ګېم لغوه شو. اوس نوی ګېم پیل کولای شې.');
+    } else {
+      await showMain(chatId, actor, '⌛ ستا لپاره فعاله ګېم غوښتنه ونه موندل شوه. اوس نوی ګېم پیل کولای شې.');
+    }
+    return;
   }
   if (!game || !['waiting','pending'].includes(game.status)) { await sendPrompt(chatId, '⌛ دا ګېم نور فعال نه دی.', mainKeyboard(actor, await isAdmin(actorId)), actor); return; }
   if (action === 'reject' && Number(game.opponent_id) === actorId) {
@@ -981,6 +1027,12 @@ async function handleCallback(query) {
   let user = await getUser(id);
   if (!user || Number(user.is_blocked) === 1) return;
   try { await db.update(users).set({ last_active_at: new Date().toISOString() }).where(eq(users.telegram_id, id)).run(); } catch (e) {}
+  // Handle cancellation before expiry/matching work so this callback cannot
+  // rematch the user's waiting game immediately before trying to cancel it.
+  if (data === 'game:cancel') {
+    await handleGameCallback(query, user, data, id, chatId);
+    return;
+  }
   try { await expireUserTimedActions(id); } catch (e) { console.error('User timed-action check failed', e); }
   try { await tryOfferSearches(); } catch (e) { console.error('Connection matching check failed', e); }
   try { await tryMatchGames(); } catch (e) { console.error('Game matching check failed', e); }
