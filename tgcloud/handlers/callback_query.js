@@ -732,14 +732,16 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
     const search = rows.find(row => Number(row.requester_id) === Number(offer.requester_id) && row.status === 'searching' && !row.recipient_id);
     if (p[1] === 'reject') {
       await db.update(connection_requests).set({ status: 'rejected', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, offerId)).run();
-      await tryOfferSearches(); return;
+      try { await tryOfferSearches(); } catch (error) { console.error('Connection retry after rejection failed', { offerId: offerId, actorId: actorId, error: error }); }
+      return;
     }
     if (!search) { await db.update(connection_requests).set({ status: 'expired', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, offerId)).run(); await sendPrompt(chatId, '⌛ د غوښتونکي لټون پای ته رسېدلی.', mainKeyboard(actor, await isAdmin(actorId)), actor); return; }
     const requester = await getUser(offer.requester_id), cost = Number(await getSetting('connection_cost_stars', 1));
     if (!requester || Number(requester.stars || 0) < cost) {
       await db.update(connection_requests).set({ status: 'rejected', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, offerId)).run();
       if (requester) try { await api.sendMessage({ chat_id: Number(requester.telegram_id), text: '⚠️ د اړیکې لپاره ستوري نور کافي نه دي. لټون پای ته ورسېد.' }); } catch (e) {}
-      await tryOfferSearches(); return;
+      try { await tryOfferSearches(); } catch (error) { console.error('Connection retry after insufficient balance failed', { offerId: offerId, actorId: actorId, error: error }); }
+      return;
     }
     const requesterSession = await activeSessionFor(requester.telegram_id);
     if (requesterSession) { await sendPrompt(chatId, '⚠️ غوښتونکی لا له بل کس سره په اړیکه کې دی.', mainKeyboard(actor, await isAdmin(actorId)), actor); return; }
@@ -871,7 +873,7 @@ async function handleGameCallback(query, actor, data, actorId, chatId) {
     const player = await getUser(game.player_id);
     if (player) await sendPrompt(Number(player.telegram_id), '❌ سیال غوښتنه رد کړه؛ د بل سیال لټون روان دی.\n\nکه غواړې، لټون لغوه کولای شې.', { inline_keyboard: [[{ text: '❌ ګېم لغوه کول', callback_data: 'game:cancel' }]] }, player);
     await sendPrompt(chatId, '❌ د ګېم غوښتنه رد شوه.', mainKeyboard(actor, await isAdmin(actorId)), actor);
-    await tryMatchGames();
+    try { await tryMatchGames(); } catch (error) { console.error('Game rematch after rejection failed', { gameId: gameId, actorId: actorId, error: error }); }
     return;
   }
   if (action === 'accept' && Number(game.opponent_id) === actorId) {
