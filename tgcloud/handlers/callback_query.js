@@ -685,7 +685,7 @@ async function resolveUserGame(game) {
   const player = await getUser(game.player_id), opponent = await getUser(game.opponent_id);
   if (!player || !opponent) return;
   const fee = Number(await getSetting('game_fee_stars', 0.5)), winStars = Number(await getSetting('game_win_stars', 3)), points = Number(await getSetting('game_win_points', 1));
-  if (Number(player.stars || 0) < fee || Number(opponent.stars || 0) < fee) {
+  if (Number(player.stars || 0) < fee + winStars || Number(opponent.stars || 0) < fee + winStars) {
     await db.update(game_sessions).set({ status: 'cancelled', updated_at: new Date().toISOString() }).where(eq(game_sessions.id, Number(game.id))).run();
     try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: '⚠️ د لوبې لپاره د یوه لوبغاړي بیلانس کافي نه دی.' }); } catch (e) {}
     try { await api.sendMessage({ chat_id: Number(opponent.telegram_id), text: '⚠️ د لوبې لپاره د یوه لوبغاړي بیلانس کافي نه دی.' }); } catch (e) {}
@@ -747,14 +747,14 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
       if (requester) try { await api.sendMessage({ chat_id: Number(requester.telegram_id), text: '⚠️ د اړیکې لپاره ستوري نور کافي نه دي. لټون پای ته ورسېد.' }); } catch (e) {}
       await tryOfferSearches(); return;
     }
-    const oldSession = await activeSessionFor(actorId);
-    if (oldSession) await endConnection(oldSession, 'accepted_new_request');
     const requesterSession = await activeSessionFor(requester.telegram_id);
     if (requesterSession) { await sendPrompt(chatId, '⚠️ غوښتونکی لا له بل کس سره په اړیکه کې دی.', mainKeyboard(actor, await isAdmin(actorId)), actor); return; }
+    const oldSession = await activeSessionFor(actorId);
+    if (oldSession) await endConnection(oldSession, 'accepted_new_request');
     await db.update(users).set({ stars: Number(requester.stars || 0) - cost, state: 'ready' }).where(eq(users.telegram_id, Number(requester.telegram_id))).run();
     await db.update(connection_requests).set({ status: 'connected', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, Number(search.id))).run();
     await db.update(connection_requests).set({ status: 'accepted', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, offerId)).run();
-    for (const row of rows.filter(item => Number(item.requester_id) === Number(requester.telegram_id) && item.status === 'pending')) await db.update(connection_requests).set({ status: 'cancelled', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, Number(row.id))).run();
+    for (const row of rows.filter(item => Number(item.requester_id) === Number(requester.telegram_id) && item.status === 'pending' && Number(item.id) !== offerId)) await db.update(connection_requests).set({ status: 'cancelled', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, Number(row.id))).run();
     const now = new Date().toISOString();
     await db.insert(chat_sessions).values({ first_user_telegram_id: Number(requester.telegram_id), second_user_telegram_id: actorId, status: 'connected',
       created_at: now, connected_at: now, last_activity_at: now, ended_at: null, end_reason: null }).run();
