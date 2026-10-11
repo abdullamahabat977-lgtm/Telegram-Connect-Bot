@@ -1,6 +1,6 @@
-import { db } from 'sdk';
+import { api, db } from 'sdk';
 import { eq } from 'sdk/db';
-import { users, app_settings, favorites } from '../schema.js';
+import { users, admins, app_settings, favorites } from '../schema.js';
 
 export const ROOT_ADMINS = [7851941608, 7003093962];
 export const LANGUAGES = [
@@ -26,6 +26,21 @@ export const COUNTRIES = [
 export const AGES = [12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40];
 
 let inlinePromptTrackingReady = false;
+
+
+export async function getUser(id) {
+  return await db.select().from(users).where(eq(users.telegram_id, Number(id))).get();
+}
+
+export async function safeDelete(chatId, messageId) {
+  if (!messageId) return;
+  try { await api.deleteMessage({ chat_id: chatId, message_id: Number(messageId) }); } catch (e) {}
+}
+
+export async function isAdmin(id) {
+  if (ROOT_ADMINS.includes(Number(id))) return true;
+  return Boolean(await db.select().from(admins).where(eq(admins.telegram_id, Number(id))).get());
+}
 
 export function languageKeyboard() {
   return { inline_keyboard: [
