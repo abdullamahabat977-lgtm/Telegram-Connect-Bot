@@ -26,7 +26,7 @@ const COUNTRIES = [
 const AGES = [12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40];
 const TEXT = {
   ps: {
-    menu: ['🔎 ملګری پیدا کړه', '👥 پالو ملګري', '🎲 ناڅاپي اړیکه', '📨 ملګری رابلل', '👤 زما پروفایل', '🌍 د ژبې بدلول', '⚙️ تنظیمات', '📊 احصائیې', '🛡️ د اډمین پینل', '🎲 ګېم کول'],
+    menu: ['🔎 ملګری پیدا کړه', '👥 پالو ملګري', '🎲 ناڅاپي اړیکه', '📨 ملګری رابلل', '👤 زما پروفایل', '🌍 د ژبې بدلول', '⚙️ تنظیمات', '📊 احصائیې', '🛡️ د اډمین پینل', '🎲 ګېم کول', '🏆 لوړ رتبه کسان'],
     country: '🌍 خپل هېواد وټاکه:', gender: '👤 خپل جنسیت وټاکه:',
     age: '🎂 خپل نږدې عمر وټاکه. عمرونه له ۱۲ څخه تر ۴۰ پورې دي؛ نږدې عمر انتخاب کړه:',
     surname: '📝 تخلص اختیاري دی. که یې نه لیکې، لاندې بټن کېکاږه:',
@@ -35,7 +35,7 @@ const TEXT = {
     ready: '🎉 ستا پروفایل جوړ شو!', main: 'اصلي مېنو:', saved: '✅ بدلون ثبت شو.'
   },
   fa: {
-    menu: ['🔎 پیدا کردن دوست', '👥 دوستان محبوب', '🎲 ارتباط تصادفی', '📨 دعوت از دوست', '👤 پروفایل من', '🌍 تغییر زبان', '⚙️ تنظیمات', '📊 آمار', '🛡️ پنل مدیریت', '🎲 بازی'],
+    menu: ['🔎 پیدا کردن دوست', '👥 دوستان محبوب', '🎲 ارتباط تصادفی', '📨 دعوت از دوست', '👤 پروفایل من', '🌍 تغییر زبان', '⚙️ تنظیمات', '📊 آمار', '🛡️ پنل مدیریت', '🎲 بازی', '🏆 رتبه‌بندی برتر'],
     country: '🌍 کشور خود را انتخاب کنید:', gender: '👤 جنسیت خود را انتخاب کنید:',
     age: '🎂 نزدیک‌ترین سن خود را از ۱۲ تا ۴۰ سال انتخاب کنید:',
     surname: '📝 نام خانوادگی اختیاری است. برای رد کردن، دکمه زیر را بزنید:',
@@ -44,7 +44,7 @@ const TEXT = {
     ready: '🎉 پروفایل شما آماده شد!', main: 'منوی اصلی:', saved: '✅ تغییرات ذخیره شد.'
   },
   en: {
-    menu: ['🔎 Find a friend', '👥 Favorite friends', '🎲 Random connection', '📨 Invite a friend', '👤 My profile', '🌍 Change language', '⚙️ Settings', '📊 Statistics', '🛡️ Admin panel', '🎲 Play game'],
+    menu: ['🔎 Find a friend', '👥 Favorite friends', '🎲 Random connection', '📨 Invite a friend', '👤 My profile', '🌍 Change language', '⚙️ Settings', '📊 Statistics', '🛡️ Admin panel', '🎲 Play game', '🏆 Top rankings'],
     country: '🌍 Choose your country:', gender: '👤 Choose your gender:',
     age: '🎂 Choose the closest age from 12 to 40:',
     surname: '📝 Surname is optional. Press below to skip:',
@@ -53,7 +53,7 @@ const TEXT = {
     ready: '🎉 Your profile is ready!', main: 'Main menu:', saved: '✅ Changes saved.'
   },
   ur: {
-    menu: ['🔎 دوست تلاش کریں', '👥 پسندیدہ دوست', '🎲 اچانک رابطہ', '📨 دوست کو بلائیں', '👤 میرا پروفائل', '🌍 زبان تبدیل کریں', '⚙️ ترتیبات', '📊 اعدادوشمار', '🛡️ ایڈمن پینل', '🎲 گیم کھیلیں'],
+    menu: ['🔎 دوست تلاش کریں', '👥 پسندیدہ دوست', '🎲 اچانک رابطہ', '📨 دوست کو بلائیں', '👤 میرا پروفائل', '🌍 زبان تبدیل کریں', '⚙️ ترتیبات', '📊 اعدادوشمار', '🛡️ ایڈمن پینل', '🎲 گیم کھیلیں', '🏆 اعلیٰ رینکنگ'],
     country: '🌍 اپنا ملک منتخب کریں:', gender: '👤 اپنی جنس منتخب کریں:',
     age: '🎂 12 سے 40 سال کے درمیان اپنی قریب ترین عمر منتخب کریں:',
     surname: '📝 خاندانی نام اختیاری ہے۔ چھوڑنے کے لیے نیچے بٹن دبائیں:',
@@ -62,7 +62,7 @@ const TEXT = {
     ready: '🎉 آپ کا پروفائل تیار ہے!', main: 'مرکزی مینو:', saved: '✅ تبدیلی محفوظ ہوگئی۔'
   },
   ar: {
-    menu: ['🔎 ابحث عن صديق', '👥 الأصدقاء المفضلون', '🎲 اتصال عشوائي', '📨 دعوة صديق', '👤 ملفي الشخصي', '🌍 تغيير اللغة', '⚙️ الإعدادات', '📊 الإحصائيات', '🛡️ لوحة الإدارة', '🎲 العب'],
+    menu: ['🔎 ابحث عن صديق', '👥 الأصدقاء المفضلون', '🎲 اتصال عشوائي', '📨 دعوة صديق', '👤 ملفي الشخصي', '🌍 تغيير اللغة', '⚙️ الإعدادات', '📊 الإحصائيات', '🛡️ لوحة الإدارة', '🎲 العب', '🏆 أعلى التصنيفات'],
     country: '🌍 اختر بلدك:', gender: '👤 اختر جنسك:',
     age: '🎂 اختر عمرك الأقرب من 12 إلى 40 سنة:',
     surname: '📝 اسم العائلة اختياري. اضغط أدناه للتخطي:',
@@ -214,7 +214,8 @@ function mainKeyboard(user, admin) {
     [{ text: m[2] }, { text: m[3] }],
     [{ text: m[4] }, { text: m[5] }],
     [{ text: m[6] }, { text: m[7] }],
-    [{ text: m[9] }]
+    [{ text: m[9] }],
+    [{ text: m[10] }]
   ];
   if (admin) rows.push([{ text: m[8] }]);
   return { keyboard: rows, resize_keyboard: true };
@@ -345,7 +346,8 @@ async function showAge(chatId, user) {
   await sendPrompt(chatId, tx(user).age, ageKeyboard(), user);
 }
 async function handleAdminCallback(query, actor, data, actorId, chatId) {
-  if (!(await isAdmin(actorId))) {
+  const requestedAction = String(data).split(':')[1];
+  if (!(await isAdmin(actorId)) && !['main', 'rank', 'rank_menu'].includes(requestedAction)) {
     await sendPrompt(chatId, (ADMIN_UI[actor.language] || ADMIN_UI.ps).noAccess, mainKeyboard(actor, false), actor);
     return;
   }
@@ -396,11 +398,11 @@ async function handleAdminCallback(query, actor, data, actorId, chatId) {
       ? ranked.map((item, i) => (i + 1) + '. ' + escapeHtml([item.row.name || item.row.first_name || item.row.username || 'کارن', item.row.surname || ''].filter(Boolean).join(' ')) +
         '\n   ' + config.label + ': ' + item.score + '\n   ID: <code>' + Number(item.row.telegram_id) + '</code>').join('\n\n')
       : 'تر اوسه په دې درجه‌بندۍ کې نمره نه شته.');
-    await sendPrompt(chatId, text, { inline_keyboard: [[{ text: '🔙 لوړ رتبه کسان', callback_data: 'admin:rank_menu' }], [{ text: '🔙 اډمین پینل', callback_data: 'admin:panel' }]] }, actor, 'HTML');
+    await sendPrompt(chatId, text, { inline_keyboard: [[{ text: '🔙 لوړ رتبه کسان', callback_data: 'admin:rank_menu' }], [{ text: '🔙 اډمین پینل', callback_data: (await isAdmin(actorId)) ? 'admin:panel' : 'admin:main' }]] }, actor, 'HTML');
     return;
   }
   if (p[1] === 'rank_menu') {
-    await sendPrompt(chatId, '🏆 لوړ رتبه کسان\n\nلاندې درجه‌بندي وټاکه:', { inline_keyboard: [[{ text: '🏆 تر ټولو ډېرې نمرې', callback_data: 'admin:rank:points' }], [{ text: '📨 تر ټولو ډېر ریفرلونه', callback_data: 'admin:rank:referrals' }], [{ text: '👥 تر ټولو ډېر فالو', callback_data: 'admin:rank:follows' }], [{ text: '❤️ تر ټولو ډېر لایکونه', callback_data: 'admin:rank:likes' }], [{ text: '🔙 اډمین پینل', callback_data: 'admin:panel' }]] }, actor);
+    await sendPrompt(chatId, '🏆 لوړ رتبه کسان\n\nلاندې درجه‌بندي وټاکه:', { inline_keyboard: [[{ text: '🏆 تر ټولو ډېرې نمرې', callback_data: 'admin:rank:points' }], [{ text: '📨 تر ټولو ډېر ریفرلونه', callback_data: 'admin:rank:referrals' }], [{ text: '👥 تر ټولو ډېر فالو', callback_data: 'admin:rank:follows' }], [{ text: '❤️ تر ټولو ډېر لایکونه', callback_data: 'admin:rank:likes' }], [{ text: '🔙 اصلي مېنو', callback_data: (await isAdmin(actorId)) ? 'admin:panel' : 'admin:main' }]] }, actor);
     return;
   }
   if (p[1] === 'users' && p[2] === 'page') { await showUserListPage(chatId, actor, Number(p[3])); return; }
