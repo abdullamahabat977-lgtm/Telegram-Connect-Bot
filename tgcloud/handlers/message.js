@@ -642,7 +642,7 @@ async function beginConnectionSearch(chatId, user, type) {
   user.state = 'searching_connection';
   await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, Number(user.telegram_id))).run();
   await sendPrompt(chatId, '🔎 د ملګري لټون پیل شو.\n\n⏳ د مناسب کس لټون تر ۲ دقیقو دوام کوي. که وخت تېر شي، د ستا راتلونکي پیغام یا تڼۍ پر مهال به لټون لغوه شي.\n\n⭐ د اړیکې منلو پر مهال به له تا ' + cost + ' ستوری کم شي.', { inline_keyboard: [[{ text: '❌ لټون لغوه کول', callback_data: 'conn:cancel_search:' + search.id }]] }, user);
-  await tryOfferSearches();
+  try { await tryOfferSearches(); } catch (error) { console.error('Connection search matching failed after request creation', { userId: Number(user.telegram_id), type: type, error: error }); }
 }
 async function relayConnectionMessage(message, session) {
   const senderId = Number(message.from.id), recipientId = otherSessionUser(session, senderId);
