@@ -3,7 +3,7 @@ Random Connect — Telegram Random Chat Bot
 موخه
 Random Connect د کاروونکي ثبت، اجباري غړیتوب، تصادفي اړیکې، پیغامونو relay، د ملګرو فالو/نمرې/لایک، راپور او د 🎲 ګېم بنسټیز سیستم لري.
 
-اوسنی message handler
+اوسنی Serverless جوړښت
 - د ژبې انتخاب: پښتو، دري، English، اردو او عربي.
 - د AskTechPs اجباري غړیتوب؛ د اډمین پینل له لارې نور ګروپونه او چینلونه هم زیاتېدای او لرې کېدای شي.
 - د هېواد، جنسیت، عمر، نوم او اختیاري تخلص ثبتول.
@@ -35,7 +35,7 @@ Random Connect د کاروونکي ثبت، اجباري غړیتوب، تصاد
 - د ثبت‌نام د ژبې، غړیتوب، هېواد، جنسیت، عمر او د تخلص د نه لیکلو انتخابونه Inline Keyboard کاروي. د دې کلیکونه په tgcloud/handlers/callback_query.js کې پروسس کېږي؛ د اصلي مېنو تڼۍ Reply Keyboard پاتې دي.
 - د تصادفي اړیکې لټون، د غوښتنې منل/ردول، د پیغامونو relay، د پروفایل د لیدلو محدودیت، فالو، د ۱ تر ۵ نمرو ورکول، یو ځل لایک/بېرته اخیستل، راپور او د وروستیو ۱۰ دقیقو د بوټ له خوا لېږل شوو relay پیغامونو حذفول د موجودو message او callback_query handlers له لارې جوړ شوي دي.
 - د ګېم برخه د Telegram 🎲 dice، د لوبغاړو موندلو، د منلو/ردولو او د ستورو/نمرو حسابولو ملاتړ کوي.
-- د ۵ دقیقو بې‌پیغامۍ او ۴۰ دقیقو اعظمي اړیکې، د ملګري لټون د ۲ دقیقو انتظار، او د ګېم/سیال د ۲ دقیقو انتظار په هر incoming message یا callback update کې د ټولو اړوندو کاروونکو لپاره بیا کتل کېږي. که هېڅ نوی update رانه شي، Serverless handler په خپله په ټاکلي وخت نه راویښېږي؛ د دقیق وخت لپاره scheduler/cron ته اړتیا ده، او نوی Event Handler نه دی جوړ شوی. د ګېم د سیال د منلو وخت چې پای ته ورسېږي، په راتلونکي update کې لوبه له بوټ سره بشپړېږي.
+- د ۵ دقیقو بې‌پیغامۍ او ۴۰ دقیقو اعظمي اړیکې، د ملګري لټون د ۲ دقیقو انتظار، او د ګېم/سیال د ۲ دقیقو انتظار په اتومات timer نه چلېږي. د کارن په راتلونکي message یا callback update کې یوازې د هماغه کارن اړوند وخت‌تېر شوي عملونه کتل او لغوه کېدلای شي. که نوی update رانه شي، Serverless handler په خپله د وخت په پوره کېدو نه راویښېږي؛ نو دا د راتلونکي تعامل پر مهال لغوه کول دي، نه حقیقي scheduled timeout. د دقیق وخت لپاره باید د Serverless د مستندو امکاناتو مطابق جلا مهال‌وېش حل وکارول شي.
 - د Telegram محدودیت له مخې بوټ د کارن اصلي پیغامونه په شخصي چټ کې نه شي حذفولای؛ د حذف تڼۍ یوازې د ملګري هغه کاپي شوي پیغامونه حذفوي چې بوټ په تېرو ۱۰ دقیقو کې کارن ته لېږلي وي.
 - د غړیتوب د کتلو لپاره بوټ باید په هر اجباري ګروپ یا چینل کې د اړینې اجازې لرونکی وي.
 - GitHub ته د کوډ ثبتول په خپله ژوندی Serverless کوډ نه بدلوي. لومړی کوډ Deploy/Push کړه، بیا د Database د Migration بدلونونه په دقت وګوره او تطبیق یې کړه. هېڅ خطرناک یا د حذف بدلون مه تاییدوه تر څو یې اغېز روښانه نه وي.
@@ -45,7 +45,7 @@ Random Connect د کاروونکي ثبت، اجباري غړیتوب، تصاد
 - لاندې migration کې د پخوانیو او نویو فیلډونو ټول اړین ALTER او CREATE بیانونه راغلي. هر ALTER یوازې هغه وخت اجرا کړه چې فیلډ موجود نه وي؛ که موجود وي، هغه کرښه پرېږده.
 - د ښه راغلاست جایزه ډیفالټ ۱۰ ستوري، ۳ نمرې او ۲ لایکونه ده؛ هر کارن یې یوازې یو ځل اخلي. د ریفرل جایزه ډیفالټ ۱۵ ستوري، ۵ نمرې او ۲ لایکونه ده؛ دواړه جایزې د اډمین له پینل څخه بدلېدای شي.
 - د آنلاین شمېر معیار د وروستیو ۱۵ دقیقو فعالیت دی؛ د کارن پیغام او د بوټ بټن کلیک د فعالیت وخت تازه کوي.
-- د اړیکې د غوښتنو تنظیمات اوس انتخاب ثبتوي، خو د تصادفي اړیکې او پیغامونو relay سیستم لا نه دی فعال؛ له همدې امله دا تنظیم تر هغه وخته غوښتنې نه فلټر کوي چې matching سیستم جوړ شي.
+- د اړیکې د غوښتنو تنظیمات د matching پر مهال کارول کېږي: `all`، `followed` او `none` د احتمالي ترلاسه کوونکو د ټاکلو پر مهال ارزول کېږي؛ د ملګري لټون کې د جنسیت او ژبې فلټرونه هم کارول کېږي.
 
 
 د نوي matching او game schema لپاره د DB migration
@@ -134,14 +134,19 @@ CREATE TABLE IF NOT EXISTS game_sessions (
 
 
 فایلونه
-- tgcloud/handlers/message.js — د پیغام handler.
-- tgcloud/schema.js — ۱۳ جدولونه: users، admins، required_chats، app_settings، favorites، chat_sessions، user_blocks، reports، connection_requests، chat_messages، user_ratings، user_likes او game_sessions.
+- `tgcloud/handlers/message.js` — د عادي پیغامونو handler.
+- `tgcloud/handlers/callback_query.js` — د inline بټنونو callback handler.
+- `tgcloud/lib/shared.js` — د دواړو handlerونو ګډ constants او helper functions.
+- `tgcloud/lib/message-text.js` او `tgcloud/lib/callback-text.js` — د ژبو او متنونو جلا ماډیولونه.
+- `tgcloud/schema.js` — ۱۳ جدولونه: users، admins، required_chats، app_settings، favorites، chat_sessions، user_blocks، reports، connection_requests، chat_messages، user_ratings، user_likes او game_sessions.
 
 رسمي اسناد
 https://core.telegram.org/bots/serverless
 
 ## مهم: د Telegram Serverless له ویب پاڼې سره سمون
 
+- د Serverless قواعدو له مخې `tgcloud/handlers/` باید flat وي؛ هر فایل د Telegram update ډول ته اړوند handler دی. `message.js` او `callback_query.js` ځکه پاتې دي چې بوټ عادي پیغامونه او inline بټنونه کاروي؛ د نورو update ډولونو لپاره بې‌کاره handler فایلونه نه جوړوو.
+- ګډ business/helper code او ژباړې د `tgcloud/lib/` لاندې ساتل کېږي؛ دلته relative import باید د `.js` extension ولري.
 - `tgcloud/schema.js` د Serverless د **Database → Schema** برخې ته ځي؛ دا فایل باید په **Library** کې جوړ نه شي.
 - په `tgcloud/handlers/message.js` او `tgcloud/handlers/callback_query.js` کې `import { ... } from '../schema.js';` د پروژې د اوسني `tgcloud/handlers/` او `tgcloud/schema.js` جوړښت لپاره سمه relative import لاره ده. یوازې د دې لپاره یې `from 'schema'` ته مه بدلوئ چې Library تشه ده.
 - د GitHub بدلونونه په خپله د BotFather Serverless ته نه لېږدول کېږي. د Serverless په ویب پاڼه کې د Handler او Database کوډونه جلا دي؛ د GitHub نسخه او په Serverless کې خوندي شوې نسخه باید جلا پرتله شي.
