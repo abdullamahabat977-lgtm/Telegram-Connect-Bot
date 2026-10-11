@@ -784,14 +784,18 @@ async function tryMatchGames() {
     }).sort((a,b) => Date.parse(b.last_active_at || '') - Date.parse(a.last_active_at || ''));
     if (!candidates.length) continue;
     const candidate = candidates[0];
-    await db.update(game_sessions).set({ opponent_id: Number(candidate.telegram_id), status: 'pending', updated_at: new Date().toISOString() })
-      .where(eq(game_sessions.id, Number(game.id))).run();
+    const claimed = await db.update(game_sessions)
+      .set({ opponent_id: Number(candidate.telegram_id), status: 'pending', updated_at: new Date().toISOString() })
+      .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'waiting')))
+      .returning({ id: game_sessions.id }).run();
+    if (!claimed || !Array.isArray(claimed.rows) || claimed.rows.length === 0) continue;
     game.status = 'pending'; game.opponent_id = Number(candidate.telegram_id);
     try {
-      await api.sendMessage({ chat_id: Number(candidate.telegram_id), text: '🎲 یو فعال کارن غواړي له تا سره د ګېم لوبه وکړي.\n\nد لوبې د منلو لپاره باید لږ تر لږه ' + opponentMin + ' ستوري ولرې. د منلو یا ردولو انتخاب وکړه.',
+      await api.sendMessage({ chat_id: Number(candidate.telegram_id), text: '🎲 یو فعال کارن غواړي له تا سره د ګېم لوبه وکړي.\\n\\nد لوبې د منلو لپاره باید لږ تر لږه ' + opponentMin + ' ستوري ولرې. د منلو یا ردولو انتخاب وکړه.',
         reply_markup: { inline_keyboard: [[{ text: '✅ ګېم منل', callback_data: 'game:accept:' + game.id }, { text: '❌ ردول', callback_data: 'game:reject:' + game.id }]] } });
     } catch (e) {
-      await db.update(game_sessions).set({ status: 'waiting', opponent_id: null, updated_at: new Date().toISOString() }).where(eq(game_sessions.id, Number(game.id))).run();
+      await db.update(game_sessions).set({ status: 'waiting', opponent_id: null, updated_at: new Date().toISOString() })
+        .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'pending'), eq(game_sessions.opponent_id, Number(candidate.telegram_id)))).run();
     }
   }
 }
