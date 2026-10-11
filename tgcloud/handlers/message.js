@@ -699,6 +699,11 @@ async function startDiceGame(chatId, user) {
     return;
   }
   const rows = await db.select().from(game_sessions).all();
+  if (rows.some(row => row.status === 'settlement_error' &&
+      (Number(row.player_id) === Number(user.telegram_id) || Number(row.opponent_id) === Number(user.telegram_id)))) {
+    await sendPrompt(chatId, '⚠️ ستا په یوه پخواني ګېم کې تخنیکي ستونزه ثبت شوې ده. د فیس او پایلې د کتنې لپاره له اډمین سره اړیکه ونیسه؛ تر هغې نوی ګېم مه پیلوه.', menuKeyboard(user, await isAdmin(user.telegram_id)), user);
+    return;
+  }
   if (rows.some(row => Number(row.player_id) === Number(user.telegram_id) && ['waiting','pending','playing'].includes(row.status)) ||
       rows.some(row => Number(row.opponent_id) === Number(user.telegram_id) && ['pending','playing'].includes(row.status))) {
     await sendPrompt(chatId, '🎲 ستا د ګېم غوښتنه لا روانه ده.', menuKeyboard(user, await isAdmin(user.telegram_id)), user);
@@ -767,7 +772,7 @@ async function tryMatchGames() {
     if (!Number.isFinite(age) || age >= waitSeconds * 1000) continue;
     if (game.status !== 'waiting') continue;
     const isFreshGame = row => { const start = row.status === 'waiting' ? (row.created_at || row.updated_at) : (row.updated_at || row.created_at); const age = now - Date.parse(start || ''); return Number.isFinite(age) && age < waitSeconds * 1000; };
-    const busyGameIds = new Set(rows.filter(row => ['pending','playing'].includes(row.status) && isFreshGame(row)).flatMap(row => [Number(row.player_id), Number(row.opponent_id || 0)]).concat(rows.filter(row => row.status === 'waiting' && isFreshGame(row)).map(row => Number(row.player_id))));
+    const busyGameIds = new Set(rows.filter(row => ['pending','playing'].includes(row.status) && isFreshGame(row)).flatMap(row => [Number(row.player_id), Number(row.opponent_id || 0)]).concat(rows.filter(row => row.status === 'waiting' && isFreshGame(row)).map(row => Number(row.player_id))).concat(rows.filter(row => row.status === 'settlement_error').flatMap(row => [Number(row.player_id), Number(row.opponent_id || 0)])));
     const candidates = allUsers.filter(candidate => {
       const id = Number(candidate.telegram_id);
       if (id === Number(game.player_id) || id === Number(game.opponent_id || 0) || Number(candidate.is_blocked) === 1 || Number(candidate.stars || 0) < opponentMin) return false;
