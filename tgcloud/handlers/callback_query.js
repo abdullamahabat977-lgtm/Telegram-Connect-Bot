@@ -1234,12 +1234,17 @@ async function handleGameCallback(query, actor, data, actorId, chatId) {
   if (action === 'accept' && Number(game.opponent_id) === actorId) {
     try {
       const connectionRequests = await db.select().from(connection_requests).all();
+      const latestGames = await db.select().from(game_sessions).all();
       const activeSessionForPlayer = await activeSessionFor(Number(game.player_id));
       const activeSessionForOpponent = await activeSessionFor(actorId);
       const hasConnectionRequest = connectionRequests.some(row => ['searching', 'pending', 'matching'].includes(row.status) &&
         (Number(row.requester_id) === Number(game.player_id) || Number(row.recipient_id) === Number(game.player_id) ||
          Number(row.requester_id) === actorId || Number(row.recipient_id) === actorId));
-      if (activeSessionForPlayer || activeSessionForOpponent || hasConnectionRequest) {
+      const hasOtherActiveGame = latestGames.some(row => Number(row.id) !== gameId &&
+        ['waiting', 'pending', 'playing', 'settlement_error'].includes(row.status) &&
+        (Number(row.player_id) === Number(game.player_id) || Number(row.opponent_id) === Number(game.player_id) ||
+         Number(row.player_id) === actorId || Number(row.opponent_id) === actorId));
+      if (activeSessionForPlayer || activeSessionForOpponent || hasConnectionRequest || hasOtherActiveGame) {
         await db.update(game_sessions).set({ status: 'cancelled', updated_at: new Date().toISOString() })
           .where(and(eq(game_sessions.id, gameId), eq(game_sessions.status, 'pending'), eq(game_sessions.opponent_id, actorId))).run();
         const notice = '⚠️ د ګېم یو لوبغاړی د Connection په بهیر کې دی؛ د ټکر د مخنیوي لپاره ګېم لغوه شو. بیا هڅه وکړه.';
