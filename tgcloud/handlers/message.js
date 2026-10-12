@@ -282,7 +282,7 @@ async function showProfile(chatId, user) {
   const previousId = Number(latest && latest.last_prompt_id || 0);
   if (previousId > 0) await safeDelete(chatId, previousId);
   try {
-    await api.sendPhoto({ chat_id: chatId, photo: user.profile_photo_id, caption: text, reply_markup: markup });
+    await api.sendPhoto({ chat_id: chatId, photo: user.profile_photo_id, caption: text, reply_markup: styleKeyboardMarkup(markup) });
     await db.update(users).set({ last_prompt_id: 0 }).where(eq(users.telegram_id, Number(user.telegram_id))).run();
     user.last_prompt_id = 0;
   } catch (e) {
