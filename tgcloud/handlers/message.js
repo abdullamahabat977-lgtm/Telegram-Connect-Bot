@@ -716,6 +716,10 @@ async function tryOfferSearches() {
 }
 async function beginConnectionSearch(chatId, user, type) {
   const cost = Number(await getSetting('connection_cost_stars', 1));
+  if (!Number.isFinite(cost) || cost < 0) {
+    await sendPrompt(chatId, '⚠️ د اړیکې د ستورو تنظیم ناسم دی. له اډمین سره اړیکه ونیسه.', menuKeyboard(user, await isAdmin(user.telegram_id)), user);
+    return;
+  }
   if (Number(user.stars || 0) < cost) {
     await sendPrompt(chatId, '⭐ د اړیکې غوښتنې لپاره لږ تر لږه ' + cost + ' ستوري پکار دي.\n\nستا اوسنی بیلانس: ' + Number(user.stars || 0), menuKeyboard(user, await isAdmin(user.telegram_id)), user);
     return;
