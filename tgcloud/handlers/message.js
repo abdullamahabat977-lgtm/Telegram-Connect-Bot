@@ -981,8 +981,21 @@ async function processMessage(message) {
     const welcomeStars = Number(await getSetting('welcome_reward_stars', 10));
     const welcomePoints = Number(await getSetting('welcome_reward_points', 3));
     const welcomeLikes = Number(await getSetting('welcome_reward_likes', 2));
-    await db.update(users).set({ stars: Number(user.stars || 0) + welcomeStars, points: Number(user.points || 0) + welcomePoints, likes: Number(user.likes || 0) + welcomeLikes, welcome_reward_claimed: 1 }).where(eq(users.telegram_id, id)).run();
-    user.stars = Number(user.stars || 0) + welcomeStars; user.points = Number(user.points || 0) + welcomePoints; user.likes = Number(user.likes || 0) + welcomeLikes; user.welcome_reward_claimed = 1;
+    const baseStars = Number(user.stars || 0), basePoints = Number(user.points || 0), baseLikes = Number(user.likes || 0);
+    const rewardClaim = await db.update(users).set({
+      stars: baseStars + welcomeStars, points: basePoints + welcomePoints, likes: baseLikes + welcomeLikes, welcome_reward_claimed: 1
+    }).where(and(
+      eq(users.telegram_id, id), eq(users.welcome_reward_claimed, 0),
+      eq(users.stars, baseStars), eq(users.points, basePoints), eq(users.likes, baseLikes)
+    )).returning({ telegram_id: users.telegram_id }).run();
+    const rewardClaimed = Boolean(rewardClaim && Array.isArray(rewardClaim.rows) && rewardClaim.rows.length > 0);
+    if (rewardClaimed) {
+      user.stars = baseStars + welcomeStars; user.points = basePoints + welcomePoints; user.likes = baseLikes + welcomeLikes; user.welcome_reward_claimed = 1;
+    } else {
+      // Another update or handler won the compare-and-set; refresh and retry on a later message.
+      user = await getUser(id);
+    }
+    if (rewardClaimed) {
     const welcomeText = user.language === 'en'
       ? '🎉 Welcome! Your welcome reward has been added to your account.\n\n⭐ Stars: ' + welcomeStars + '\n🏆 Points: ' + welcomePoints + '\n❤️ Likes: ' + welcomeLikes
       : user.language === 'fa'
@@ -993,6 +1006,7 @@ async function processMessage(message) {
             ? '🎉 أهلاً بك! أُضيفت مكافأة الترحيب إلى حسابك.\n\n⭐ النجوم: ' + welcomeStars + '\n🏆 النقاط: ' + welcomePoints + '\n❤️ الإعجابات: ' + welcomeLikes
             : '🎉 ښه راغلاست! ستا د ښه راغلاست جایزه ستا حساب ته اضافه شوه.\n\n⭐ ستوري: ' + welcomeStars + '\n🏆 نمرې: ' + welcomePoints + '\n❤️ لایکونه: ' + welcomeLikes;
     try { await api.sendMessage({ chat_id: chatId, text: welcomeText }); } catch (e) { console.error('Welcome reward notification failed', e); }
+    }
   }
   try { await expireUserTimedActions(id); } catch (e) { console.error('User timed-action check failed', e); }
   try { await tryOfferSearches(); } catch (e) { console.error('Connection matching check failed', e); }
