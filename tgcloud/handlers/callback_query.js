@@ -3,7 +3,7 @@ import { and, eq } from 'sdk/db';
 import { users, admins, required_chats, app_settings, favorites, chat_sessions, connection_requests, chat_messages, user_ratings, user_likes, game_sessions, user_blocks, reports } from '../schema.js';
 import { ROOT_ADMINS, LANGUAGES, COUNTRIES, AGES, countryKeyboard, ensureInlinePromptTracking, requiredChatInfo, listWords, isFollowing, otherSessionUser, getUser, safeDelete, isAdmin } from '../lib/shared.js';
 import { TEXT } from '../lib/callback-text.js';
-import { resolveBotGame } from './message.js';
+import { resolveBotGame, tryMatchGames } from './message.js';
 
 
 
@@ -692,60 +692,6 @@ async function showConnectedPair(session) {
   try { await api.sendMessage({ chat_id: Number(second.telegram_id), text: '✅ غوښتنه ومنل شوه! اړیکه وصل شوه.\n\nاوس کولای شئ یو بل ته پیغامونه واستوئ.' }); } catch (e) {}
   await showSessionProfile(session, Number(first.telegram_id));
   await showSessionProfile(session, Number(second.telegram_id));
-}
-async function tryMatchGames() {
-  const games = await db.select().from(game_sessions).all(), allUsers = await db.select().from(users).all(), sessions = await db.select().from(chat_sessions).all();
-  const connectionRequests = await db.select().from(connection_requests).all();
-  const blocks = await db.select().from(user_blocks).all();
-  const wait = Math.max(1, Number(await getSetting('game_wait_seconds', 120)) || 120), opponentMin = Number(await getSetting('game_opponent_min_stars', 3.5)), now = Date.now();
-  for (const game of games.filter(row => row.status === 'waiting' || row.status === 'pending')) {
-    const timerStart = game.status === 'pending' ? (game.updated_at || game.created_at) : game.created_at;
-    const age = now - Date.parse(timerStart || '');
-    if (!Number.isFinite(age)) continue;
-    if (game.status !== 'waiting') continue;
-    if (connectionRequests.some(row => ['searching', 'pending', 'matching'].includes(row.status) &&
-        (Number(row.requester_id) === Number(game.player_id) || Number(row.recipient_id) === Number(game.player_id)))) continue;
-    const isFreshGame = row => { const start = row.status === 'waiting' ? (row.created_at || row.updated_at) : (row.updated_at || row.created_at); const age = now - Date.parse(start || ''); return Number.isFinite(age) && age < wait * 1000; };
-    const busy = new Set(games.filter(row => ['pending','playing'].includes(row.status) && isFreshGame(row)).flatMap(row => [Number(row.player_id), Number(row.opponent_id || 0)]).concat(games.filter(row => row.status === 'waiting' && isFreshGame(row)).map(row => Number(row.player_id))).concat(games.filter(row => row.status === 'settlement_error').flatMap(row => [Number(row.player_id), Number(row.opponent_id || 0)])));
-    const candidates = allUsers.filter(candidate => {
-      const id = Number(candidate.telegram_id), active = Date.parse(candidate.last_active_at || '');
-      if (id === Number(game.player_id) || id === Number(game.opponent_id || 0) || Number(candidate.is_blocked) === 1 || Number(candidate.stars || 0) < opponentMin) return false;
-      if (!Number.isFinite(active) || now - active > 120000 || busy.has(id)) return false;
-      if (connectionRequests.some(row => ['searching', 'pending', 'matching'].includes(row.status) &&
-          (Number(row.requester_id) === id || Number(row.recipient_id) === id))) return false;
-      const recentlyRejected = games.some(row => row.status === 'rejected' && Number(row.player_id) === Number(game.player_id) && Number(row.opponent_id) === id && Number.isFinite(Date.parse(row.updated_at || '')) && now - Date.parse(row.updated_at || '') < wait * 1000);
-      if (recentlyRejected) return false;
-      if (sessions.some(row => row.status === 'connected' && (Number(row.first_user_telegram_id) === id || Number(row.second_user_telegram_id) === id))) return false;
-      if (blocks.some(row =>
-          (Number(row.blocker_telegram_id) === id && Number(row.blocked_telegram_id) === Number(game.player_id)) ||
-          (Number(row.blocker_telegram_id) === Number(game.player_id) && Number(row.blocked_telegram_id) === id))) return false;
-      return true;
-    }).sort((a,b)=>Date.parse(b.last_active_at || '')-Date.parse(a.last_active_at || ''));
-    if (!candidates.length) {
-      if (age < wait * 1000) continue;
-      const claimedForBot = await db.update(game_sessions)
-        .set({ status: 'playing', updated_at: new Date().toISOString() })
-        .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'waiting')))
-        .returning({ id: game_sessions.id }).run();
-      if (!claimedForBot || !Array.isArray(claimedForBot.rows) || claimedForBot.rows.length === 0) continue;
-      const playingGame = await db.select().from(game_sessions).where(eq(game_sessions.id, Number(game.id))).get();
-      if (playingGame && playingGame.status === 'playing') await resolveBotGame(playingGame);
-      continue;
-    }
-    const candidate = candidates[0];
-    const claimed = await db.update(game_sessions)
-      .set({ opponent_id: Number(candidate.telegram_id), status: 'pending', updated_at: new Date().toISOString() })
-      .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'waiting')))
-      .returning({ id: game_sessions.id }).run();
-    if (!claimed || !Array.isArray(claimed.rows) || claimed.rows.length === 0) continue;
-    game.status = 'pending'; game.opponent_id = Number(candidate.telegram_id);
-    try { await api.sendMessage({ chat_id: Number(candidate.telegram_id), text: '🎲 یو فعال کارن غواړي له تا سره د ګېم لوبه وکړي. د منلو یا ردولو انتخاب وکړه.',
-      reply_markup: { inline_keyboard: [[{ text: '✅ ګېم منل', callback_data: 'game:accept:' + game.id }, { text: '❌ ردول', callback_data: 'game:reject:' + game.id }]] } }); }
-    catch (e) {
-      await db.update(game_sessions).set({ status: 'waiting', opponent_id: null, updated_at: new Date().toISOString() })
-        .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'pending'), eq(game_sessions.opponent_id, Number(candidate.telegram_id)))).run();
-    }
-  }
 }
 async function resolveUserGame(game) {
   // The caller must win the pending -> playing claim before any dice or balance work.
