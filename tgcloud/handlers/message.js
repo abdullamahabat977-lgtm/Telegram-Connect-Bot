@@ -696,9 +696,16 @@ async function beginConnectionSearch(chatId, user, type) {
     await sendPrompt(chatId, '⚠️ ته اوس له یوه کس سره په اړیکه کې یې. لومړی اړیکه پای ته ورسوه.', menuKeyboard(user, await isAdmin(user.telegram_id)), user);
     return;
   }
-  const requests = await db.select().from(connection_requests).where(eq(connection_requests.requester_id, Number(user.telegram_id))).all();
-  if (requests.some(row => ['searching', 'matching'].includes(row.status) && !row.recipient_id)) {
-    await sendPrompt(chatId, '🔎 د ملګري لټون لا روان دی. مهرباني وکړه لږ انتظار وکړه.', { inline_keyboard: [[{ text: '❌ لټون لغوه کول', callback_data: 'conn:cancel_search' }]] }, user);
+  const activeGames = await db.select().from(game_sessions).all();
+  if (activeGames.some(row => ['waiting', 'pending', 'playing', 'settlement_error'].includes(row.status) &&
+      (Number(row.player_id) === Number(user.telegram_id) || Number(row.opponent_id) === Number(user.telegram_id)))) {
+    await sendPrompt(chatId, '⚠️ ته لا د ګېم په بهیر کې یې. لومړی ګېم پای ته ورسوه یا یې لغوه کړه، بیا د ملګري لټون پیل کړه.', menuKeyboard(user, await isAdmin(user.telegram_id)), user);
+    return;
+  }
+  const activeRequests = await db.select().from(connection_requests).all();
+  if (activeRequests.some(row => ['searching', 'matching', 'pending'].includes(row.status) &&
+      (Number(row.requester_id) === Number(user.telegram_id) || Number(row.recipient_id) === Number(user.telegram_id)))) {
+    await sendPrompt(chatId, '🔎 ستا د ملګري لټون یا د اړیکې غوښتنه لا فعاله ده. لومړی یې پای ته ورسوه، بیا نوی لټون پیل کړه.', { inline_keyboard: [[{ text: '❌ لټون لغوه کول', callback_data: 'conn:cancel_search' }]] }, user);
     return;
   }
   const now = new Date().toISOString();
