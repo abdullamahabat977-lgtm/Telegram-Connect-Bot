@@ -899,6 +899,16 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
     }
     if (!search) { await db.update(connection_requests).set({ status: 'expired', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, offerId)).run(); await sendPrompt(chatId, '⌛ د غوښتونکي لټون پای ته رسېدلی.', mainKeyboard(actor, await isAdmin(actorId)), actor); return; }
     const requester = await getUser(offer.requester_id), cost = Number(await getSetting('connection_cost_stars', 1));
+    if (requester && await blockedPair(Number(requester.telegram_id), actorId)) {
+      await db.update(connection_requests).set({ status: 'rejected', updated_at: new Date().toISOString() })
+        .where(and(eq(connection_requests.id, offerId), eq(connection_requests.status, 'pending'))).run();
+      await db.update(connection_requests).set({ status: 'cancelled', updated_at: new Date().toISOString() })
+        .where(and(eq(connection_requests.id, Number(search.id)), eq(connection_requests.status, 'searching'))).run();
+      const notice = '⚠️ د دواړو کارنانو ترمنځ بلاک موجود دی؛ اړیکه نه شي جوړېدای.';
+      try { await api.sendMessage({ chat_id: Number(requester.telegram_id), text: notice }); } catch (e) {}
+      await sendPrompt(chatId, notice, mainKeyboard(actor, await isAdmin(actorId)), actor);
+      return;
+    }
     if (!Number.isFinite(cost) || cost < 0) {
       await db.update(connection_requests).set({ status: 'rejected', updated_at: new Date().toISOString() })
         .where(and(eq(connection_requests.id, offerId), eq(connection_requests.status, 'pending'))).run();
@@ -1112,8 +1122,14 @@ async function handleSessionCallback(query, actor, data, actorId, chatId) {
     const cutoff = Date.now() - 10 * 60000, rows = await db.select().from(chat_messages).all();
     let deleted = 0;
     for (const row of rows.filter(item => Number(item.sender_id) === targetId && Number(item.recipient_id) === actorId && Number(item.session_id) === sessionId && Date.parse(item.created_at || '') >= cutoff && Number(item.recipient_message_id) > 0)) {
-      try { await api.deleteMessage({ chat_id: actorId, message_id: Number(row.recipient_message_id) }); deleted += 1; } catch (e) {}
-      await db.update(chat_messages).set({ recipient_message_id: 0 }).where(eq(chat_messages.id, Number(row.id))).run();
+      let wasDeleted = false;
+      try {
+        await api.deleteMessage({ chat_id: actorId, message_id: Number(row.recipient_message_id) });
+        wasDeleted = true;
+        deleted += 1;
+      } catch (e) {}
+      // Keep the Telegram message ID if deletion failed, so the database does not claim it was removed.
+      if (wasDeleted) await db.update(chat_messages).set({ recipient_message_id: 0 }).where(eq(chat_messages.id, Number(row.id))).run();
     }
     await sendPrompt(chatId, '🗑 د وروستیو ۱۰ دقیقو د ملګري ' + deleted + ' لېږل شوي پیغامونه حذف شول. د Telegram د محدودیت له امله د کارن خپل اصلي پیغامونه نه حذف کېږي.', mainKeyboard(actor, await isAdmin(actorId)), actor); return;
   }
@@ -1244,7 +1260,8 @@ async function handleGameCallback(query, actor, data, actorId, chatId) {
         ['waiting', 'pending', 'playing', 'settlement_error'].includes(row.status) &&
         (Number(row.player_id) === Number(game.player_id) || Number(row.opponent_id) === Number(game.player_id) ||
          Number(row.player_id) === actorId || Number(row.opponent_id) === actorId));
-      if (activeSessionForPlayer || activeSessionForOpponent || hasConnectionRequest || hasOtherActiveGame) {
+      const pairBlocked = await blockedPair(Number(game.player_id), actorId);
+      if (activeSessionForPlayer || activeSessionForOpponent || hasConnectionRequest || hasOtherActiveGame || pairBlocked) {
         await db.update(game_sessions).set({ status: 'cancelled', updated_at: new Date().toISOString() })
           .where(and(eq(game_sessions.id, gameId), eq(game_sessions.status, 'pending'), eq(game_sessions.opponent_id, actorId))).run();
         const notice = '⚠️ د ګېم یو لوبغاړی د Connection په بهیر کې دی؛ د ټکر د مخنیوي لپاره ګېم لغوه شو. بیا هڅه وکړه.';
