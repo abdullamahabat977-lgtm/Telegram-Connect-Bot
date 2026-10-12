@@ -892,7 +892,27 @@ async function startDiceGame(chatId, user) {
     win_stars: Number(await getSetting('game_win_stars', 3)), bot_loss_total_stars: Number(await getSetting('game_bot_loss_total_stars', 3.5)),
     points_award: Number(await getSetting('game_win_points', 1)) }).run();
   await sendPrompt(chatId, '🎲 د ګېم سیال لټول کېږي.\n\n📩 د منلو/ردولو پیغام یوازې هغه کارن ته استول کېږي چې په تېرو ۲ دقیقو کې له بوټ سره فعال و، کافي ستوري ولري، او بل فعال ګېم یا اړیکه ونه لري.\n\n⏳ که په ټاکلي وخت کې مناسب سیال پیدا نه شي، ګېم به د بوټ پر وړاندې حل شي؛ که لغوه کول غواړې، لاندې تڼۍ ووهه.', { inline_keyboard: [[{ text: '❌ ګېم لغوه کول', callback_data: 'game:cancel' }]] }, user);
-  await tryMatchGames();
+  try {
+    await tryMatchGames();
+  } catch (error) {
+    // Keep the persisted waiting game recoverable and avoid turning a matcher error
+    // into the generic message-handler failure. Record the actual cause for logs.
+    console.error('Game request was saved but matchmaking failed', {
+      gameId: null,
+      playerId: Number(user.telegram_id),
+      error: error && (error.stack || error.message || String(error))
+    });
+    try {
+      await api.sendMessage({
+        chat_id: Number(chatId),
+        text: '⚠️ د ګېم غوښتنه ثبت شوه، خو د سیال لټولو پر مهال تخنیکي ستونزه وشوه. غوښتنه لا د لټون په حالت کې ده؛ لږ وروسته بیا هڅه وکړه.'
+      });
+    } catch (notifyError) {
+      console.error('Could not notify player about matchmaking failure', {
+        playerId: Number(user.telegram_id), notifyError
+      });
+    }
+  }
 }
 export async function resolveBotGame(game) {
   if (!game || game.status !== 'playing') return;
