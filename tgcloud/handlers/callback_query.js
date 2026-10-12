@@ -605,7 +605,8 @@ async function tryOfferSearches() {
         (Number(row.blocker_telegram_id) === Number(search.requester_id) && Number(row.blocked_telegram_id) === cid))) return false;
       if (candidate.connection_request_mode === 'none') return false;
       const connected = sessions.some(row => row.status === 'connected' && (Number(row.first_user_telegram_id) === cid || Number(row.second_user_telegram_id) === cid));
-      if (connected && candidate.connection_request_mode !== 'all') return false;
+      // A recipient who is already connected cannot accept a second session; do not send an unusable offer.
+      if (connected) return false;
       if (requests.some(row => ['searching', 'matching', 'pending'].includes(row.status) &&
           (Number(row.requester_id) === cid || Number(row.recipient_id) === cid))) return false;
       if (candidate.connection_request_mode === 'followed' && !favs.some(row => Number(row.user_telegram_id) === cid && Number(row.favorite_telegram_id) === Number(search.requester_id))) return false;
@@ -750,6 +751,14 @@ async function resolveUserGame(game) {
   try { if (pDice && pDice.message_id) await api.copyMessage({ chat_id: Number(opponent.telegram_id), from_chat_id: Number(player.telegram_id), message_id: Number(pDice.message_id) }); } catch (e) {}
   try { if (oDice && oDice.message_id) await api.copyMessage({ chat_id: Number(player.telegram_id), from_chat_id: Number(opponent.telegram_id), message_id: Number(oDice.message_id) }); } catch (e) {}
   const pRoll = Number(pDice && pDice.dice && pDice.dice.value || 0), oRoll = Number(oDice && oDice.dice && oDice.dice.value || 0);
+  if (![pRoll, oRoll].every(value => Number.isInteger(value) && value >= 1 && value <= 6)) {
+    await db.update(game_sessions).set({ status: 'settlement_error', updated_at: new Date().toISOString() })
+      .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'playing'))).run();
+    const notice = '⚠️ د تاس پایله تایید نه شوه؛ د ستورو حساب ونه شو. له اډمین سره اړیکه ونیسه.';
+    try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: notice }); } catch (e) {}
+    try { await api.sendMessage({ chat_id: Number(opponent.telegram_id), text: notice }); } catch (e) {}
+    return;
+  }
   let pFinal = playerBalance, oFinal = opponentBalance, result = '🤝 مساوي! دواړه یوازې د لوبې فیس ورکوي.';
   if (pRoll > oRoll) {
     pFinal += winStars; oFinal = Math.max(0, oFinal - winStars);
