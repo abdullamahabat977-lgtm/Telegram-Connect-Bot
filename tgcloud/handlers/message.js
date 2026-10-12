@@ -806,7 +806,7 @@ async function startDiceGame(chatId, user) {
   await sendPrompt(chatId, '🎲 د ګېم سیال لټول کېږي.\n\n⏳ که په ټاکلي وخت کې سیال پیدا نه شي، ستا راتلونکی پیغام به دا ګېم لغوه کړي؛ فیس به نه اخیستل کېږي.', { inline_keyboard: [[{ text: '❌ ګېم لغوه کول', callback_data: 'game:cancel' }]] }, user);
   await tryMatchGames();
 }
-async function resolveBotGame(game) {
+export async function resolveBotGame(game) {
   if (!game || game.status !== 'playing') return;
   const player = await getUser(game.player_id);
   if (!player) {
