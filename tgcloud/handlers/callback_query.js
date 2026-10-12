@@ -662,8 +662,12 @@ async function startConnectionSearch(userId, type) {
     await sendPrompt(userId, '⚠️ ته لا د ګېم په بهیر کې یې. لومړی ګېم پای ته ورسوه یا یې لغوه کړه، بیا د ملګري لټون پیل کړه.', mainKeyboard(user, await isAdmin(userId)), user);
     return;
   }
-  const requests = await db.select().from(connection_requests).where(eq(connection_requests.requester_id, Number(userId))).all();
-  if (requests.some(row => ['searching', 'matching'].includes(row.status) && !row.recipient_id)) { await sendPrompt(userId, '🔎 ستا د ملګري لټون لا روان دی.', { inline_keyboard: [[{ text: '❌ لټون لغوه کول', callback_data: 'conn:cancel_search' }]] }, user); return; }
+  const requests = await db.select().from(connection_requests).all();
+  if (requests.some(row => ['searching', 'matching', 'pending'].includes(row.status) &&
+      (Number(row.requester_id) === Number(userId) || Number(row.recipient_id) === Number(userId)))) {
+    await sendPrompt(userId, '🔎 ستا د ملګري لټون یا د اړیکې غوښتنه لا فعاله ده. لومړی یې پای ته ورسوه، بیا نوی لټون پیل کړه.', { inline_keyboard: [[{ text: '❌ لټون لغوه کول', callback_data: 'conn:cancel_search' }]] }, user);
+    return;
+  }
   const now = new Date().toISOString();
   await db.insert(connection_requests).values({ requester_id: Number(userId), recipient_id: null, status: 'searching', request_type: type,
     gender_filter: type === 'find' ? user.search_gender || 'auto' : 'auto', language_filter: type === 'find' ? user.search_language || 'auto' : 'auto',
