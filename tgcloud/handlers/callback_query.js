@@ -693,42 +693,6 @@ async function showConnectedPair(session) {
   await showSessionProfile(session, Number(first.telegram_id));
   await showSessionProfile(session, Number(second.telegram_id));
 }
-async function resolveBotGame(game) {
-  if (!game || game.status !== 'waiting') return;
-  const player = await getUser(game.player_id);
-  if (!player) return;
-  const fee = Number(await getSetting('game_fee_stars', 0.5)), winStars = Number(await getSetting('game_win_stars', 3));
-  const totalLoss = Number(await getSetting('game_bot_loss_total_stars', 3.5)), points = Number(await getSetting('game_win_points', 1));
-  const balance = Number(player.stars || 0);
-  if (balance < Number(await getSetting('game_min_stars', 3.5))) {
-    await db.update(game_sessions).set({ status: 'cancelled', updated_at: new Date().toISOString() }).where(eq(game_sessions.id, Number(game.id))).run(); return;
-  }
-
-  let playerDice, botDice;
-  try {
-    playerDice = await api.sendDice({ chat_id: Number(player.telegram_id), emoji: '🎲' });
-    botDice = await api.sendDice({ chat_id: Number(player.telegram_id), emoji: '🎲' });
-  } catch (error) {
-    console.error('Bot game dice failed', { gameId: game.id, playerId: player.telegram_id, error: error });
-    await db.update(game_sessions).set({ status: 'cancelled', updated_at: new Date().toISOString() }).where(eq(game_sessions.id, Number(game.id))).run();
-    try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: '⚠️ د ګېم تخنیکي ستونزه وه؛ ګېم لغوه شو او فیس نه دی اخیستل شوی. بیا هڅه وکړه.' }); } catch (e) {}
-    return;
-  }
-  const pRoll = Number(playerDice && playerDice.dice && playerDice.dice.value || 0), bRoll = Number(botDice && botDice.dice && botDice.dice.value || 0);
-  let current = balance - fee, outcome = '🤝 مساوي! د لوبې فیس حساب شو؛ اضافي جایزه نشته.';
-  if (pRoll > bRoll) {
-    current += winStars;
-    await db.update(users).set({ stars: current, points: Number(player.points || 0) + points }).where(eq(users.telegram_id, Number(player.telegram_id))).run();
-    outcome = '🎉 ته وګټلې! +' + winStars + ' ستوري او +' + points + ' نمره.';
-  } else if (bRoll > pRoll) {
-    const extra = Math.min(Math.max(0, totalLoss - fee), current);
-    current -= extra;
-    await db.update(users).set({ stars: current }).where(eq(users.telegram_id, Number(player.telegram_id))).run();
-    outcome = '🤖 بوټ وګټله! ټول لګښت: ' + (fee + extra) + ' ستوري.';
-  } else await db.update(users).set({ stars: current }).where(eq(users.telegram_id, Number(player.telegram_id))).run();
-  await db.update(game_sessions).set({ status: 'completed', player_roll: pRoll, opponent_roll: bRoll, updated_at: new Date().toISOString() }).where(eq(game_sessions.id, Number(game.id))).run();
-  try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: '🎲 د ګېم پایله\n\nستا 🎲: ' + pRoll + '\n\nد بوټ 🎲: ' + bRoll + '\n\n' + outcome + '\n\n⭐ اوسنی بیلانس: ' + current }); } catch (e) {}
-}
 async function tryMatchGames() {
   const games = await db.select().from(game_sessions).all(), allUsers = await db.select().from(users).all(), sessions = await db.select().from(chat_sessions).all();
   const connectionRequests = await db.select().from(connection_requests).all();
