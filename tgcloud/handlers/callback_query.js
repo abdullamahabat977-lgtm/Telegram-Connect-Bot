@@ -820,12 +820,17 @@ async function resolveUserGame(game) {
     try { await api.sendMessage({ chat_id: Number(opponent.telegram_id), text: notice }); } catch (e) {}
     return;
   }
-  const opponentUpdate = await db.update(users).set({ stars: oFinal, points: opponentPointsFinal })
-    .where(and(
-      eq(users.telegram_id, Number(opponent.telegram_id)),
-      eq(users.stars, Number(opponent.stars || 0)),
-      eq(users.points, opponentPoints)
-    )).returning({ telegram_id: users.telegram_id }).run();
+  let opponentUpdate = null;
+  try {
+    opponentUpdate = await db.update(users).set({ stars: oFinal, points: opponentPointsFinal })
+      .where(and(
+        eq(users.telegram_id, Number(opponent.telegram_id)),
+        eq(users.stars, Number(opponent.stars || 0)),
+        eq(users.points, opponentPoints)
+      )).returning({ telegram_id: users.telegram_id }).run();
+  } catch (opponentUpdateError) {
+    console.error('Opponent balance update failed during game settlement', { gameId: game.id, opponentId: opponent.telegram_id, opponentUpdateError });
+  }
   if (!opponentUpdate || !Array.isArray(opponentUpdate.rows) || opponentUpdate.rows.length === 0) {
     // Compensate only if the first balance still equals the value written by this settlement.
     try {
