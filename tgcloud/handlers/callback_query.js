@@ -912,7 +912,33 @@ async function resolveUserGame(game) {
 }
 async function handleConnectionCallback(query, actor, data, actorId, chatId) {
   const p = data.split(':');
-  if (p[1] === 'confirm') { await startConnectionSearch(actorId, p[2] === 'find' ? 'find' : 'random'); return; }
+  if (p[1] === 'confirm') {
+    const requestType = p[2] === 'find' ? 'find' : 'random';
+    try {
+      await startConnectionSearch(actorId, requestType);
+    } catch (error) {
+      console.error('Connection confirmation handler failed before search startup completed', {
+        actorId, requestType, callbackData: data,
+        error: error && (error.stack || error.message || String(error))
+      });
+      try {
+        await sendPrompt(chatId,
+          '⚠️ د اړیکې غوښتنه پیل نه شوه، ځکه د لټون د چمتو کولو پر مهال ستونزه وشوه. ستوري باید لا نه وي کم شوي. لږ وروسته بیا هڅه وکړه.',
+          mainKeyboard(actor, await isAdmin(actorId)), actor);
+      } catch (notifyError) {
+        console.error('Could not show connection startup error to user', { actorId, notifyError });
+        try {
+          await api.sendMessage({
+            chat_id: Number(chatId),
+            text: '⚠️ د اړیکې غوښتنه پیل نه شوه. لږ وروسته بیا هڅه وکړه.'
+          });
+        } catch (fallbackError) {
+          console.error('Could not send fallback connection startup notice', { actorId, fallbackError });
+        }
+      }
+    }
+    return;
+  }
   if (p[1] === 'cancel') {
     const rows = await db.select().from(connection_requests).where(eq(connection_requests.requester_id, actorId)).all();
     for (const row of rows.filter(item => ['searching', 'matching', 'pending'].includes(item.status))) {
