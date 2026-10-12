@@ -38,12 +38,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_user_likes_liker_liked
 CREATE UNIQUE INDEX IF NOT EXISTS uq_user_ratings_session_rater_rated
   ON user_ratings(session_id, rater_id, rated_id);
 
--- Keep the cached users.likes value consistent with the deduplicated source rows.
-UPDATE users
-SET likes = (
-  SELECT COUNT(*) FROM user_likes
-  WHERE user_likes.liked_id = users.telegram_id
-);
+-- Do not rewrite users.likes here: the application also uses that field for
+-- welcome/referral rewards and admin adjustments, so recalculating it from
+-- user_likes would silently destroy legitimate balances.
 
 COMMIT;
 
