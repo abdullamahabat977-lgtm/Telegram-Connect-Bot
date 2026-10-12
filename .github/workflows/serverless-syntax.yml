@@ -46,7 +46,8 @@ jobs:
           db.executescript(Path("migrations/2026-10-12-data-integrity.sql").read_text())
           for table in ("favorites", "user_blocks", "user_likes", "user_ratings"):
               assert db.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == 1, table
-          assert db.execute("SELECT likes FROM users WHERE telegram_id = 200").fetchone()[0] == 1
+          # Likes are also a reward/admin balance; migration must preserve it.
+          assert db.execute("SELECT likes FROM users WHERE telegram_id = 200").fetchone()[0] == 99
           try:
               db.execute("INSERT INTO user_likes (liker_id, liked_id) VALUES (100, 200)")
           except sqlite3.IntegrityError:
