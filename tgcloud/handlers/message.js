@@ -941,7 +941,7 @@ export async function tryMatchGames() {
       try {
         await api.sendMessage({
           chat_id: candidateId,
-          text: '🎲 یو فعال کارن غواړي له تا سره د ګېم لوبه وکړي.\\n\\nد لوبې د منلو لپاره باید لږ تر لږه ' + opponentMin + ' ستوري ولرې. د منلو یا ردولو انتخاب وکړه.',
+          text: '🎲 یو فعال کارن غواړي له تا سره د ګېم لوبه وکړي.\n\nد لوبې د منلو لپاره باید لږ تر لږه ' + opponentMin + ' ستوري ولرې. د منلو یا ردولو انتخاب وکړه.',
           reply_markup: { inline_keyboard: [[
             { text: '✅ ګېم منل', callback_data: 'game:accept:' + game.id },
             { text: '❌ ردول', callback_data: 'game:reject:' + game.id }
