@@ -26,22 +26,25 @@ export const COUNTRIES = [
 export const AGES = [12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40];
 
 const KEYBOARD_DANGER_WORDS = [
-  'cancel', 'reject', 'delete', 'remove', 'block', 'end connection', 'report',
-  'لغوه', 'ردول', 'حذف', 'مسدودول', 'بلاک', 'ختم', 'حظر', 'حذف', 'إلغاء',
+  'cancel', 'reject', 'delete', 'remove', 'end connection', 'report',
+  'لغوه', 'ردول', 'حذف', 'مسدودول', 'بلاک', 'ختم', 'حظر', 'إلغاء',
   'منسوخ', 'خارج', 'رد کردن', 'حذف کردن'
 ];
 const KEYBOARD_SUCCESS_WORDS = [
   'accept', 'confirm', 'save', 'submit', 'join', 'start search', 'follow',
-  'like', 'unblock', 'منل', 'تایید', 'تأیید', 'ثبت', 'ګډون مې وکړ',
+  'unblock', 'منل', 'تایید', 'تأیید', 'ثبت', 'ګډون مې وکړ',
   'من می‌شوم', 'قبول', 'حفظ', 'انضمام', 'تأكيد', 'إلغاء الحظر', 'ان بلاک'
 ];
 
 function inferKeyboardButtonStyle(button) {
   const text = String(button && button.text || '').toLowerCase();
-  const data = String(button && (button.callback_data || button.url || '') || '').toLowerCase();
+  const data = String(button && button.callback_data || '').toLowerCase();
   const value = text + ' ' + data;
   if (button && ['primary', 'success', 'danger'].includes(button.style)) return button.style;
-  // Check positive exceptions first so "unblock" is green rather than matching "block".
+  const actionParts = data.split(':');
+  if (actionParts.some(part => ['cancel', 'cancel_search', 'reject', 'delete', 'remove', 'block', 'end', 'report', 'sub'].includes(part))) return 'danger';
+  if (actionParts.some(part => ['accept', 'confirm', 'save', 'submit', 'join', 'follow', 'like', 'unblock', 'add'].includes(part))) return 'success';
+  // Positive text exceptions are checked first so "unblock" is green, not red.
   if (KEYBOARD_SUCCESS_WORDS.some(word => value.includes(word))) return 'success';
   if (KEYBOARD_DANGER_WORDS.some(word => value.includes(word))) return 'danger';
   return 'primary';
