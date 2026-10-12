@@ -883,7 +883,7 @@ export async function resolveBotGame(game) {
   }
   try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: '🎲 د ګېم پایله\n\nستا 🎲: ' + playerRoll + '\n\nد بوټ 🎲: ' + botRoll + '\n\n' + outcome + '\n\n⭐ اوسنی بیلانس: ' + newBalance }); } catch (e) {}
 }
-async function tryMatchGames() {
+export async function tryMatchGames() {
   const rows = await db.select().from(game_sessions).all(), allUsers = await db.select().from(users).all();
   const allSessions = await db.select().from(chat_sessions).all();
   const allConnectionRequests = await db.select().from(connection_requests).all();
@@ -927,19 +927,64 @@ async function tryMatchGames() {
       if (playingGame && playingGame.status === 'playing') await resolveBotGame(playingGame);
       continue;
     }
-    const candidate = candidates[0];
-    const claimed = await db.update(game_sessions)
-      .set({ opponent_id: Number(candidate.telegram_id), status: 'pending', updated_at: new Date().toISOString() })
-      .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'waiting')))
-      .returning({ id: game_sessions.id }).run();
-    if (!claimed || !Array.isArray(claimed.rows) || claimed.rows.length === 0) continue;
-    game.status = 'pending'; game.opponent_id = Number(candidate.telegram_id);
-    try {
-      await api.sendMessage({ chat_id: Number(candidate.telegram_id), text: '🎲 یو فعال کارن غواړي له تا سره د ګېم لوبه وکړي.\n\nد لوبې د منلو لپاره باید لږ تر لږه ' + opponentMin + ' ستوري ولرې. د منلو یا ردولو انتخاب وکړه.',
-        reply_markup: { inline_keyboard: [[{ text: '✅ ګېم منل', callback_data: 'game:accept:' + game.id }, { text: '❌ ردول', callback_data: 'game:reject:' + game.id }]] } });
-    } catch (e) {
-      await db.update(game_sessions).set({ status: 'waiting', opponent_id: null, updated_at: new Date().toISOString() })
-        .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'pending'), eq(game_sessions.opponent_id, Number(candidate.telegram_id)))).run();
+    // Telegram may reject a recipient who blocked the bot or is unreachable.
+    // Retry the next eligible candidate instead of silently leaving the request waiting.
+    let offerDelivered = false;
+    for (const candidate of candidates) {
+      const candidateId = Number(candidate.telegram_id);
+      const claimed = await db.update(game_sessions)
+        .set({ opponent_id: candidateId, status: 'pending', updated_at: new Date().toISOString() })
+        .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'waiting')))
+        .returning({ id: game_sessions.id }).run();
+      if (!claimed || !Array.isArray(claimed.rows) || claimed.rows.length === 0) break;
+
+      try {
+        await api.sendMessage({
+          chat_id: candidateId,
+          text: '🎲 یو فعال کارن غواړي له تا سره د ګېم لوبه وکړي.\\n\\nد لوبې د منلو لپاره باید لږ تر لږه ' + opponentMin + ' ستوري ولرې. د منلو یا ردولو انتخاب وکړه.',
+          reply_markup: { inline_keyboard: [[
+            { text: '✅ ګېم منل', callback_data: 'game:accept:' + game.id },
+            { text: '❌ ردول', callback_data: 'game:reject:' + game.id }
+          ]] }
+        });
+        offerDelivered = true;
+        break;
+      } catch (error) {
+        console.error('Game offer delivery failed; trying next candidate', {
+          gameId: Number(game.id),
+          playerId: Number(game.player_id),
+          candidateId,
+          error: error && (error.message || String(error))
+        });
+        try {
+          const reset = await db.update(game_sessions)
+            .set({ status: 'waiting', opponent_id: null, updated_at: new Date().toISOString() })
+            .where(and(
+              eq(game_sessions.id, Number(game.id)),
+              eq(game_sessions.status, 'pending'),
+              eq(game_sessions.opponent_id, candidateId)
+            ))
+            .returning({ id: game_sessions.id }).run();
+          if (!reset || !Array.isArray(reset.rows) || reset.rows.length === 0) {
+            console.error('Could not reset undelivered game offer safely', {
+              gameId: Number(game.id), candidateId
+            });
+            break;
+          }
+        } catch (resetError) {
+          console.error('Error resetting undelivered game offer', {
+            gameId: Number(game.id), candidateId, error: resetError
+          });
+          break;
+        }
+      }
+    }
+    if (!offerDelivered && candidates.length > 0) {
+      console.warn('No game offer could be delivered to any eligible candidate', {
+        gameId: Number(game.id),
+        playerId: Number(game.player_id),
+        candidateCount: candidates.length
+      });
     }
   }
 }
