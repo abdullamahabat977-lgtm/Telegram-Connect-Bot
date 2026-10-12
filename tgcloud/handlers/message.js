@@ -1030,11 +1030,28 @@ export async function tryMatchGames() {
       return true;
     }).sort((a,b) => Date.parse(b.last_active_at || '') - Date.parse(a.last_active_at || ''));
     if (!candidates.length) {
+      const otherUsers = allUsers.filter(candidate => Number(candidate.telegram_id) !== Number(game.player_id));
+      const recentUsers = otherUsers.filter(candidate => {
+        const last = Date.parse(candidate.last_active_at || '');
+        return Number.isFinite(last) && now - last <= 2 * 60 * 1000;
+      });
+      const recentWithStars = recentUsers.filter(candidate => Number(candidate.stars || 0) >= opponentMin);
+      const connectedUserIds = new Set(allSessions.filter(row => row.status === 'connected')
+        .flatMap(row => [Number(row.first_user_telegram_id), Number(row.second_user_telegram_id)]));
+      const activeRequestUserIds = new Set(allConnectionRequests.filter(row => ['searching', 'pending', 'matching'].includes(row.status))
+        .flatMap(row => [Number(row.requester_id), Number(row.recipient_id || 0)]));
+      const busyUserIds = new Set(rows.filter(row => ['waiting', 'pending', 'playing', 'settlement_error'].includes(row.status))
+        .flatMap(row => [Number(row.player_id), Number(row.opponent_id || 0)]));
       console.info('No eligible game opponent found yet', {
         gameId: Number(game.id),
         playerId: Number(game.player_id),
-        activeUsers: allUsers.filter(candidate => Number(candidate.is_blocked) !== 1 &&
-          Number(candidate.telegram_id) !== Number(game.player_id)).length,
+        otherUsers: otherUsers.length,
+        notBlockedUsers: otherUsers.filter(candidate => Number(candidate.is_blocked) !== 1).length,
+        recentUsers: recentUsers.length,
+        recentUsersWithEnoughStars: recentWithStars.length,
+        connectedUsers: otherUsers.filter(candidate => connectedUserIds.has(Number(candidate.telegram_id))).length,
+        usersWithActiveConnectionRequests: otherUsers.filter(candidate => activeRequestUserIds.has(Number(candidate.telegram_id))).length,
+        usersBusyWithGames: otherUsers.filter(candidate => busyUserIds.has(Number(candidate.telegram_id))).length,
         waitSeconds
       });
       if (age < waitSeconds * 1000) continue;
