@@ -971,16 +971,38 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
       await sendPrompt(chatId, '⌛ د غوښتونکي لټون پای ته رسېدلی؛ دا غوښتنه نوره فعاله نه ده.', mainKeyboard(actor, await isAdmin(actorId)), actor);
       return;
     }
-    const debited = await db.update(users).set({ stars: Number(requester.stars || 0) - cost, state: 'ready' })
-      .where(and(eq(users.telegram_id, Number(requester.telegram_id)), eq(users.stars, Number(requester.stars || 0))))
-      .returning({ telegram_id: users.telegram_id }).run();
+    let debited = null, debitError = null;
+    try {
+      debited = await db.update(users).set({ stars: Number(requester.stars || 0) - cost, state: 'ready' })
+        .where(and(eq(users.telegram_id, Number(requester.telegram_id)), eq(users.stars, Number(requester.stars || 0))))
+        .returning({ telegram_id: users.telegram_id }).run();
+    } catch (error) {
+      debitError = error;
+      console.error('Connection requester debit returned an error', { offerId, requesterId: requester.telegram_id, error });
+    }
     if (!debited || !Array.isArray(debited.rows) || debited.rows.length === 0) {
+      let refundedAfterAmbiguousDebit = false;
+      if (debitError) {
+        try {
+          const refund = await db.update(users).set({ stars: Number(requester.stars || 0), state: 'ready' })
+            .where(and(
+              eq(users.telegram_id, Number(requester.telegram_id)),
+              eq(users.stars, Number(requester.stars || 0) - cost)
+            )).returning({ telegram_id: users.telegram_id }).run();
+          refundedAfterAmbiguousDebit = Boolean(refund && Array.isArray(refund.rows) && refund.rows.length > 0);
+        } catch (refundError) {
+          console.error('Could not compensate ambiguous connection debit', { offerId, requesterId: requester.telegram_id, refundError });
+        }
+      }
       await db.update(connection_requests).set({ status: 'cancelled', updated_at: new Date().toISOString() })
         .where(and(eq(connection_requests.id, Number(search.id)), eq(connection_requests.status, 'connected'))).run();
       await db.update(connection_requests).set({ status: 'rejected', updated_at: new Date().toISOString() })
         .where(and(eq(connection_requests.id, offerId), eq(connection_requests.status, 'matching'))).run();
-      try { await api.sendMessage({ chat_id: Number(requester.telegram_id), text: '⚠️ ستا د ستورو بیلانس بدل شوی؛ اړیکه جوړه نه شوه او نوی لټون لغوه شو.' }); } catch (e) {}
-      await sendPrompt(chatId, '⚠️ د غوښتونکي بیلانس بدل شوی؛ اړیکه جوړه نه شوه.', mainKeyboard(actor, await isAdmin(actorId)), actor);
+      const notice = refundedAfterAmbiguousDebit
+        ? '⚠️ د ستورو حساب د تخنیکي ستونزې له امله بشپړ نه شو؛ ستوري بېرته ستانه شول او اړیکه جوړه نه شوه.'
+        : '⚠️ ستا د ستورو بیلانس بدل شوی یا د ډیټابیس ستونزه وه؛ اړیکه جوړه نه شوه. که بیلانس بدل شوی وي، له اډمین سره اړیکه ونیسه.';
+      try { await api.sendMessage({ chat_id: Number(requester.telegram_id), text: notice }); } catch (e) {}
+      await sendPrompt(chatId, notice, mainKeyboard(actor, await isAdmin(actorId)), actor);
       return;
     }
     const oldSession = await activeSessionFor(actorId);
