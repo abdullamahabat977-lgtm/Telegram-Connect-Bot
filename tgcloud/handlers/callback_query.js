@@ -38,23 +38,10 @@ function tx(user) {
   return TEXT[user && TEXT[user.language] ? user.language : 'ps'];
 }
 function styleKeyboardMarkup(markup) {
-  if (!markup || typeof markup !== 'object') return markup;
-  const styles = ['primary', 'success', 'danger'];
-  const result = { ...markup };
-  for (const key of ['inline_keyboard', 'keyboard']) {
-    if (!Array.isArray(result[key])) continue;
-    result[key] = result[key].map((row, rowIndex) => Array.isArray(row) ? row.map((button, buttonIndex) => {
-      if (!button || typeof button !== 'object' || button.style || button.url === undefined && button.callback_data === undefined && button.web_app === undefined && button.login_url === undefined && button.switch_inline_query === undefined && button.switch_inline_query_current_chat === undefined && button.switch_inline_query_chosen_chat === undefined && button.copy_text === undefined && button.callback_game === undefined && button.pay === undefined) {
-        // Reply keyboard buttons are text-only objects; inline buttons can use any supported action field.
-        if (key === 'keyboard' && button && typeof button === 'object' && !button.style) {
-          return { ...button, style: styles[(rowIndex + buttonIndex) % styles.length] };
-        }
-        return button;
-      }
-      return { ...button, style: styles[(rowIndex + buttonIndex) % styles.length] };
-    }) : row);
-  }
-  return result;
+  // Do not invent button styles by row position. Telegram styles belong to
+  // InlineKeyboardButton; ReplyKeyboardButton has no style field.
+  // Explicit styles authored by the caller are preserved unchanged.
+  return markup;
 }
 async function sendPrompt(chatId, text, markup, user, parseMode) {
   await ensureInlinePromptTracking();
@@ -114,14 +101,7 @@ async function checkMembership(id) {
   }
   return true;
 }
-function styleReplyRows(rows) {
-  const styles = ['primary', 'success', 'danger'];
-  return rows.map((row, rowIndex) => row.map((button, buttonIndex) => {
-    if (typeof button === 'string' || !button || button.style) return button;
-    // Keep existing labels/emojis unchanged; only add the supported reply-keyboard style.
-    return { ...button, style: styles[(rowIndex + buttonIndex) % styles.length] };
-  }));
-}
+
 function replyKeyboard(rows, extra) {
   return { keyboard: styleReplyRows(rows), resize_keyboard: true, ...(extra || {}) };
 }
