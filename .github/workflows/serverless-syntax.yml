@@ -34,7 +34,7 @@ jobs:
           const callbackSource = readFileSync('tgcloud/handlers/callback_query.js', 'utf8');
           assert.match(
             callbackSource,
-            /async function getSetting\\(key, fallback\\)/,
+            /async function getSetting\(key, fallback\)/,
             'Callback handler must define getSetting because it reads settings during connection startup'
           );
           const start = source.indexOf('const KEYBOARD_STYLE_PALETTE');
