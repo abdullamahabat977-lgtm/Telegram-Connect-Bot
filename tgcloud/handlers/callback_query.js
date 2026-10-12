@@ -781,22 +781,69 @@ async function resolveUserGame(game) {
     return;
   }
   let pFinal = playerBalance, oFinal = opponentBalance, result = '🤝 مساوي! دواړه یوازې د لوبې فیس ورکوي.';
+  const playerPoints = Number(player.points || 0), opponentPoints = Number(opponent.points || 0);
+  let playerPointsFinal = playerPoints, opponentPointsFinal = opponentPoints;
   if (pRoll > oRoll) {
     pFinal += winStars; oFinal = Math.max(0, oFinal - winStars);
-    await db.update(users).set({ stars: pFinal, points: Number(player.points || 0) + points }).where(eq(users.telegram_id, Number(player.telegram_id))).run();
-    await db.update(users).set({ stars: oFinal }).where(eq(users.telegram_id, Number(opponent.telegram_id))).run();
+    playerPointsFinal += points;
     result = '🏆 ' + (player.name || player.first_name || 'لومړي لوبغاړي') + ' وګټله.';
   } else if (oRoll > pRoll) {
     oFinal += winStars; pFinal = Math.max(0, pFinal - winStars);
-    await db.update(users).set({ stars: oFinal, points: Number(opponent.points || 0) + points }).where(eq(users.telegram_id, Number(opponent.telegram_id))).run();
-    await db.update(users).set({ stars: pFinal }).where(eq(users.telegram_id, Number(player.telegram_id))).run();
+    opponentPointsFinal += points;
     result = '🏆 ' + (opponent.name || opponent.first_name || 'دویم لوبغاړي') + ' وګټله.';
-  } else {
-    await db.update(users).set({ stars: pFinal }).where(eq(users.telegram_id, Number(player.telegram_id))).run();
-    await db.update(users).set({ stars: oFinal }).where(eq(users.telegram_id, Number(opponent.telegram_id))).run();
   }
-  await db.update(game_sessions).set({ status: 'completed', player_roll: pRoll, opponent_roll: oRoll, updated_at: new Date().toISOString() })
-    .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'playing'))).run();
+
+  // Compare-and-set each balance so a concurrent admin adjustment or other update is never overwritten.
+  const playerUpdate = await db.update(users).set({ stars: pFinal, points: playerPointsFinal })
+    .where(and(
+      eq(users.telegram_id, Number(player.telegram_id)),
+      eq(users.stars, Number(player.stars || 0)),
+      eq(users.points, playerPoints)
+    )).returning({ telegram_id: users.telegram_id }).run();
+  if (!playerUpdate || !Array.isArray(playerUpdate.rows) || playerUpdate.rows.length === 0) {
+    await db.update(game_sessions).set({ status: 'settlement_error', updated_at: new Date().toISOString() })
+      .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'playing'))).run();
+    const notice = '⚠️ د لوبې پر مهال د یوه لوبغاړي بیلانس بدل شوی؛ د ستورو حساب ودرول شو. له اډمین سره اړیکه ونیسه.';
+    try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: notice }); } catch (e) {}
+    try { await api.sendMessage({ chat_id: Number(opponent.telegram_id), text: notice }); } catch (e) {}
+    return;
+  }
+  const opponentUpdate = await db.update(users).set({ stars: oFinal, points: opponentPointsFinal })
+    .where(and(
+      eq(users.telegram_id, Number(opponent.telegram_id)),
+      eq(users.stars, Number(opponent.stars || 0)),
+      eq(users.points, opponentPoints)
+    )).returning({ telegram_id: users.telegram_id }).run();
+  if (!opponentUpdate || !Array.isArray(opponentUpdate.rows) || opponentUpdate.rows.length === 0) {
+    // Compensate only if the first balance still equals the value written by this settlement.
+    try {
+      await db.update(users).set({ stars: Number(player.stars || 0), points: playerPoints })
+        .where(and(
+          eq(users.telegram_id, Number(player.telegram_id)),
+          eq(users.stars, pFinal),
+          eq(users.points, playerPointsFinal)
+        )).run();
+    } catch (rollbackError) {
+      console.error('Could not compensate partial game settlement', { gameId: game.id, rollbackError });
+    }
+    await db.update(game_sessions).set({ status: 'settlement_error', updated_at: new Date().toISOString() })
+      .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'playing'))).run();
+    const notice = '⚠️ د یوه لوبغاړي بیلانس د تصفیې پر مهال بدل شو؛ حساب خوندي کولو لپاره ودرول شو. له اډمین سره اړیکه ونیسه.';
+    try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: notice }); } catch (e) {}
+    try { await api.sendMessage({ chat_id: Number(opponent.telegram_id), text: notice }); } catch (e) {}
+    return;
+  }
+  const completed = await db.update(game_sessions).set({ status: 'completed', player_roll: pRoll, opponent_roll: oRoll, updated_at: new Date().toISOString() })
+    .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'playing')))
+    .returning({ id: game_sessions.id }).run();
+  if (!completed || !Array.isArray(completed.rows) || completed.rows.length === 0) {
+    await db.update(game_sessions).set({ status: 'settlement_error', updated_at: new Date().toISOString() })
+      .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'playing'))).run();
+    const notice = '⚠️ د ستورو حساب وشو، خو د لوبې پایله بشپړه ثبت نه شوه. له اډمین سره اړیکه ونیسه.';
+    try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: notice }); } catch (e) {}
+    try { await api.sendMessage({ chat_id: Number(opponent.telegram_id), text: notice }); } catch (e) {}
+    return;
+  }
   for (const pair of [{ id: Number(player.telegram_id), mine: pRoll, other: oRoll, balance: pFinal }, { id: Number(opponent.telegram_id), mine: oRoll, other: pRoll, balance: oFinal }]) {
     try { await api.sendMessage({ chat_id: pair.id, text: '🎲 د ګېم پایله\n\nستا 🎲: ' + pair.mine + '\n\nد سیال 🎲: ' + pair.other + '\n\n' + result + '\n\n⭐ اوسنی بیلانس: ' + pair.balance }); } catch (e) {}
   }
