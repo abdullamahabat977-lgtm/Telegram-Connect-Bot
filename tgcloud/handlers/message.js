@@ -1205,16 +1205,46 @@ export async function tryMatchGames() {
       }
     }
     if (!offerDelivered && candidates.length > 0) {
+      // All eligible candidates failed Telegram delivery. Do not leave an invisible
+      // waiting game that blocks connection search forever; close only the exact
+      // state this matcher last wrote, so a concurrent accept/cancel is preserved.
+      const failedStatus = game.status;
+      const failedUpdatedAt = game.updated_at;
+      const failedOpponentId = Number(game.opponent_id || 0);
+      let closed = false;
+      try {
+        const conditions = [
+          eq(game_sessions.id, Number(game.id)),
+          eq(game_sessions.player_id, Number(game.player_id)),
+          eq(game_sessions.status, failedStatus),
+          eq(game_sessions.updated_at, failedUpdatedAt)
+        ];
+        if (failedStatus === 'pending' && failedOpponentId > 0) {
+          conditions.push(eq(game_sessions.opponent_id, failedOpponentId));
+        }
+        const closedResult = await db.update(game_sessions)
+          .set({ status: 'cancelled', updated_at: new Date().toISOString() })
+          .where(and(...conditions))
+          .returning({ id: game_sessions.id }).run();
+        closed = Boolean(closedResult && Array.isArray(closedResult.rows) && closedResult.rows.length > 0);
+      } catch (closeError) {
+        console.error('Could not close game after all candidate deliveries failed', {
+          gameId: Number(game.id), playerId: Number(game.player_id), closeError
+        });
+      }
       console.warn('No game offer could be delivered to any eligible candidate', {
         gameId: Number(game.id),
         playerId: Number(game.player_id),
         candidateCount: candidates.length,
+        requestClosed: closed,
         lastDeliveryError
       });
       try {
         await api.sendMessage({
           chat_id: Number(game.player_id),
-          text: '⚠️ سیال پیدا شو، خو د هغه د خبرولو پیغام ونه لېږل شو. د ټیلیګرام د لاسرسي یا د سیال د حساب ستونزه کېدای شي؛ لټون به د بل فعالیت پر مهال بیا وازمویل شي.'
+          text: closed
+            ? '⚠️ مناسب سیال پیدا شو، خو ټیلیګرام ټولو هڅه شویو سیالانو ته پیغام ونه لېږه. د بند پاتې کېدو د مخنیوي لپاره د ګېم غوښتنه لغوه شوه؛ اوس بیا ګېم یا ناڅاپي اړیکه پیلولای شې.'
+            : '⚠️ سیال ته د ګېم پیغام ونه لېږل شو. د غوښتنې حالت د خوندیتوب لپاره په خپله نه دی بدل شوی؛ د ګېم لغوه کولو تڼۍ ووهه او که ستونزه دوام وکړي اډمین ته خبر ورکړه.'
         });
       } catch (notifyError) {
         console.error('Could not notify game requester about offer delivery failure', {
