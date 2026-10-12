@@ -682,27 +682,34 @@ async function tryOfferSearches() {
   }
 }
 async function startConnectionSearch(userId, type) {
-  const user = await getUser(userId), cost = Number(await getSetting('connection_cost_stars', 1));
+  let stage = 'load-user';
+  try {
+  const user = await getUser(userId);
+  stage = 'load-cost-setting';
+  const cost = Number(await getSetting('connection_cost_stars', 1));
   if (!user) return;
   if (!Number.isFinite(cost) || cost < 0) {
     await sendPrompt(userId, '⚠️ د اړیکې د ستورو تنظیم ناسم دی. له اډمین سره اړیکه ونیسه.', mainKeyboard(user, await isAdmin(userId)), user);
     return;
   }
   if (Number(user.stars || 0) < cost) { await sendPrompt(userId, '⭐ د اړیکې لپاره ' + cost + ' ستوري پکار دي. ستا بیلانس: ' + Number(user.stars || 0), mainKeyboard(user, await isAdmin(userId)), user); return; }
+  stage = 'check-active-session';
   if (await activeSessionFor(userId)) { await sendPrompt(userId, '⚠️ ته لا له یوه کس سره په اړیکه کې یې. لومړی اړیکه پای ته ورسوه.', mainKeyboard(user, await isAdmin(userId)), user); return; }
+  stage = 'load-active-games';
   const activeGames = await db.select().from(game_sessions).all();
   if (activeGames.some(row => ['waiting', 'pending', 'playing', 'settlement_error'].includes(row.status) &&
       (Number(row.player_id) === Number(userId) || Number(row.opponent_id) === Number(userId)))) {
     await sendPrompt(userId, '⚠️ ته لا د ګېم په بهیر کې یې. لومړی ګېم پای ته ورسوه یا یې لغوه کړه، بیا د ملګري لټون پیل کړه.', mainKeyboard(user, await isAdmin(userId)), user);
     return;
   }
+  stage = 'load-active-requests';
   const requests = await db.select().from(connection_requests).all();
   if (requests.some(row => ['searching', 'matching', 'pending'].includes(row.status) &&
       (Number(row.requester_id) === Number(userId) || Number(row.recipient_id) === Number(userId)))) {
     await sendPrompt(userId, '🔎 ستا د ملګري لټون یا د اړیکې غوښتنه لا فعاله ده. لومړی یې پای ته ورسوه، بیا نوی لټون پیل کړه.', { inline_keyboard: [[{ text: '❌ لټون لغوه کول', callback_data: 'conn:cancel_search' }]] }, user);
     return;
   }
-  let search = null, stage = 'insert-search';
+  let search = null, startupStage = 'insert-search';
   try {
     const now = new Date().toISOString();
     const inserted = await db.insert(connection_requests).values({
@@ -716,17 +723,17 @@ async function startConnectionSearch(userId, type) {
       throw new Error('Connection search insert returned no usable row');
     }
 
-    stage = 'set-user-state';
+    startupStage = 'set-user-state';
     await db.update(users).set({ state: 'searching_connection' })
       .where(eq(users.telegram_id, Number(userId))).run();
     user.state = 'searching_connection';
 
-    stage = 'send-search-prompt';
+    startupStage = 'send-search-prompt';
     await sendPrompt(userId, '🔎 د ملګري لټون پیل شو.\n\n⏳ د مناسب کس لټون تر ۲ دقیقو دوام کوي. که وخت تېر شي، د ستا راتلونکي پیغام یا تڼۍ پر مهال به لټون لغوه شي.\n\n⭐ د منلو پر مهال به ' + cost + ' ستوری کم شي.',
       { inline_keyboard: [[{ text: '❌ لټون لغوه کول', callback_data: 'conn:cancel_search:' + Number(search.id) }]] }, user);
   } catch (error) {
     console.error('Failed to start connection search', {
-      userId: Number(userId), type, stage,
+      userId: Number(userId), type, stage: startupStage,
       error: error && (error.stack || error.message || String(error))
     });
     if (search && Number(search.id) > 0) {
@@ -763,6 +770,13 @@ async function startConnectionSearch(userId, type) {
     } catch (notifyError) {
       console.error('Could not notify user about matchmaking failure', { userId: Number(userId), notifyError });
     }
+  }
+  } catch (error) {
+    console.error('Connection search preflight failed', {
+      userId: Number(userId), type, stage,
+      error: error && (error.stack || error.message || String(error))
+    });
+    throw error;
   }
 }
 async function showConnectedPair(session) {
