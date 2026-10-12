@@ -964,8 +964,40 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
         .where(and(eq(connection_requests.id, Number(row.id)), eq(connection_requests.status, row.status))).run();
     }
     const now = new Date().toISOString();
-    await db.insert(chat_sessions).values({ first_user_telegram_id: Number(requester.telegram_id), second_user_telegram_id: actorId, status: 'connected',
-      created_at: now, connected_at: now, last_activity_at: now, ended_at: null, end_reason: null }).run();
+    try {
+      const createdSession = await db.insert(chat_sessions).values({
+        first_user_telegram_id: Number(requester.telegram_id), second_user_telegram_id: actorId, status: 'connected',
+        created_at: now, connected_at: now, last_activity_at: now, ended_at: null, end_reason: null
+      }).returning({ id: chat_sessions.id }).run();
+      if (!createdSession || !Array.isArray(createdSession.rows) || createdSession.rows.length === 0) {
+        throw new Error('Connection session insert returned no row');
+      }
+    } catch (sessionError) {
+      console.error('Could not create connection session after requester debit', { offerId, searchId: search.id, requesterId: requester.telegram_id, actorId, sessionError });
+      // Best-effort compensating refund, guarded so a newer balance is not overwritten.
+      let refunded = false;
+      try {
+        const refund = await db.update(users).set({ stars: Number(requester.stars || 0), state: 'ready' })
+          .where(and(
+            eq(users.telegram_id, Number(requester.telegram_id)),
+            eq(users.stars, Number(requester.stars || 0) - cost)
+          )).returning({ telegram_id: users.telegram_id }).run();
+        refunded = Boolean(refund && Array.isArray(refund.rows) && refund.rows.length > 0);
+      } catch (refundError) {
+        console.error('Connection request refund failed', { offerId, requesterId: requester.telegram_id, refundError });
+      }
+      await db.update(connection_requests).set({ status: 'cancelled', updated_at: new Date().toISOString() })
+        .where(and(eq(connection_requests.id, Number(search.id)), eq(connection_requests.status, 'connected'))).run();
+      await db.update(connection_requests).set({ status: 'rejected', updated_at: new Date().toISOString() })
+        .where(and(eq(connection_requests.id, offerId), eq(connection_requests.status, 'accepted'))).run();
+      await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, actorId)).run();
+      const notice = refunded
+        ? '⚠️ اړیکه د تخنیکي ستونزې له امله جوړه نه شوه؛ ستوري بېرته ستانه شول. بیا هڅه وکړه.'
+        : '⚠️ اړیکه جوړه نه شوه او د ستورو د بېرته ستنولو حالت تایید نه شو. مهرباني وکړه له اډمین سره اړیکه ونیسه.';
+      try { await api.sendMessage({ chat_id: Number(requester.telegram_id), text: notice }); } catch (e) {}
+      await sendPrompt(chatId, notice, mainKeyboard(actor, await isAdmin(actorId)), actor);
+      return;
+    }
     const sessions = await db.select().from(chat_sessions).all();
     const session = sessions.filter(row => row.status === 'connected' && ((Number(row.first_user_telegram_id) === Number(requester.telegram_id) && Number(row.second_user_telegram_id) === actorId) || (Number(row.first_user_telegram_id) === actorId && Number(row.second_user_telegram_id) === Number(requester.telegram_id)))).sort((a,b)=>Number(b.id)-Number(a.id))[0];
     actor.state = 'ready'; await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, actorId)).run();
