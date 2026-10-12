@@ -103,7 +103,7 @@ async function checkMembership(id) {
 }
 
 function replyKeyboard(rows, extra) {
-  return { keyboard: styleReplyRows(rows), resize_keyboard: true, ...(extra || {}) };
+  return { keyboard: rows, resize_keyboard: true, ...(extra || {}) };
 }
 function mainKeyboard(user, admin) {
   const m = tx(user).menu;
