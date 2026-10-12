@@ -596,7 +596,28 @@ async function tryOfferSearches() {
   const allFavorites = await db.select().from(favorites).all();
   const now = Date.now(), waitSeconds = Math.max(1, Number(await getSetting('connection_search_seconds', 120)) || 120);
   const searches = allRequests.filter(row => row.status === 'searching' && !row.recipient_id);
-  for (const search of searches) {
+  // Expire abandoned searches here as well as during user callbacks; otherwise old rows can block a new search indefinitely.
+  for (const staleSearch of searches) {
+    const staleAge = now - Date.parse(staleSearch.created_at || '');
+    if (Number.isFinite(staleAge) && staleAge < waitSeconds * 1000) continue;
+    const expiredSearch = await db.update(connection_requests).set({ status: 'expired', updated_at: new Date().toISOString() })
+      .where(and(eq(connection_requests.id, Number(staleSearch.id)), eq(connection_requests.status, 'searching')))
+      .returning({ id: connection_requests.id }).run();
+    if (!expiredSearch || !Array.isArray(expiredSearch.rows) || expiredSearch.rows.length === 0) continue;
+    staleSearch.status = 'expired';
+    await db.update(users).set({ state: 'ready' }).where(and(eq(users.telegram_id, Number(staleSearch.requester_id)), eq(users.state, 'searching_connection'))).run();
+    for (const staleOffer of allRequests.filter(row => Number(row.requester_id) === Number(staleSearch.requester_id) && row.status === 'pending')) {
+      const expiredOffer = await db.update(connection_requests).set({ status: 'expired', updated_at: new Date().toISOString() })
+        .where(and(eq(connection_requests.id, Number(staleOffer.id)), eq(connection_requests.status, 'pending')))
+        .returning({ id: connection_requests.id }).run();
+      if (expiredOffer && Array.isArray(expiredOffer.rows) && expiredOffer.rows.length > 0) {
+        staleOffer.status = 'expired';
+        if (Number(staleOffer.recipient_id) > 0) try { await api.sendMessage({ chat_id: Number(staleOffer.recipient_id), text: '⌛ د اړیکې غوښتنه د وخت د تېرېدو له امله لغوه شوه.' }); } catch (e) {}
+      }
+    }
+    try { await api.sendMessage({ chat_id: Number(staleSearch.requester_id), text: '⌛ د ملګري لټون وخت پای ته ورسېد؛ غوښتنه لغوه شوه. بیا هڅه وکړه.' }); } catch (e) {}
+  }
+  for (const search of searches.filter(row => row.status === 'searching')) {
     const age = now - Date.parse(search.created_at || '');
     if (!Number.isFinite(age) || age >= waitSeconds * 1000) continue;
     if (allRequests.some(row => Number(row.requester_id) === Number(search.requester_id) && row.status === 'pending' && row.recipient_id &&
