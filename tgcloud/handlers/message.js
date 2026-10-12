@@ -975,11 +975,16 @@ export async function tryMatchGames() {
     let offerDelivered = false;
     for (const candidate of candidates) {
       const candidateId = Number(candidate.telegram_id);
+      const offeredAt = new Date().toISOString();
       const claimed = await db.update(game_sessions)
-        .set({ opponent_id: candidateId, status: 'pending', updated_at: new Date().toISOString() })
+        .set({ opponent_id: candidateId, status: 'pending', updated_at: offeredAt })
         .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'waiting')))
         .returning({ id: game_sessions.id }).run();
       if (!claimed || !Array.isArray(claimed.rows) || claimed.rows.length === 0) break;
+      // Keep the in-memory snapshot current so this same matcher run cannot offer one candidate multiple games.
+      game.opponent_id = candidateId;
+      game.status = 'pending';
+      game.updated_at = offeredAt;
 
       try {
         await api.sendMessage({
@@ -1019,6 +1024,9 @@ export async function tryMatchGames() {
             });
             break;
           }
+          game.status = 'waiting';
+          game.opponent_id = null;
+          game.updated_at = new Date().toISOString();
         } catch (resetError) {
           console.error('Error resetting undelivered game offer', {
             gameId: Number(game.id), candidateId, error: resetError
