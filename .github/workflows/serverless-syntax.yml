@@ -31,6 +31,12 @@ jobs:
           import { readFileSync } from 'node:fs';
 
           const source = readFileSync('tgcloud/lib/shared.js', 'utf8');
+          const callbackSource = readFileSync('tgcloud/handlers/callback_query.js', 'utf8');
+          assert.match(
+            callbackSource,
+            /async function getSetting\\(key, fallback\\)/,
+            'Callback handler must define getSetting because it reads settings during connection startup'
+          );
           const start = source.indexOf('const KEYBOARD_STYLE_PALETTE');
           const end = source.indexOf('\nlet inlinePromptTrackingReady', start);
           assert.ok(start >= 0 && end > start, 'Could not locate the keyboard style helper');
