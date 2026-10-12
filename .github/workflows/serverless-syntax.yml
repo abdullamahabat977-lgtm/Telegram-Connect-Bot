@@ -48,12 +48,9 @@ jobs:
               assert db.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == 1, table
           assert db.execute("SELECT likes FROM users WHERE telegram_id = 200").fetchone()[0] == 1
           try:
-              db.execute("INSERT INTO user_likes (liker_id, liked_id, created_at) VALUES (100, 200, 'test')")
-          except sqlite3.OperationalError:
-              # The minimal fixture does not include created_at; uniqueness is tested below.
-              pass
+              db.execute("INSERT INTO user_likes (liker_id, liked_id) VALUES (100, 200)")
           except sqlite3.IntegrityError:
               pass
           else:
-              raise AssertionError("The fixture unexpectedly allowed a duplicate user_likes row")
+              raise AssertionError("The migration did not enforce unique user_likes pairs")
           PY
