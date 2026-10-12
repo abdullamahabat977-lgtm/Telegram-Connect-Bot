@@ -755,11 +755,12 @@ async function tryMatchGames() {
   }
 }
 async function resolveUserGame(game) {
-  if (!game || !['pending','playing'].includes(game.status) || !game.opponent_id) return;
+  // The caller must win the pending -> playing claim before any dice or balance work.
+  if (!game || game.status !== 'playing' || !game.opponent_id) return;
   const player = await getUser(game.player_id), opponent = await getUser(game.opponent_id);
   if (!player || !opponent) {
     await db.update(game_sessions).set({ status: 'cancelled', updated_at: new Date().toISOString() })
-      .where(eq(game_sessions.id, Number(game.id))).run();
+      .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'playing'))).run();
     for (const item of [player, opponent]) {
       if (item) try { await api.sendMessage({ chat_id: Number(item.telegram_id), text: '⚠️ ګېم لغوه شو، ځکه یو لوبغاړی نور موجود نه دی. فیس نه دی اخیستل شوی.' }); } catch (e) {}
     }
@@ -767,7 +768,8 @@ async function resolveUserGame(game) {
   }
   const fee = Number(await getSetting('game_fee_stars', 0.5)), winStars = Number(await getSetting('game_win_stars', 3)), points = Number(await getSetting('game_win_points', 1));
   if (Number(player.stars || 0) < fee + winStars || Number(opponent.stars || 0) < fee + winStars) {
-    await db.update(game_sessions).set({ status: 'cancelled', updated_at: new Date().toISOString() }).where(eq(game_sessions.id, Number(game.id))).run();
+    await db.update(game_sessions).set({ status: 'cancelled', updated_at: new Date().toISOString() })
+      .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'playing'))).run();
     try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: '⚠️ د لوبې لپاره د یوه لوبغاړي بیلانس کافي نه دی.' }); } catch (e) {}
     try { await api.sendMessage({ chat_id: Number(opponent.telegram_id), text: '⚠️ د لوبې لپاره د یوه لوبغاړي بیلانس کافي نه دی.' }); } catch (e) {}
     return;
@@ -811,7 +813,8 @@ async function resolveUserGame(game) {
     await db.update(users).set({ stars: pFinal }).where(eq(users.telegram_id, Number(player.telegram_id))).run();
     await db.update(users).set({ stars: oFinal }).where(eq(users.telegram_id, Number(opponent.telegram_id))).run();
   }
-  await db.update(game_sessions).set({ status: 'completed', player_roll: pRoll, opponent_roll: oRoll, updated_at: new Date().toISOString() }).where(eq(game_sessions.id, Number(game.id))).run();
+  await db.update(game_sessions).set({ status: 'completed', player_roll: pRoll, opponent_roll: oRoll, updated_at: new Date().toISOString() })
+    .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'playing'))).run();
   for (const pair of [{ id: Number(player.telegram_id), mine: pRoll, other: oRoll, balance: pFinal }, { id: Number(opponent.telegram_id), mine: oRoll, other: pRoll, balance: oFinal }]) {
     try { await api.sendMessage({ chat_id: pair.id, text: '🎲 د ګېم پایله\n\nستا 🎲: ' + pair.mine + '\n\nد سیال 🎲: ' + pair.other + '\n\n' + result + '\n\n⭐ اوسنی بیلانس: ' + pair.balance }); } catch (e) {}
   }
