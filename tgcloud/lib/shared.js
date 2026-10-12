@@ -41,8 +41,9 @@ function inferKeyboardButtonStyle(button) {
   const data = String(button && (button.callback_data || button.url || '') || '').toLowerCase();
   const value = text + ' ' + data;
   if (button && ['primary', 'success', 'danger'].includes(button.style)) return button.style;
-  if (KEYBOARD_DANGER_WORDS.some(word => value.includes(word))) return 'danger';
+  // Check positive exceptions first so "unblock" is green rather than matching "block".
   if (KEYBOARD_SUCCESS_WORDS.some(word => value.includes(word))) return 'success';
+  if (KEYBOARD_DANGER_WORDS.some(word => value.includes(word))) return 'danger';
   return 'primary';
 }
 
