@@ -470,6 +470,30 @@ async function expireUserTimedActions(userId) {
   }
   const connectionWait = Math.max(1, Number(await getSetting('connection_search_seconds', 120)) || 120);
   const requests = await db.select().from(connection_requests).all();
+  // Recover searches left in the temporary "matching" state if a previous invocation crashed.
+  // Expire any associated offers too, so recipients cannot accept an orphaned offer later.
+  for (const stuck of requests.filter(row => Number(row.requester_id) === id && row.status === 'matching')) {
+    const stamp = Date.parse(stuck.updated_at || stuck.created_at || '');
+    if (Number.isFinite(stamp) && now - stamp < connectionWait * 1000) continue;
+    const expiredSearch = await db.update(connection_requests).set({ status: 'expired', updated_at: new Date().toISOString() })
+      .where(and(eq(connection_requests.id, Number(stuck.id)), eq(connection_requests.status, 'matching')))
+      .returning({ id: connection_requests.id }).run();
+    if (!expiredSearch || !Array.isArray(expiredSearch.rows) || expiredSearch.rows.length === 0) continue;
+    stuck.status = 'expired';
+    for (const offer of requests.filter(row => Number(row.requester_id) === id && row.status === 'pending')) {
+      const expiredOffer = await db.update(connection_requests).set({ status: 'expired', updated_at: new Date().toISOString() })
+        .where(and(eq(connection_requests.id, Number(offer.id)), eq(connection_requests.status, 'pending')))
+        .returning({ id: connection_requests.id }).run();
+      if (!expiredOffer || !Array.isArray(expiredOffer.rows) || expiredOffer.rows.length === 0) continue;
+      offer.status = 'expired';
+      if (Number(offer.recipient_id) > 0) {
+        try { await api.sendMessage({ chat_id: Number(offer.recipient_id), text: '⌛ د اړیکې غوښتنه د تخنیکي ځنډ له امله لغوه شوه.' }); } catch (e) {}
+      }
+    }
+    if (user.state === 'searching_connection') await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, id)).run();
+    expired = true;
+  }
+
   for (const search of requests.filter(row => Number(row.requester_id) === id && row.status === 'searching' && !row.recipient_id)) {
     const age = now - Date.parse(search.created_at || '');
     if (Number.isFinite(age) && age < connectionWait * 1000) continue;
