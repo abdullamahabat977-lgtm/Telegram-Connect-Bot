@@ -1086,7 +1086,7 @@ export async function tryMatchGames() {
     }
     // Telegram may reject a recipient who blocked the bot or is unreachable.
     // Retry the next eligible candidate instead of silently leaving the request waiting.
-    let offerDelivered = false;
+    let offerDelivered = false, lastDeliveryError = null;
     for (const candidate of candidates) {
       const candidateId = Number(candidate.telegram_id);
       const offeredAt = new Date().toISOString();
@@ -1117,11 +1117,12 @@ export async function tryMatchGames() {
         });
         break;
       } catch (error) {
+        lastDeliveryError = error && (error.message || String(error)) || 'Unknown Telegram delivery error';
         console.error('Game offer delivery failed; trying next candidate', {
           gameId: Number(game.id),
           playerId: Number(game.player_id),
           candidateId,
-          error: error && (error.message || String(error))
+          error: lastDeliveryError
         });
         try {
           const reset = await db.update(game_sessions)
@@ -1153,8 +1154,19 @@ export async function tryMatchGames() {
       console.warn('No game offer could be delivered to any eligible candidate', {
         gameId: Number(game.id),
         playerId: Number(game.player_id),
-        candidateCount: candidates.length
+        candidateCount: candidates.length,
+        lastDeliveryError
       });
+      try {
+        await api.sendMessage({
+          chat_id: Number(game.player_id),
+          text: '⚠️ سیال پیدا شو، خو د هغه د خبرولو پیغام ونه لېږل شو. د ټیلیګرام د لاسرسي یا د سیال د حساب ستونزه کېدای شي؛ لټون به د بل فعالیت پر مهال بیا وازمویل شي.'
+        });
+      } catch (notifyError) {
+        console.error('Could not notify game requester about offer delivery failure', {
+          gameId: Number(game.id), playerId: Number(game.player_id), notifyError
+        });
+      }
     }
   }
 }
