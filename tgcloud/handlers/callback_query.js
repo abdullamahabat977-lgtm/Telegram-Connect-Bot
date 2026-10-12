@@ -37,6 +37,25 @@ const ADMIN_UI = {
 function tx(user) {
   return TEXT[user && TEXT[user.language] ? user.language : 'ps'];
 }
+function styleKeyboardMarkup(markup) {
+  if (!markup || typeof markup !== 'object') return markup;
+  const styles = ['primary', 'success', 'danger'];
+  const result = { ...markup };
+  for (const key of ['inline_keyboard', 'keyboard']) {
+    if (!Array.isArray(result[key])) continue;
+    result[key] = result[key].map((row, rowIndex) => Array.isArray(row) ? row.map((button, buttonIndex) => {
+      if (!button || typeof button !== 'object' || button.style || button.url === undefined && button.callback_data === undefined && button.web_app === undefined && button.login_url === undefined && button.switch_inline_query === undefined && button.switch_inline_query_current_chat === undefined && button.switch_inline_query_chosen_chat === undefined && button.copy_text === undefined && button.callback_game === undefined && button.pay === undefined) {
+        // Reply keyboard buttons are text-only objects; inline buttons can use any supported action field.
+        if (key === 'keyboard' && button && typeof button === 'object' && !button.style) {
+          return { ...button, style: styles[(rowIndex + buttonIndex) % styles.length] };
+        }
+        return button;
+      }
+      return { ...button, style: styles[(rowIndex + buttonIndex) % styles.length] };
+    }) : row);
+  }
+  return result;
+}
 async function sendPrompt(chatId, text, markup, user, parseMode) {
   await ensureInlinePromptTracking();
   if (user) {
@@ -45,7 +64,8 @@ async function sendPrompt(chatId, text, markup, user, parseMode) {
     user.last_prompt_id = Number(latest && latest.last_prompt_id || 0);
   }
   if (user && Number(user.last_prompt_id) > 0) await safeDelete(chatId, user.last_prompt_id);
-  const sent = await api.sendMessage({ chat_id: chatId, text: text, reply_markup: markup, ...(parseMode ? { parse_mode: parseMode } : {}) });
+  const styledMarkup = styleKeyboardMarkup(markup);
+  const sent = await api.sendMessage({ chat_id: chatId, text: text, reply_markup: styledMarkup, ...(parseMode ? { parse_mode: parseMode } : {}) });
   if (user) {
     const inlineId = markup && Array.isArray(markup.inline_keyboard) && sent && sent.message_id ? sent.message_id : 0;
     await db.update(users).set({ last_prompt_id: inlineId }).where(eq(users.telegram_id, Number(user.telegram_id))).run();
