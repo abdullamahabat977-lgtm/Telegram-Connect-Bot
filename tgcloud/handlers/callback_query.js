@@ -51,7 +51,18 @@ async function sendPrompt(chatId, text, markup, user, parseMode) {
     user.last_prompt_id = Number(latest && latest.last_prompt_id || 0);
   }
   if (user && Number(user.last_prompt_id) > 0) await safeDelete(chatId, user.last_prompt_id);
-  const sent = await api.sendMessage({ chat_id: chatId, text: text, reply_markup: styleKeyboardMarkup(markup), ...(parseMode ? { parse_mode: parseMode } : {}) });
+  let sent;
+  try {
+    sent = await api.sendMessage({ chat_id: chatId, text: text, reply_markup: styleKeyboardMarkup(markup), ...(parseMode ? { parse_mode: parseMode } : {}) });
+  } catch (styledError) {
+    const description = String(styledError && (styledError.description || styledError.message || styledError.stack) || styledError || '');
+    const hasKeyboard = markup && (Array.isArray(markup.inline_keyboard) || Array.isArray(markup.keyboard));
+    if (!hasKeyboard || !/style|keyboard|button|markup|parse/i.test(description)) throw styledError;
+    console.warn('Styled keyboard rejected; retrying prompt with standard Telegram keyboard', {
+      chatId: Number(chatId), error: description
+    });
+    sent = await api.sendMessage({ chat_id: chatId, text: text, reply_markup: markup, ...(parseMode ? { parse_mode: parseMode } : {}) });
+  }
   if (user) {
     const inlineId = markup && Array.isArray(markup.inline_keyboard) && sent && sent.message_id ? sent.message_id : 0;
     await db.update(users).set({ last_prompt_id: inlineId }).where(eq(users.telegram_id, Number(user.telegram_id))).run();
@@ -701,11 +712,42 @@ async function startConnectionSearch(userId, type) {
   if (Number(user.stars || 0) < cost) { await sendPrompt(userId, '⭐ د اړیکې لپاره ' + cost + ' ستوري پکار دي. ستا بیلانس: ' + Number(user.stars || 0), mainKeyboard(user, await isAdmin(userId)), user); return; }
   stage = 'check-active-session';
   if (await activeSessionFor(userId)) { await sendPrompt(userId, '⚠️ ته لا له یوه کس سره په اړیکه کې یې. لومړی اړیکه پای ته ورسوه.', mainKeyboard(user, await isAdmin(userId)), user); return; }
+  stage = 'expire-stale-games';
+  const gameWaitSeconds = Math.max(1, Number(await getSetting('game_wait_seconds', 120)) || 120);
+  const gameRowsBeforeCleanup = await db.select().from(game_sessions).all();
+  const cleanupNow = Date.now();
+  for (const gameRow of gameRowsBeforeCleanup) {
+    if (!['waiting', 'pending'].includes(gameRow.status)) continue;
+    if (Number(gameRow.player_id) !== Number(userId) && Number(gameRow.opponent_id) !== Number(userId)) continue;
+    const stamp = gameRow.status === 'waiting'
+      ? (gameRow.created_at || gameRow.updated_at)
+      : (gameRow.updated_at || gameRow.created_at);
+    const age = cleanupNow - Date.parse(stamp || '');
+    if (Number.isFinite(age) && age < gameWaitSeconds * 1000) continue;
+    const expiredGame = await db.update(game_sessions)
+      .set({ status: 'cancelled', updated_at: new Date().toISOString() })
+      .where(and(eq(game_sessions.id, Number(gameRow.id)), eq(game_sessions.status, gameRow.status)))
+      .returning({ id: game_sessions.id }).run();
+    if (expiredGame && Array.isArray(expiredGame.rows) && expiredGame.rows.length > 0) {
+      console.info('Expired stale game request while starting connection search', {
+        userId: Number(userId), gameId: Number(gameRow.id), previousStatus: gameRow.status, ageMs: age
+      });
+      const otherId = Number(gameRow.player_id) === Number(userId)
+        ? Number(gameRow.opponent_id || 0)
+        : Number(gameRow.player_id || 0);
+      if (gameRow.status === 'pending' && otherId > 0 && otherId !== Number(userId)) {
+        try { await api.sendMessage({ chat_id: otherId, text: '⌛ د ګېم غوښتنې وخت پای ته رسېدلی؛ دا ګېم نور فعال نه دی.' }); }
+        catch (notifyError) {
+          console.warn('Could not notify other player about expired game request', { gameId: Number(gameRow.id), otherId, notifyError });
+        }
+      }
+    }
+  }
   stage = 'load-active-games';
   const activeGames = await db.select().from(game_sessions).all();
   if (activeGames.some(row => ['waiting', 'pending', 'playing', 'settlement_error'].includes(row.status) &&
       (Number(row.player_id) === Number(userId) || Number(row.opponent_id) === Number(userId)))) {
-    await sendPrompt(userId, '⚠️ ته لا د ګېم په بهیر کې یې. لومړی ګېم پای ته ورسوه یا یې لغوه کړه، بیا د ملګري لټون پیل کړه.', mainKeyboard(user, await isAdmin(userId)), user);
+    await sendPrompt(userId, '⚠️ ته لا د ګېم په بهیر کې یې. که ګېم لا د انتظار په حالت کې وي، د انتظار وخت پای ته رسېدو وروسته بیا هڅه وکړه؛ که د تصفیې ستونزه وي، له اډمین سره اړیکه ونیسه.', mainKeyboard(user, await isAdmin(userId)), user);
     return;
   }
   stage = 'load-active-requests';
