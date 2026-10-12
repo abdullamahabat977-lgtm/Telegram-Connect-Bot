@@ -4,9 +4,7 @@ import { users, admins, required_chats, app_settings, favorites, chat_sessions, 
 import { ROOT_ADMINS, LANGUAGES, COUNTRIES, AGES, languageKeyboard, countryKeyboard, ensureInlinePromptTracking, requiredChatInfo, listWords, isFollowing, otherSessionUser, getUser, safeDelete, isAdmin } from '../lib/shared.js';
 import { T } from '../lib/message-text.js';
 
-
-
-
+// ── Keyboard builders and localized UI ──
 function tx(user) { return T[user && T[user.language] ? user.language : 'ps']; }
 
 function keyboard(rows, extra) {
@@ -154,12 +152,7 @@ function actionFor(input) {
   }
   return null;
 }
-function styleKeyboardMarkup(markup) {
-  // Do not invent button styles by row position. Telegram styles belong to
-  // InlineKeyboardButton; ReplyKeyboardButton has no style field.
-  // Explicit styles authored by the caller are preserved unchanged.
-  return markup;
-}
+// ── Prompt delivery and settings ──
 async function sendPrompt(chatId, text, markup, user, parseMode) {
   await ensureInlinePromptTracking();
   if (user) {
@@ -170,8 +163,7 @@ async function sendPrompt(chatId, text, markup, user, parseMode) {
   if (user && Number(user.last_prompt_id) > 0) {
     await safeDelete(chatId, Number(user.last_prompt_id));
   }
-  const styledMarkup = styleKeyboardMarkup(markup);
-  const sent = await api.sendMessage({ chat_id: chatId, text: text, reply_markup: styledMarkup, ...(parseMode ? { parse_mode: parseMode } : {}) });
+  const sent = await api.sendMessage({ chat_id: chatId, text: text, reply_markup: markup, ...(parseMode ? { parse_mode: parseMode } : {}) });
   if (user) {
     const inlineId = markup && Array.isArray(markup.inline_keyboard) && sent && sent.message_id ? sent.message_id : 0;
     await db.update(users).set({ last_prompt_id: inlineId }).where(eq(users.telegram_id, Number(user.telegram_id))).run();
@@ -204,6 +196,7 @@ async function ensureDefaults() {
     if (!row) await db.insert(admins).values({ telegram_id: id, created_at: new Date().toISOString() }).run();
   }
 }
+// ── Registration and required-chat membership ──
 async function getRequiredChats() { return await db.select().from(required_chats).where(eq(required_chats.is_active, 1)).all(); }
 function requiredChatButtonTitle(chat, user) {
   const info = requiredChatInfo(chat);
@@ -262,6 +255,7 @@ async function showName(chatId, user) { await sendPrompt(chatId, tx(user).name, 
 async function showSurname(chatId, user) {
   await sendPrompt(chatId, tx(user).surname, { inline_keyboard: [[{ text: tx(user).skip, callback_data: 'reg:skip_surname' }]] }, user);
 }
+// ── Profiles, favorites, referrals, and statistics ──
 async function showMain(chatId, user, text) {
   user.state = 'ready';
   await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, Number(user.telegram_id))).run();
@@ -446,6 +440,7 @@ function sessionKeyboard(targetId, sessionId, isFollowingTarget, liked) {
      { text: '🗑 د وروستیو ۱۰ دقیقو پیغامونه حذفول', callback_data: 'session:delete_recent:' + targetId + ':' + sessionId }]
   ] };
 }
+// ── Chat sessions and connection lifecycle ──
 async function showSessionProfile(session, viewerId) {
   const targetId = otherSessionUser(session, viewerId);
   const target = await getUser(targetId), viewer = await getUser(viewerId);
@@ -591,6 +586,7 @@ async function expireUserTimedActions(userId) {
   }
   return expired;
 }
+// ── Connection search and message relay ──
 async function tryOfferSearches() {
   const allRequests = await db.select().from(connection_requests).all();
   const allUsers = await db.select().from(users).all();
@@ -754,6 +750,7 @@ async function relayConnectionMessage(message, session) {
     try { await api.sendMessage({ chat_id: senderId, text: '⚠️ دا پیغام بل ملګري ته ونه لېږل شو. بل ډول پیغام واستوه.' }); } catch (e) {}
   }
 }
+// ── Dice game lifecycle ──
 async function startDiceGame(chatId, user) {
   const minStars = Number(await getSetting('game_min_stars', 3.5));
   if (Number(user.stars || 0) < minStars) {
@@ -1013,6 +1010,7 @@ export async function tryMatchGames() {
     }
   }
 }
+// ── Admin settings and admin workflows ──
 async function renderAdminRewardSettings(chatId, user) {
   const keys = [
     ['welcome_reward_stars','⭐ د ښه راغلاست ستوري',10], ['welcome_reward_points','🏆 د ښه راغلاست نمرې',3], ['welcome_reward_likes','❤️ د ښه راغلاست لایکونه',2],
@@ -1052,6 +1050,7 @@ async function renderAdminGameSettings(chatId, user) {
   await sendPrompt(chatId, text, { inline_keyboard: rows }, user);
 }
 
+// ── Incoming message routing ──
 async function processMessage(message) {
   if (!message || !message.chat || !message.from || message.chat.type !== 'private') return;
   const chatId = message.chat.id;
@@ -1586,6 +1585,7 @@ async function processMessage(message) {
   } else await showMain(chatId, user);
 }
 
+// ── Public event handler ──
 export default async function (message) {
   try {
     await processMessage(message);
