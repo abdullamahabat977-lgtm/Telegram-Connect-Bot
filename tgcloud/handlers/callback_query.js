@@ -94,6 +94,17 @@ async function checkMembership(id) {
   }
   return true;
 }
+function styleReplyRows(rows) {
+  const styles = ['primary', 'success', 'danger'];
+  return rows.map((row, rowIndex) => row.map((button, buttonIndex) => {
+    if (typeof button === 'string' || !button || button.style) return button;
+    // Keep existing labels/emojis unchanged; only add the supported reply-keyboard style.
+    return { ...button, style: styles[(rowIndex + buttonIndex) % styles.length] };
+  }));
+}
+function replyKeyboard(rows, extra) {
+  return { keyboard: styleReplyRows(rows), resize_keyboard: true, ...(extra || {}) };
+}
 function mainKeyboard(user, admin) {
   const m = tx(user).menu;
   const rows = [
@@ -104,15 +115,15 @@ function mainKeyboard(user, admin) {
     [{ text: m[9] }, { text: m[10] }]
   ];
   if (admin) rows.push([{ text: m[8] }]);
-  return { keyboard: rows, resize_keyboard: true };
+  return replyKeyboard(rows);
 }
 function adminKeyboard(user) {
   const b = (ADMIN_UI[user.language] || ADMIN_UI.ps).buttons;
-  return { keyboard: [[{ text: b[0] }], [{ text: b[1] }, { text: b[2] }], [{ text: b[3] }, { text: b[4] }], [{ text: b[5] }], ...(b[6] ? [[{ text: b[6] }]] : []), ...(b[7] ? [[{ text: b[7] }, { text: b[8] }]] : []), ...(b[9] ? [[{ text: b[9] }]] : [])], resize_keyboard: true };
+  return replyKeyboard([[{ text: b[0] }], [{ text: b[1] }, { text: b[2] }], [{ text: b[3] }, { text: b[4] }], [{ text: b[5] }], ...(b[6] ? [[{ text: b[6] }]] : []), ...(b[7] ? [[{ text: b[7] }, { text: b[8] }]] : []), ...(b[9] ? [[{ text: b[9] }]] : [])]);
 }
 function adminManagementKeyboard(user) {
   const b = (ADMIN_UI[user.language] || ADMIN_UI.ps).management;
-  return { keyboard: [[{ text: b[0] }, { text: b[1] }], [{ text: b[2] }], [{ text: b[3] }]], resize_keyboard: true };
+  return replyKeyboard([[{ text: b[0] }, { text: b[1] }], [{ text: b[2] }], [{ text: b[3] }]]);
 }
 function adminSettingsKeyboard(user, targetId, blocked) {
   const en = user.language === 'en', fa = user.language === 'fa', ur = user.language === 'ur', ar = user.language === 'ar';
