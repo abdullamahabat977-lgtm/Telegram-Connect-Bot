@@ -909,7 +909,7 @@ export async function tryMatchGames() {
       const id = Number(candidate.telegram_id);
       if (id === Number(game.player_id) || id === Number(game.opponent_id || 0) || Number(candidate.is_blocked) === 1 || Number(candidate.stars || 0) < opponentMin) return false;
       const last = Date.parse(candidate.last_active_at || '');
-      if (!Number.isFinite(last) || now - last > 24 * 60 * 60 * 1000) return false;
+      if (!Number.isFinite(last) || now - last > 2 * 60 * 1000) return false;
       if (busyGameIds.has(id)) return false;
       if (allConnectionRequests.some(row => ['searching', 'pending', 'matching'].includes(row.status) &&
           (Number(row.requester_id) === id || Number(row.recipient_id) === id))) return false;
