@@ -803,7 +803,7 @@ async function startDiceGame(chatId, user) {
     created_at: now, updated_at: now, fee_stars: Number(await getSetting('game_fee_stars', 0.5)),
     win_stars: Number(await getSetting('game_win_stars', 3)), bot_loss_total_stars: Number(await getSetting('game_bot_loss_total_stars', 3.5)),
     points_award: Number(await getSetting('game_win_points', 1)) }).run();
-  await sendPrompt(chatId, '🎲 د ګېم سیال لټول کېږي.\n\n⏳ که په ټاکلي وخت کې سیال پیدا نه شي، ستا راتلونکی پیغام به دا ګېم لغوه کړي؛ فیس به نه اخیستل کېږي.', { inline_keyboard: [[{ text: '❌ ګېم لغوه کول', callback_data: 'game:cancel' }]] }, user);
+  await sendPrompt(chatId, '🎲 د ګېم سیال لټول کېږي.\n\n📩 د منلو/ردولو پیغام یوازې هغه کارن ته استول کېږي چې په تېرو ۲ دقیقو کې له بوټ سره فعال و، کافي ستوري ولري، او بل فعال ګېم یا اړیکه ونه لري.\n\n⏳ که په ټاکلي وخت کې مناسب سیال پیدا نه شي، ګېم به د بوټ پر وړاندې حل شي؛ که لغوه کول غواړې، لاندې تڼۍ ووهه.', { inline_keyboard: [[{ text: '❌ ګېم لغوه کول', callback_data: 'game:cancel' }]] }, user);
   await tryMatchGames();
 }
 export async function resolveBotGame(game) {
@@ -912,8 +912,13 @@ export async function tryMatchGames() {
       if (allBlocks.some(row =>
           (Number(row.blocker_telegram_id) === id && Number(row.blocked_telegram_id) === Number(game.player_id)) ||
           (Number(row.blocker_telegram_id) === Number(game.player_id) && Number(row.blocked_telegram_id) === id))) return false;
-      if (rows.some(row => Number(row.player_id) === Number(game.player_id) &&
-          Number(row.opponent_id) === id && row.status === 'rejected')) return false;
+      const recentlyRejected = rows.some(row => {
+        if (Number(row.player_id) !== Number(game.player_id) ||
+            Number(row.opponent_id) !== id || row.status !== 'rejected') return false;
+        const rejectedAt = Date.parse(row.updated_at || row.created_at || '');
+        return Number.isFinite(rejectedAt) && now - rejectedAt < waitSeconds * 1000;
+      });
+      if (recentlyRejected) return false;
       return true;
     }).sort((a,b) => Date.parse(b.last_active_at || '') - Date.parse(a.last_active_at || ''));
     if (!candidates.length) {
