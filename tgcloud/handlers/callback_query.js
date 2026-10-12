@@ -899,6 +899,16 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
     }
     if (!search) { await db.update(connection_requests).set({ status: 'expired', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, offerId)).run(); await sendPrompt(chatId, '⌛ د غوښتونکي لټون پای ته رسېدلی.', mainKeyboard(actor, await isAdmin(actorId)), actor); return; }
     const requester = await getUser(offer.requester_id), cost = Number(await getSetting('connection_cost_stars', 1));
+    if (!Number.isFinite(cost) || cost < 0) {
+      await db.update(connection_requests).set({ status: 'rejected', updated_at: new Date().toISOString() })
+        .where(and(eq(connection_requests.id, offerId), eq(connection_requests.status, 'pending'))).run();
+      await db.update(connection_requests).set({ status: 'cancelled', updated_at: new Date().toISOString() })
+        .where(and(eq(connection_requests.id, Number(search.id)), eq(connection_requests.status, 'searching'))).run();
+      const notice = '⚠️ د اړیکې د ستورو تنظیم ناسم دی؛ اړیکه جوړه نه شوه. له اډمین سره اړیکه ونیسه.';
+      try { await api.sendMessage({ chat_id: Number(offer.requester_id), text: notice }); } catch (e) {}
+      await sendPrompt(chatId, notice, mainKeyboard(actor, await isAdmin(actorId)), actor);
+      return;
+    }
     if (!requester || Number(requester.stars || 0) < cost) {
       await db.update(connection_requests).set({ status: 'rejected', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, offerId)).run();
       if (requester) try { await api.sendMessage({ chat_id: Number(requester.telegram_id), text: '⚠️ د اړیکې لپاره ستوري نور کافي نه دي. لټون پای ته ورسېد.' }); } catch (e) {}
