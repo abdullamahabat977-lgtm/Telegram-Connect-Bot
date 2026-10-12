@@ -979,6 +979,10 @@ async function handleSessionCallback(query, actor, data, actorId, chatId) {
   if (!Number.isSafeInteger(targetId) || targetId <= 0) return;
   const target = await getUser(targetId);
   if (!target) return;
+  if (targetId === actorId && ['follow', 'like', 'rate', 'report'].includes(action)) {
+    await sendPrompt(chatId, '⚠️ دا عمل پر خپل پروفایل نه شي ترسره کېدای.', mainKeyboard(actor, await isAdmin(actorId)), actor);
+    return;
+  }
   if (action === 'follow') {
     const rows = await db.select().from(favorites).where(eq(favorites.user_telegram_id, actorId)).all();
     if (!rows.some(row => Number(row.favorite_telegram_id) === targetId)) await db.insert(favorites).values({ user_telegram_id: actorId, favorite_telegram_id: targetId, created_at: new Date().toISOString() }).run();
@@ -1007,6 +1011,15 @@ async function handleSessionCallback(query, actor, data, actorId, chatId) {
   if (action === 'rate') {
     const rating = Number(p[3]);
     if (!Number.isInteger(rating) || rating < 1 || rating > 5) return;
+    const ratingSession = await db.select().from(chat_sessions).where(eq(chat_sessions.id, sessionId)).get();
+    const sessionParticipants = ratingSession
+      ? [Number(ratingSession.first_user_telegram_id), Number(ratingSession.second_user_telegram_id)]
+      : [];
+    if (!ratingSession || ratingSession.status !== 'ended' ||
+        !sessionParticipants.includes(actorId) || !sessionParticipants.includes(targetId) || targetId === actorId) {
+      await sendPrompt(chatId, '⚠️ د نمرو ورکولو لپاره باید همدا ستا له تېر ملګري سره پای ته رسېدلې اړیکه وي.', mainKeyboard(actor, await isAdmin(actorId)), actor);
+      return;
+    }
     const rows = await db.select().from(user_ratings).where(eq(user_ratings.session_id, sessionId)).all();
     if (rows.some(row => Number(row.rater_id) === actorId && Number(row.rated_id) === targetId)) {
       await sendPrompt(chatId, '⭐ په دې اړیکه کې دې مخکې نمره ورکړې ده.', mainKeyboard(actor, await isAdmin(actorId)), actor); return;
