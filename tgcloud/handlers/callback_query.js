@@ -1005,8 +1005,32 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
       await sendPrompt(chatId, notice, mainKeyboard(actor, await isAdmin(actorId)), actor);
       return;
     }
-    const oldSession = await activeSessionFor(actorId);
-    if (oldSession) await endConnection(oldSession, 'accepted_new_request');
+    // Recheck after the debit: another callback may have connected either user while this request was being accepted.
+    const racedRequesterSession = await activeSessionFor(Number(requester.telegram_id));
+    const racedRecipientSession = await activeSessionFor(actorId);
+    if (racedRequesterSession || racedRecipientSession) {
+      let refunded = false;
+      try {
+        const refund = await db.update(users).set({ stars: Number(requester.stars || 0), state: 'ready' })
+          .where(and(
+            eq(users.telegram_id, Number(requester.telegram_id)),
+            eq(users.stars, Number(requester.stars || 0) - cost)
+          )).returning({ telegram_id: users.telegram_id }).run();
+        refunded = Boolean(refund && Array.isArray(refund.rows) && refund.rows.length > 0);
+      } catch (refundError) {
+        console.error('Could not refund connection request after session race', { offerId, requesterId: requester.telegram_id, refundError });
+      }
+      await db.update(connection_requests).set({ status: 'cancelled', updated_at: new Date().toISOString() })
+        .where(and(eq(connection_requests.id, Number(search.id)), eq(connection_requests.status, 'connected'))).run();
+      await db.update(connection_requests).set({ status: 'rejected', updated_at: new Date().toISOString() })
+        .where(and(eq(connection_requests.id, offerId), eq(connection_requests.status, 'matching'))).run();
+      const notice = refunded
+        ? '⚠️ بلې اړیکې مخکې وصل شو؛ دا غوښتنه لغوه شوه او ستوري بېرته ستانه شول.'
+        : '⚠️ بلې اړیکې مخکې وصل شو؛ دا غوښتنه لغوه شوه، خو د ستورو د بېرته ستنولو حالت تایید نه شو. له اډمین سره اړیکه ونیسه.';
+      try { await api.sendMessage({ chat_id: Number(requester.telegram_id), text: notice }); } catch (e) {}
+      await sendPrompt(chatId, notice, mainKeyboard(actor, await isAdmin(actorId)), actor);
+      return;
+    }
     await db.update(connection_requests).set({ status: 'accepted', updated_at: new Date().toISOString() })
       .where(and(eq(connection_requests.id, offerId), eq(connection_requests.status, 'matching'))).run();
     for (const row of rows.filter(item => Number(item.requester_id) === Number(requester.telegram_id) && item.status === 'pending' && Number(item.id) !== offerId)) await db.update(connection_requests).set({ status: 'cancelled', updated_at: new Date().toISOString() }).where(and(eq(connection_requests.id, Number(row.id)), eq(connection_requests.status, 'pending'))).run();
