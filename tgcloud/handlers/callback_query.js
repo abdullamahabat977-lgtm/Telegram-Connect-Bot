@@ -317,8 +317,9 @@ async function handleAdminCallback(query, actor, data, actorId, chatId) {
     if (blocking) {
       try {
         const reqs = await db.select().from(connection_requests).all();
-        for (const row of reqs.filter(item => (Number(item.requester_id) === targetId || Number(item.recipient_id) === targetId) && ['searching','pending'].includes(item.status))) {
-          await db.update(connection_requests).set({ status: 'cancelled', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, Number(row.id))).run();
+        for (const row of reqs.filter(item => (Number(item.requester_id) === targetId || Number(item.recipient_id) === targetId) && ['searching','matching','pending'].includes(item.status))) {
+          await db.update(connection_requests).set({ status: 'cancelled', updated_at: new Date().toISOString() })
+            .where(and(eq(connection_requests.id, Number(row.id)), eq(connection_requests.status, row.status))).run();
         }
       } catch (e) { console.error('Could not cancel blocked user connection requests', e); }
       try {
@@ -329,8 +330,11 @@ async function handleAdminCallback(query, actor, data, actorId, chatId) {
       } catch (e) { console.error('Could not end blocked user connection', e); }
       try {
         const games = await db.select().from(game_sessions).all();
-        for (const game of games.filter(item => (Number(item.player_id) === targetId || Number(item.opponent_id) === targetId) && ['waiting','pending','playing'].includes(item.status))) {
-          await db.update(game_sessions).set({ status: 'cancelled', updated_at: new Date().toISOString() }).where(eq(game_sessions.id, Number(game.id))).run();
+        // Never cancel a playing game here: its settlement may already be in progress.
+        // Only cancel offers that have not entered the settlement state.
+        for (const game of games.filter(item => (Number(item.player_id) === targetId || Number(item.opponent_id) === targetId) && ['waiting','pending'].includes(item.status))) {
+          await db.update(game_sessions).set({ status: 'cancelled', updated_at: new Date().toISOString() })
+            .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, game.status))).run();
         }
       } catch (e) { console.error('Could not cancel blocked user games', e); }
       try { await api.sendMessage({ chat_id: targetId, text: target.language === 'en' ? '⛔ Your account has been restricted by an administrator.' : '⛔ ستا حساب د اډمین له خوا محدود شو.' }); } catch (e) {}
@@ -435,8 +439,10 @@ async function showSessionProfile(session, viewerId) {
 }
 async function endConnection(session, reason) {
   if (!session || session.status !== 'connected') return;
-  await db.update(chat_sessions).set({ status: 'ended', ended_at: new Date().toISOString(), end_reason: reason || 'ended' })
-    .where(eq(chat_sessions.id, Number(session.id))).run();
+  const ended = await db.update(chat_sessions).set({ status: 'ended', ended_at: new Date().toISOString(), end_reason: reason || 'ended' })
+    .where(and(eq(chat_sessions.id, Number(session.id)), eq(chat_sessions.status, 'connected')))
+    .returning({ id: chat_sessions.id }).run();
+  if (!ended || !Array.isArray(ended.rows) || ended.rows.length === 0) return;
   for (const pair of [{ id: Number(session.first_user_telegram_id), partnerId: Number(session.second_user_telegram_id) },
     { id: Number(session.second_user_telegram_id), partnerId: Number(session.first_user_telegram_id) }]) {
     const user = await getUser(pair.id), partner = await getUser(pair.partnerId);
@@ -585,7 +591,8 @@ async function tryOfferSearches() {
       if (candidate.connection_request_mode === 'none') return false;
       const connected = sessions.some(row => row.status === 'connected' && (Number(row.first_user_telegram_id) === cid || Number(row.second_user_telegram_id) === cid));
       if (connected && candidate.connection_request_mode !== 'all') return false;
-      if (requests.some(row => Number(row.recipient_id) === cid && row.status === 'pending' && Number.isFinite(Date.parse(row.created_at || '')) && now - Date.parse(row.created_at || '') < wait * 1000)) return false;
+      if (requests.some(row => ['searching', 'matching', 'pending'].includes(row.status) &&
+          (Number(row.requester_id) === cid || Number(row.recipient_id) === cid))) return false;
       if (candidate.connection_request_mode === 'followed' && !favs.some(row => Number(row.user_telegram_id) === cid && Number(row.favorite_telegram_id) === Number(search.requester_id))) return false;
       if (search.request_type === 'find' && search.gender_filter !== 'auto' && candidate.gender !== search.gender_filter) return false;
       if (search.request_type === 'find' && search.language_filter !== 'auto' && candidate.language !== search.language_filter) return false;
@@ -824,13 +831,19 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
   if (p[1] === 'confirm') { await startConnectionSearch(actorId, p[2] === 'find' ? 'find' : 'random'); return; }
   if (p[1] === 'cancel') {
     const rows = await db.select().from(connection_requests).where(eq(connection_requests.requester_id, actorId)).all();
-    for (const row of rows.filter(item => item.status === 'searching' || item.status === 'pending')) await db.update(connection_requests).set({ status: 'cancelled', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, Number(row.id))).run();
+    for (const row of rows.filter(item => ['searching', 'matching', 'pending'].includes(item.status))) {
+      await db.update(connection_requests).set({ status: 'cancelled', updated_at: new Date().toISOString() })
+        .where(and(eq(connection_requests.id, Number(row.id)), eq(connection_requests.status, row.status))).run();
+    }
     await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, actorId)).run();
     actor.state = 'ready'; await showMain(chatId, actor, '❌ لټون لغوه شو.'); return;
   }
   if (p[1] === 'cancel_search') {
     const rows = await db.select().from(connection_requests).where(eq(connection_requests.requester_id, actorId)).all();
-    for (const row of rows.filter(item => item.status === 'searching' || item.status === 'pending')) await db.update(connection_requests).set({ status: 'cancelled', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, Number(row.id))).run();
+    for (const row of rows.filter(item => ['searching', 'matching', 'pending'].includes(item.status))) {
+      await db.update(connection_requests).set({ status: 'cancelled', updated_at: new Date().toISOString() })
+        .where(and(eq(connection_requests.id, Number(row.id)), eq(connection_requests.status, row.status))).run();
+    }
     await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, actorId)).run();
     actor.state = 'ready'; await showMain(chatId, actor, '❌ لټون لغوه شو.'); return;
   }
@@ -872,7 +885,17 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
       return;
     }
     const requesterSession = await activeSessionFor(requester.telegram_id);
-    if (requesterSession) { await sendPrompt(chatId, '⚠️ غوښتونکی لا له بل کس سره په اړیکه کې دی.', mainKeyboard(actor, await isAdmin(actorId)), actor); return; }
+    const recipientSession = await activeSessionFor(actorId);
+    if (requesterSession || recipientSession) {
+      await db.update(connection_requests).set({ status: 'expired', updated_at: new Date().toISOString() })
+        .where(and(eq(connection_requests.id, offerId), eq(connection_requests.status, 'pending'))).run();
+      await db.update(connection_requests).set({ status: 'cancelled', updated_at: new Date().toISOString() })
+        .where(and(eq(connection_requests.id, Number(search.id)), eq(connection_requests.status, 'searching'))).run();
+      const notice = '⚠️ یو کارن لا له بل چا سره په فعاله اړیکه کې دی؛ نوې اړیکه نه ده جوړه شوې. د اوسنۍ اړیکې تر ختمېدو وروسته بیا هڅه وکړه.';
+      try { await api.sendMessage({ chat_id: Number(requester.telegram_id), text: notice }); } catch (e) {}
+      await sendPrompt(chatId, notice, mainKeyboard(actor, await isAdmin(actorId)), actor);
+      return;
+    }
     const offerClaim = await db.update(connection_requests).set({ status: 'matching', updated_at: new Date().toISOString() })
       .where(and(eq(connection_requests.id, offerId), eq(connection_requests.status, 'pending'), eq(connection_requests.recipient_id, actorId)))
       .returning({ id: connection_requests.id }).run();
