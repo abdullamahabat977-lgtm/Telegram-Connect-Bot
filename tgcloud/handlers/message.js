@@ -623,7 +623,8 @@ async function tryOfferSearches() {
       if (candidate.connection_request_mode === 'none') return false;
       const connected = allSessions.some(row => row.status === 'connected' &&
         (Number(row.first_user_telegram_id) === candidateId || Number(row.second_user_telegram_id) === candidateId));
-      if (connected && candidate.connection_request_mode !== 'all') return false;
+      // Do not offer a connection to someone already connected; acceptance rejects a second session.
+      if (connected) return false;
       const candidateHasActiveRequest = allRequests.some(row =>
         ['searching', 'matching', 'pending'].includes(row.status) &&
         (Number(row.requester_id) === candidateId || Number(row.recipient_id) === candidateId));
