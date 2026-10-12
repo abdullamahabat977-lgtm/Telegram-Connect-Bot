@@ -702,16 +702,68 @@ async function startConnectionSearch(userId, type) {
     await sendPrompt(userId, '🔎 ستا د ملګري لټون یا د اړیکې غوښتنه لا فعاله ده. لومړی یې پای ته ورسوه، بیا نوی لټون پیل کړه.', { inline_keyboard: [[{ text: '❌ لټون لغوه کول', callback_data: 'conn:cancel_search' }]] }, user);
     return;
   }
-  const now = new Date().toISOString();
-  await db.insert(connection_requests).values({ requester_id: Number(userId), recipient_id: null, status: 'searching', request_type: type,
-    gender_filter: type === 'find' ? user.search_gender || 'auto' : 'auto', language_filter: type === 'find' ? user.search_language || 'auto' : 'auto',
-    created_at: now, updated_at: now }).run();
-  const all = await db.select().from(connection_requests).all();
-  const search = all.filter(row => Number(row.requester_id) === Number(userId) && row.status === 'searching' && !row.recipient_id).sort((a,b)=>Number(b.id)-Number(a.id))[0];
-  await db.update(users).set({ state: 'searching_connection' }).where(eq(users.telegram_id, Number(userId))).run();
-  await sendPrompt(userId, '🔎 د ملګري لټون پیل شو.\n\n⏳ د مناسب کس لټون تر ۲ دقیقو دوام کوي. که وخت تېر شي، د ستا راتلونکي پیغام یا تڼۍ پر مهال به لټون لغوه شي.\n\n⭐ د منلو پر مهال به ' + cost + ' ستوری کم شي.',
-    { inline_keyboard: [[{ text: '❌ لټون لغوه کول', callback_data: 'conn:cancel_search:' + search.id }]] }, user);
-  try { await tryOfferSearches(); } catch (error) { console.error('Connection search matching failed after request creation', { userId: Number(userId), type: type, error: error }); }
+  let search = null, stage = 'insert-search';
+  try {
+    const now = new Date().toISOString();
+    const inserted = await db.insert(connection_requests).values({
+      requester_id: Number(userId), recipient_id: null, status: 'searching', request_type: type,
+      gender_filter: type === 'find' ? user.search_gender || 'auto' : 'auto',
+      language_filter: type === 'find' ? user.search_language || 'auto' : 'auto',
+      created_at: now, updated_at: now
+    }).returning().run();
+    search = inserted && Array.isArray(inserted.rows) ? inserted.rows[0] : null;
+    if (!search || !Number.isSafeInteger(Number(search.id)) || Number(search.id) <= 0) {
+      throw new Error('Connection search insert returned no usable row');
+    }
+
+    stage = 'set-user-state';
+    await db.update(users).set({ state: 'searching_connection' })
+      .where(eq(users.telegram_id, Number(userId))).run();
+    user.state = 'searching_connection';
+
+    stage = 'send-search-prompt';
+    await sendPrompt(userId, '🔎 د ملګري لټون پیل شو.\n\n⏳ د مناسب کس لټون تر ۲ دقیقو دوام کوي. که وخت تېر شي، د ستا راتلونکي پیغام یا تڼۍ پر مهال به لټون لغوه شي.\n\n⭐ د منلو پر مهال به ' + cost + ' ستوری کم شي.',
+      { inline_keyboard: [[{ text: '❌ لټون لغوه کول', callback_data: 'conn:cancel_search:' + Number(search.id) }]] }, user);
+  } catch (error) {
+    console.error('Failed to start connection search', {
+      userId: Number(userId), type, stage,
+      error: error && (error.stack || error.message || String(error))
+    });
+    if (search && Number(search.id) > 0) {
+      try {
+        await db.update(connection_requests).set({ status: 'cancelled', updated_at: new Date().toISOString() })
+          .where(and(eq(connection_requests.id, Number(search.id)), eq(connection_requests.status, 'searching'))).run();
+      } catch (cleanupError) {
+        console.error('Could not clean up failed connection search', { userId: Number(userId), searchId: search.id, cleanupError });
+      }
+    }
+    try { await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, Number(userId))).run(); } catch (stateError) {
+      console.error('Could not restore user state after failed connection search', { userId: Number(userId), stateError });
+    }
+    user.state = 'ready';
+    try {
+      await api.sendMessage({
+        chat_id: Number(userId),
+        text: '⚠️ د ملګري لټون پیل نه شو. غوښتنه خوندي نه ده فعاله پاتې شوې؛ لږ وروسته بیا هڅه وکړه. که بیا تکرار شو، اډمین ته خبر ورکړه.'
+      });
+    } catch (notifyError) {
+      console.error('Could not notify user about connection search startup failure', { userId: Number(userId), notifyError });
+    }
+    return;
+  }
+  try { await tryOfferSearches(); } catch (error) {
+    console.error('Connection search matching failed after request creation', {
+      userId: Number(userId), searchId: Number(search.id), type, error: error && (error.stack || error.message || String(error))
+    });
+    try {
+      await api.sendMessage({
+        chat_id: Number(userId),
+        text: '⚠️ لټون پیل شو، خو د سیال لټولو پر مهال ستونزه وشوه. لږ وروسته بیا هڅه وکړه.'
+      });
+    } catch (notifyError) {
+      console.error('Could not notify user about matchmaking failure', { userId: Number(userId), notifyError });
+    }
+  }
 }
 async function showConnectedPair(session) {
   const first = await getUser(session.first_user_telegram_id), second = await getUser(session.second_user_telegram_id);
