@@ -40,11 +40,15 @@ jobs:
           const inline = styleKeyboardMarkup({ inline_keyboard: [[
             { text: 'Accept request', callback_data: 'conn:accept:1' },
             { text: 'Reject request', callback_data: 'conn:reject:1' },
-            { text: 'Unblock user', callback_data: 'admin:unblock:2' }
+            { text: 'Unblock user', callback_data: 'admin:unblock:2' },
+            { text: 'Likes +', callback_data: 'admin:balance:likes:add:2' },
+            { text: 'Likes −', callback_data: 'admin:balance:likes:sub:2' }
           ]] });
           assert.equal(inline.inline_keyboard[0][0].style, 'success');
           assert.equal(inline.inline_keyboard[0][1].style, 'danger');
           assert.equal(inline.inline_keyboard[0][2].style, 'success');
+          assert.equal(inline.inline_keyboard[0][3].style, 'success');
+          assert.equal(inline.inline_keyboard[0][4].style, 'danger');
 
           const reply = styleKeyboardMarkup({ keyboard: [
             ['Main menu', { text: 'Delete photo', callback_data: 'photo:delete' }]
