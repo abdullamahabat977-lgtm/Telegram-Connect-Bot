@@ -3,6 +3,7 @@ import { and, eq } from 'sdk/db';
 import { users, admins, required_chats, app_settings, favorites, chat_sessions, connection_requests, chat_messages, user_ratings, user_likes, game_sessions, user_blocks, reports } from '../schema.js';
 import { ROOT_ADMINS, LANGUAGES, COUNTRIES, AGES, countryKeyboard, ensureInlinePromptTracking, requiredChatInfo, listWords, isFollowing, otherSessionUser, getUser, safeDelete, isAdmin } from '../lib/shared.js';
 import { TEXT } from '../lib/callback-text.js';
+import { resolveBotGame } from './message.js';
 
 
 
@@ -736,7 +737,7 @@ async function tryMatchGames() {
   for (const game of games.filter(row => row.status === 'waiting' || row.status === 'pending')) {
     const timerStart = game.status === 'pending' ? (game.updated_at || game.created_at) : game.created_at;
     const age = now - Date.parse(timerStart || '');
-    if (!Number.isFinite(age) || age >= wait * 1000) continue;
+    if (!Number.isFinite(age)) continue;
     if (game.status !== 'waiting') continue;
     if (connectionRequests.some(row => ['searching', 'pending', 'matching'].includes(row.status) &&
         (Number(row.requester_id) === Number(game.player_id) || Number(row.recipient_id) === Number(game.player_id)))) continue;
@@ -756,7 +757,17 @@ async function tryMatchGames() {
           (Number(row.blocker_telegram_id) === Number(game.player_id) && Number(row.blocked_telegram_id) === id))) return false;
       return true;
     }).sort((a,b)=>Date.parse(b.last_active_at || '')-Date.parse(a.last_active_at || ''));
-    if (!candidates.length) continue;
+    if (!candidates.length) {
+      if (age < wait * 1000) continue;
+      const claimedForBot = await db.update(game_sessions)
+        .set({ status: 'playing', updated_at: new Date().toISOString() })
+        .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'waiting')))
+        .returning({ id: game_sessions.id }).run();
+      if (!claimedForBot || !Array.isArray(claimedForBot.rows) || claimedForBot.rows.length === 0) continue;
+      const playingGame = await db.select().from(game_sessions).where(eq(game_sessions.id, Number(game.id))).get();
+      if (playingGame && playingGame.status === 'playing') await resolveBotGame(playingGame);
+      continue;
+    }
     const candidate = candidates[0];
     const claimed = await db.update(game_sessions)
       .set({ opponent_id: Number(candidate.telegram_id), status: 'pending', updated_at: new Date().toISOString() })
