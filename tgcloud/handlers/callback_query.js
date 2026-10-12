@@ -1111,6 +1111,27 @@ async function handleFindCallback(query, actor, data, actorId, chatId) {
     await sendPrompt(chatId, '🔎 د ملګري لټون تایید کړه.\n\n👤 جنسیت: ' + gender + '\n\n🌐 ژبه: ' + language + '\n\n⭐ د اړیکې پر منلو به ' + cost + ' ستوری کم شي.', { inline_keyboard: [[{ text: '✅ تایید او لټون پیلول', callback_data: 'conn:confirm:find' }, { text: '❌ لغوه', callback_data: 'conn:cancel' }]] }, actor); return;
   }
 }
+async function adjustUserLikes(targetId, delta) {
+  // Keep reward/admin-adjusted likes while applying one actual like/unlike.
+  // Compare-and-set avoids overwriting a concurrent reward or admin adjustment.
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const latest = await getUser(targetId);
+    if (!latest) return false;
+    const current = Number(latest.likes || 0);
+    if (!Number.isFinite(current)) return false;
+    const next = Math.max(0, current + delta);
+    const updated = await db.update(users).set({ likes: next })
+      .where(and(
+        eq(users.telegram_id, Number(targetId)),
+        eq(users.likes, current)
+      ))
+      .returning({ telegram_id: users.telegram_id }).run();
+    if (updated && Array.isArray(updated.rows) && updated.rows.length > 0) return true;
+  }
+  console.error('Could not update likes counter after concurrent changes', { targetId, delta });
+  return false;
+}
+
 async function handleSessionCallback(query, actor, data, actorId, chatId) {
   const p = data.split(':'), action = p[1], targetId = Number(p[2]), sessionId = Number(p[p.length - 1]);
   if (action === 'end') {
@@ -1140,12 +1161,11 @@ async function handleSessionCallback(query, actor, data, actorId, chatId) {
       for (const row of existing) {
         await db.delete(user_likes).where(eq(user_likes.id, Number(row.id))).run();
       }
+      await adjustUserLikes(targetId, -1);
     } else {
       await db.insert(user_likes).values({ liker_id: actorId, liked_id: targetId, created_at: new Date().toISOString() }).run();
+      await adjustUserLikes(targetId, 1);
     }
-    // Rebuild the displayed counter from the source-of-truth rows so old duplicates or failed updates cannot drift it.
-    const currentLikes = await db.select().from(user_likes).where(eq(user_likes.liked_id, targetId)).all();
-    await db.update(users).set({ likes: currentLikes.length }).where(eq(users.telegram_id, targetId)).run();
     const session = await db.select().from(chat_sessions).where(eq(chat_sessions.id, sessionId)).get();
     if (session && session.status === 'connected') await showSessionProfile(session, actorId);
     return;
