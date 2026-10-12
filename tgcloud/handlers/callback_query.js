@@ -1033,11 +1033,6 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
     }
     await db.update(connection_requests).set({ status: 'accepted', updated_at: new Date().toISOString() })
       .where(and(eq(connection_requests.id, offerId), eq(connection_requests.status, 'matching'))).run();
-    for (const row of rows.filter(item => Number(item.requester_id) === Number(requester.telegram_id) && item.status === 'pending' && Number(item.id) !== offerId)) await db.update(connection_requests).set({ status: 'cancelled', updated_at: new Date().toISOString() }).where(and(eq(connection_requests.id, Number(row.id)), eq(connection_requests.status, 'pending'))).run();
-    for (const row of rows.filter(item => Number(item.requester_id) === actorId && ['searching','pending'].includes(item.status))) {
-      await db.update(connection_requests).set({ status: 'cancelled', updated_at: new Date().toISOString() })
-        .where(and(eq(connection_requests.id, Number(row.id)), eq(connection_requests.status, row.status))).run();
-    }
     const now = new Date().toISOString();
     try {
       const createdSession = await db.insert(chat_sessions).values({
@@ -1072,6 +1067,22 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
       try { await api.sendMessage({ chat_id: Number(requester.telegram_id), text: notice }); } catch (e) {}
       await sendPrompt(chatId, notice, mainKeyboard(actor, await isAdmin(actorId)), actor);
       return;
+    }
+    // Only after the new session is persisted, cancel any other active requests involving either participant.
+    const participantIds = new Set([Number(requester.telegram_id), actorId]);
+    for (const row of rows.filter(item =>
+      Number(item.id) !== offerId && Number(item.id) !== Number(search.id) &&
+      ['searching', 'matching', 'pending'].includes(item.status) &&
+      (participantIds.has(Number(item.requester_id)) || participantIds.has(Number(item.recipient_id)))
+    )) {
+      const cancelledOther = await db.update(connection_requests).set({ status: 'cancelled', updated_at: new Date().toISOString() })
+        .where(and(eq(connection_requests.id, Number(row.id)), eq(connection_requests.status, row.status)))
+        .returning({ id: connection_requests.id }).run();
+      if (!cancelledOther || !Array.isArray(cancelledOther.rows) || cancelledOther.rows.length === 0) continue;
+      const externalParty = participantIds.has(Number(row.requester_id)) ? Number(row.recipient_id || 0) : Number(row.requester_id || 0);
+      if (externalParty > 0 && !participantIds.has(externalParty)) {
+        try { await api.sendMessage({ chat_id: externalParty, text: '⌛ دا د اړیکې غوښتنه لغوه شوه، ځکه یو ګډونوال له بل کس سره وصل شو.' }); } catch (e) {}
+      }
     }
     const sessions = await db.select().from(chat_sessions).all();
     const session = sessions.filter(row => row.status === 'connected' && ((Number(row.first_user_telegram_id) === Number(requester.telegram_id) && Number(row.second_user_telegram_id) === actorId) || (Number(row.first_user_telegram_id) === actorId && Number(row.second_user_telegram_id) === Number(requester.telegram_id)))).sort((a,b)=>Number(b.id)-Number(a.id))[0];
