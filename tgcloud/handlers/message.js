@@ -526,11 +526,22 @@ async function expireUserTimedActions(userId) {
   }
   const gameWait = Math.max(1, Number(await getSetting('game_wait_seconds', 120)) || 120);
   const games = await db.select().from(game_sessions).all();
-  for (const game of games.filter(row => ['waiting', 'pending', 'playing'].includes(row.status) && (Number(row.player_id) === id || Number(row.opponent_id) === id))) {
+  for (const game of games) {
+    const isOwnGame = Number(game.player_id) === id;
+    const isIncomingOffer = Number(game.opponent_id) === id && game.status === 'pending';
+    // Only expire queued games/offers. A playing game must never be cancelled by a wait timeout.
+    if (!['waiting', 'pending'].includes(game.status) || (!isOwnGame && !isIncomingOffer)) continue;
     const timerStart = game.status === 'waiting' ? (game.created_at || game.updated_at) : (game.updated_at || game.created_at);
     const age = now - Date.parse(timerStart || '');
     if (Number.isFinite(age) && age < gameWait * 1000) continue;
-    await db.update(game_sessions).set({ status: 'cancelled', updated_at: new Date().toISOString() }).where(eq(game_sessions.id, Number(game.id))).run();
+    const ownerCondition = isOwnGame
+      ? eq(game_sessions.player_id, id)
+      : eq(game_sessions.opponent_id, id);
+    const cancelled = await db.update(game_sessions)
+      .set({ status: 'cancelled', updated_at: new Date().toISOString() })
+      .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, game.status), ownerCondition))
+      .returning({ id: game_sessions.id }).run();
+    if (!cancelled || !Array.isArray(cancelled.rows) || cancelled.rows.length === 0) continue;
     game.status = 'cancelled';
     for (const playerId of [Number(game.player_id), Number(game.opponent_id || 0)]) {
       if (playerId > 0 && playerId !== id) try { await api.sendMessage({ chat_id: playerId, text: '⌛ پخوانی ګېم د انتظار د وخت له تېرېدو وروسته لغوه شو. مهرباني وکړه نوی ګېم پیل کړه.' }); } catch (e) {}
@@ -547,6 +558,7 @@ async function tryOfferSearches() {
   const allRequests = await db.select().from(connection_requests).all();
   const allUsers = await db.select().from(users).all();
   const allSessions = await db.select().from(chat_sessions).all();
+  const allGames = await db.select().from(game_sessions).all();
   const allBlocks = await db.select().from(user_blocks).all();
   const allFavorites = await db.select().from(favorites).all();
   const now = Date.now(), waitSeconds = Math.max(1, Number(await getSetting('connection_search_seconds', 120)) || 120);
@@ -560,11 +572,15 @@ async function tryOfferSearches() {
       Number.isFinite(Date.parse(row.created_at || '')) && now - Date.parse(row.created_at || '') < waitSeconds * 1000)) continue;
     const requester = allUsers.find(row => Number(row.telegram_id) === Number(search.requester_id));
     if (!requester || Number(requester.is_blocked) === 1) continue;
+    if (allGames.some(row => ['waiting', 'pending', 'playing', 'settlement_error'].includes(row.status) &&
+        (Number(row.player_id) === Number(search.requester_id) || Number(row.opponent_id) === Number(search.requester_id)))) continue;
     const alreadyTried = new Set(allRequests.filter(row => Number(row.requester_id) === Number(search.requester_id) && row.recipient_id && Number(row.id) > Number(search.id))
       .map(row => Number(row.recipient_id)));
     const candidates = allUsers.filter(candidate => {
       const candidateId = Number(candidate.telegram_id);
       if (candidateId === Number(search.requester_id) || Number(candidate.is_blocked) === 1) return false;
+      if (allGames.some(row => ['waiting', 'pending', 'playing', 'settlement_error'].includes(row.status) &&
+          (Number(row.player_id) === candidateId || Number(row.opponent_id) === candidateId))) return false;
       if (!candidate.country || !candidate.gender || !candidate.age) return false;
       const active = Date.parse(candidate.last_active_at || '');
       if (!Number.isFinite(active) || now - active > 120000) return false;
@@ -700,6 +716,16 @@ async function startDiceGame(chatId, user) {
   }
   const rows = await db.select().from(game_sessions).all();
   const userId = Number(user.telegram_id);
+  const activeConnection = await activeSessionFor(userId);
+  const connectionRequests = await db.select().from(connection_requests).all();
+  const hasActiveConnectionRequest = connectionRequests.some(row =>
+    ['searching', 'pending', 'matching'].includes(row.status) &&
+    (Number(row.requester_id) === userId || Number(row.recipient_id) === userId)
+  );
+  if (activeConnection || hasActiveConnectionRequest) {
+    await sendPrompt(chatId, '⚠️ ته لا د اړیکې یا د ملګري د لټون په بهیر کې یې. لومړی هغه پای ته ورسوه، بیا ګېم پیل کړه.', menuKeyboard(user, await isAdmin(userId)), user);
+    return;
+  }
   const waitSeconds = Math.max(1, Number(await getSetting('game_wait_seconds', 120)) || 120);
   const nowMs = Date.now();
   // Expire only this user's stale waiting/offered games. Conditional status updates
@@ -788,6 +814,7 @@ async function resolveBotGame(game) {
 async function tryMatchGames() {
   const rows = await db.select().from(game_sessions).all(), allUsers = await db.select().from(users).all();
   const allSessions = await db.select().from(chat_sessions).all();
+  const allConnectionRequests = await db.select().from(connection_requests).all();
   const waitSeconds = Math.max(1, Number(await getSetting('game_wait_seconds', 120)) || 120);
   const opponentMin = Number(await getSetting('game_opponent_min_stars', 3.5));
   const now = Date.now();
@@ -796,6 +823,8 @@ async function tryMatchGames() {
     const age = now - Date.parse(timerStart || '');
     if (!Number.isFinite(age) || age >= waitSeconds * 1000) continue;
     if (game.status !== 'waiting') continue;
+    if (allConnectionRequests.some(row => ['searching', 'pending', 'matching'].includes(row.status) &&
+        (Number(row.requester_id) === Number(game.player_id) || Number(row.recipient_id) === Number(game.player_id)))) continue;
     const isFreshGame = row => { const start = row.status === 'waiting' ? (row.created_at || row.updated_at) : (row.updated_at || row.created_at); const age = now - Date.parse(start || ''); return Number.isFinite(age) && age < waitSeconds * 1000; };
     const busyGameIds = new Set(rows.filter(row => ['pending','playing'].includes(row.status) && isFreshGame(row)).flatMap(row => [Number(row.player_id), Number(row.opponent_id || 0)]).concat(rows.filter(row => row.status === 'waiting' && isFreshGame(row)).map(row => Number(row.player_id))).concat(rows.filter(row => row.status === 'settlement_error').flatMap(row => [Number(row.player_id), Number(row.opponent_id || 0)])));
     const candidates = allUsers.filter(candidate => {
@@ -804,6 +833,8 @@ async function tryMatchGames() {
       const last = Date.parse(candidate.last_active_at || '');
       if (!Number.isFinite(last) || now - last > 120000) return false;
       if (busyGameIds.has(id)) return false;
+      if (allConnectionRequests.some(row => ['searching', 'pending', 'matching'].includes(row.status) &&
+          (Number(row.requester_id) === id || Number(row.recipient_id) === id))) return false;
       if (allSessions.some(row => row.status === 'connected' && (Number(row.first_user_telegram_id) === id || Number(row.second_user_telegram_id) === id))) return false;
       return true;
     }).sort((a,b) => Date.parse(b.last_active_at || '') - Date.parse(a.last_active_at || ''));
