@@ -32,7 +32,7 @@ jobs:
 
           const source = readFileSync('tgcloud/lib/shared.js', 'utf8');
           const start = source.indexOf('const KEYBOARD_DANGER_WORDS');
-          const end = source.indexOf('\\nlet inlinePromptTrackingReady', start);
+          const end = source.indexOf('\nlet inlinePromptTrackingReady', start);
           assert.ok(start >= 0 && end > start, 'Could not locate the keyboard style helper');
           const moduleUrl = 'data:text/javascript;base64,' + Buffer.from(source.slice(start, end)).toString('base64');
           const { styleKeyboardMarkup } = await import(moduleUrl);
