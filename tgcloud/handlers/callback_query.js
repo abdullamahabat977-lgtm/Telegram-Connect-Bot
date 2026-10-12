@@ -1,7 +1,7 @@
 import { api, db } from 'sdk';
 import { and, eq } from 'sdk/db';
 import { users, admins, required_chats, app_settings, favorites, chat_sessions, connection_requests, chat_messages, user_ratings, user_likes, game_sessions, user_blocks, reports } from '../schema.js';
-import { ROOT_ADMINS, LANGUAGES, COUNTRIES, AGES, countryKeyboard, ensureInlinePromptTracking, requiredChatInfo, listWords, isFollowing, otherSessionUser, getUser, safeDelete, isAdmin } from '../lib/shared.js';
+import { ROOT_ADMINS, LANGUAGES, COUNTRIES, AGES, countryKeyboard, ensureInlinePromptTracking, requiredChatInfo, listWords, isFollowing, otherSessionUser, getUser, safeDelete, isAdmin, styleKeyboardMarkup } from '../lib/shared.js';
 import { TEXT } from '../lib/callback-text.js';
 import { resolveBotGame, tryMatchGames } from './message.js';
 
@@ -37,12 +37,6 @@ const ADMIN_UI = {
 function tx(user) {
   return TEXT[user && TEXT[user.language] ? user.language : 'ps'];
 }
-function styleKeyboardMarkup(markup) {
-  // Do not invent button styles by row position. Telegram styles belong to
-  // InlineKeyboardButton; ReplyKeyboardButton has no style field.
-  // Explicit styles authored by the caller are preserved unchanged.
-  return markup;
-}
 async function sendPrompt(chatId, text, markup, user, parseMode) {
   await ensureInlinePromptTracking();
   if (user) {
@@ -51,8 +45,7 @@ async function sendPrompt(chatId, text, markup, user, parseMode) {
     user.last_prompt_id = Number(latest && latest.last_prompt_id || 0);
   }
   if (user && Number(user.last_prompt_id) > 0) await safeDelete(chatId, user.last_prompt_id);
-  const styledMarkup = styleKeyboardMarkup(markup);
-  const sent = await api.sendMessage({ chat_id: chatId, text: text, reply_markup: styledMarkup, ...(parseMode ? { parse_mode: parseMode } : {}) });
+  const sent = await api.sendMessage({ chat_id: chatId, text: text, reply_markup: styleKeyboardMarkup(markup), ...(parseMode ? { parse_mode: parseMode } : {}) });
   if (user) {
     const inlineId = markup && Array.isArray(markup.inline_keyboard) && sent && sent.message_id ? sent.message_id : 0;
     await db.update(users).set({ last_prompt_id: inlineId }).where(eq(users.telegram_id, Number(user.telegram_id))).run();
@@ -681,7 +674,7 @@ async function tryOfferSearches() {
     }
     try { await api.sendMessage({ chat_id: Number(candidate.telegram_id),
       text: '🎲 یو ناڅاپي کس د اړیکې غوښتنه کړې ده.\n\nد غوښتونکي هېڅ معلومات نه ښکاري. که ومنې، اړیکه به وصل شي؛ که رد یې کړې، بل کس ته به غوښتنه ولاړه شي.',
-      reply_markup: { inline_keyboard: [[{ text: '✅ غوښتنه منل', callback_data: 'conn:accept:' + offer.id }, { text: '❌ ردول', callback_data: 'conn:reject:' + offer.id }]] } }); }
+      reply_markup: styleKeyboardMarkup({ inline_keyboard: [[{ text: '✅ غوښتنه منل', callback_data: 'conn:accept:' + offer.id }, { text: '❌ ردول', callback_data: 'conn:reject:' + offer.id }]] }) }); }
     catch (error) {
       console.error('Failed to send connection offer to candidate', { searchId: search.id, offerId: offer.id, candidateId: candidate.telegram_id, error });
       await db.update(connection_requests).set({ status: 'rejected', updated_at: new Date().toISOString() }).where(and(eq(connection_requests.id, Number(offer.id)), eq(connection_requests.status, 'pending'))).run();
