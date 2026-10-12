@@ -25,6 +25,7 @@ export const COUNTRIES = [
 ];
 export const AGES = [12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40];
 
+const KEYBOARD_STYLE_PALETTE = ['primary', 'success', 'danger'];
 const KEYBOARD_DANGER_WORDS = [
   'cancel', 'reject', 'delete', 'remove', 'end connection', 'report',
   'لغوه', 'ردول', 'حذف', 'مسدودول', 'بلاک', 'ختم', 'حظر', 'إلغاء',
@@ -36,7 +37,7 @@ const KEYBOARD_SUCCESS_WORDS = [
   'من می‌شوم', 'قبول', 'حفظ', 'انضمام', 'تأكيد', 'إلغاء الحظر', 'ان بلاک'
 ];
 
-function inferKeyboardButtonStyle(button) {
+function inferKeyboardButtonStyle(button, fallbackStyle = 'primary') {
   const text = String(button && button.text || '').toLowerCase();
   const data = String(button && button.callback_data || '').toLowerCase();
   const value = text + ' ' + data;
@@ -47,25 +48,30 @@ function inferKeyboardButtonStyle(button) {
   // Positive text exceptions are checked first so "unblock" is green, not red.
   if (KEYBOARD_SUCCESS_WORDS.some(word => value.includes(word))) return 'success';
   if (KEYBOARD_DANGER_WORDS.some(word => value.includes(word))) return 'danger';
-  return 'primary';
+  // Neutral/menu buttons use a rotating palette, so the keyboard isn't all blue.
+  return fallbackStyle;
 }
 
 /**
- * Add Telegram Bot API 9.4 button styles to every reply/inline keyboard button.
- * Reply keyboard buttons may be strings, so normalize those to objects first.
- * Markups such as ForceReply/RemoveKeyboard are returned unchanged.
+ * Apply Telegram's supported primary (blue), success (green), and danger (red)
+ * styles to inline and reply keyboard buttons. Reply keyboard string buttons are
+ * normalized to objects because style is a field on KeyboardButton.
+ * ForceReply/RemoveKeyboard and other non-keyboard markups stay unchanged.
  */
 export function styleKeyboardMarkup(markup) {
   if (!markup || typeof markup !== 'object') return markup;
+  let buttonIndex = 0;
+  const nextFallbackStyle = () => KEYBOARD_STYLE_PALETTE[buttonIndex++ % KEYBOARD_STYLE_PALETTE.length];
   if (Array.isArray(markup.inline_keyboard)) {
     return {
       ...markup,
       inline_keyboard: markup.inline_keyboard.map(row =>
-        Array.isArray(row) ? row.map(button =>
-          button && typeof button === 'object'
-            ? { ...button, style: inferKeyboardButtonStyle(button) }
-            : button
-        ) : row
+        Array.isArray(row) ? row.map(button => {
+          const fallbackStyle = nextFallbackStyle();
+          return button && typeof button === 'object'
+            ? { ...button, style: inferKeyboardButtonStyle(button, fallbackStyle) }
+            : button;
+        }) : row
       )
     };
   }
@@ -74,9 +80,10 @@ export function styleKeyboardMarkup(markup) {
       ...markup,
       keyboard: markup.keyboard.map(row =>
         Array.isArray(row) ? row.map(button => {
+          const fallbackStyle = nextFallbackStyle();
           const normalized = typeof button === 'string' ? { text: button } : button;
           return normalized && typeof normalized === 'object'
-            ? { ...normalized, style: inferKeyboardButtonStyle(normalized) }
+            ? { ...normalized, style: inferKeyboardButtonStyle(normalized, fallbackStyle) }
             : normalized;
         }) : row
       )
@@ -84,7 +91,6 @@ export function styleKeyboardMarkup(markup) {
   }
   return markup;
 }
-
 let inlinePromptTrackingReady = false;
 
 
