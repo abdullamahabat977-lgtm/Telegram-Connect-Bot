@@ -1011,13 +1011,55 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
     actor.state = 'ready'; await showMain(chatId, actor, '❌ لټون لغوه شو.'); return;
   }
   if (p[1] === 'cancel_search') {
-    const rows = await db.select().from(connection_requests).where(eq(connection_requests.requester_id, actorId)).all();
-    for (const row of rows.filter(item => ['searching', 'matching', 'pending'].includes(item.status))) {
-      await db.update(connection_requests).set({ status: 'cancelled', updated_at: new Date().toISOString() })
-        .where(and(eq(connection_requests.id, Number(row.id)), eq(connection_requests.status, row.status))).run();
+    // Cancel this user's own search/offers, and allow a recipient to dismiss an
+    // incoming pending offer from the same button. Never cancel a connected session.
+    const rows = await db.select().from(connection_requests).all();
+    const notifyRequesters = new Set();
+    let cancelledCount = 0;
+    for (const row of rows.filter(item =>
+      ['searching', 'matching', 'pending'].includes(item.status) &&
+      ((Number(item.requester_id) === actorId) ||
+       (item.status === 'pending' && Number(item.recipient_id) === actorId))
+    )) {
+      const cancelled = await db.update(connection_requests)
+        .set({ status: 'cancelled', updated_at: new Date().toISOString() })
+        .where(and(
+          eq(connection_requests.id, Number(row.id)),
+          eq(connection_requests.status, row.status),
+          ...(row.status === 'pending' && Number(row.recipient_id) === actorId
+            ? [eq(connection_requests.recipient_id, actorId)]
+            : [eq(connection_requests.requester_id, actorId)])
+        ))
+        .returning({ id: connection_requests.id }).run();
+      if (!cancelled || !Array.isArray(cancelled.rows) || cancelled.rows.length === 0) continue;
+      cancelledCount++;
+      if (row.status === 'pending' && Number(row.requester_id) !== actorId) {
+        notifyRequesters.add(Number(row.requester_id));
+      }
     }
-    await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, actorId)).run();
-    actor.state = 'ready'; await showMain(chatId, actor, '❌ لټون لغوه شو.'); return;
+    for (const requesterId of notifyRequesters) {
+      try {
+        await api.sendMessage({ chat_id: requesterId, text: '⌛ مقابل لوري د اړیکې غوښتنه لغوه کړه؛ د هغه غوښتنه نور فعاله نه ده.' });
+      } catch (error) {
+        console.warn('Could not notify requester after recipient cancelled offer', { actorId, requesterId, error });
+      }
+    }
+    const remaining = await db.select().from(connection_requests).all();
+    const stillActive = remaining.some(row =>
+      ['searching', 'matching', 'pending'].includes(row.status) &&
+      (Number(row.requester_id) === actorId || Number(row.recipient_id) === actorId)
+    );
+    if (!stillActive) {
+      await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, actorId)).run();
+      actor.state = 'ready';
+    }
+    try { await tryOfferSearches(); } catch (error) {
+      console.error('Could not restart connection matching after cancellation', { actorId, error });
+    }
+    await showMain(chatId, actor, cancelledCount
+      ? '❌ لټون/غوښتنه لغوه شوه. اوس نوی لټون پیلولای شې.'
+      : '⌛ فعاله غوښتنه ونه موندل شوه. اوس بیا لټون پیلولای شې.');
+    return;
   }
   if (p[1] === 'reject' || p[1] === 'accept') {
     const offerId = Number(p[2]), rows = await db.select().from(connection_requests).all();
