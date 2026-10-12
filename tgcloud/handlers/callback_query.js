@@ -813,7 +813,13 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
     if (!offer) { await sendPrompt(chatId, '⌛ دا غوښتنه نوره فعاله نه ده.', mainKeyboard(actor, await isAdmin(actorId)), actor); return; }
     const search = rows.find(row => Number(row.requester_id) === Number(offer.requester_id) && row.status === 'searching' && !row.recipient_id);
     if (p[1] === 'reject') {
-      await db.update(connection_requests).set({ status: 'rejected', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, offerId)).run();
+      const rejected = await db.update(connection_requests).set({ status: 'rejected', updated_at: new Date().toISOString() })
+        .where(and(eq(connection_requests.id, offerId), eq(connection_requests.status, 'pending'), eq(connection_requests.recipient_id, actorId)))
+        .returning({ id: connection_requests.id }).run();
+      if (!rejected || !Array.isArray(rejected.rows) || rejected.rows.length === 0) {
+        await sendPrompt(chatId, '⌛ دا غوښتنه نور فعاله نه ده.', mainKeyboard(actor, await isAdmin(actorId)), actor);
+        return;
+      }
       try { await tryOfferSearches(); } catch (error) { console.error('Connection retry after rejection failed', { offerId: offerId, actorId: actorId, error: error }); }
       return;
     }
@@ -825,17 +831,57 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
       try { await tryOfferSearches(); } catch (error) { console.error('Connection retry after insufficient balance failed', { offerId: offerId, actorId: actorId, error: error }); }
       return;
     }
+    const activeGames = await db.select().from(game_sessions).all();
+    const gameConflict = activeGames.some(row => ['waiting', 'pending', 'playing', 'settlement_error'].includes(row.status) &&
+      (Number(row.player_id) === Number(requester.telegram_id) || Number(row.opponent_id) === Number(requester.telegram_id) ||
+       Number(row.player_id) === actorId || Number(row.opponent_id) === actorId));
+    if (gameConflict) {
+      await db.update(connection_requests).set({ status: 'expired', updated_at: new Date().toISOString() })
+        .where(and(eq(connection_requests.id, offerId), eq(connection_requests.status, 'pending'))).run();
+      await db.update(connection_requests).set({ status: 'cancelled', updated_at: new Date().toISOString() })
+        .where(and(eq(connection_requests.id, Number(search.id)), eq(connection_requests.status, 'searching'))).run();
+      await sendPrompt(chatId, '⚠️ د غوښتونکي یا ستا ګېم لا فعال دی. دا د اړیکې غوښتنه بنده شوه؛ د ګېم تر پای وروسته بیا هڅه وکړه.', mainKeyboard(actor, await isAdmin(actorId)), actor);
+      try { await api.sendMessage({ chat_id: Number(requester.telegram_id), text: '⚠️ د ګېم د فعال حالت له امله د اړیکې لټون لغوه شو. د ګېم تر پای وروسته بیا هڅه وکړه.' }); } catch (e) {}
+      return;
+    }
     const requesterSession = await activeSessionFor(requester.telegram_id);
     if (requesterSession) { await sendPrompt(chatId, '⚠️ غوښتونکی لا له بل کس سره په اړیکه کې دی.', mainKeyboard(actor, await isAdmin(actorId)), actor); return; }
+    const offerClaim = await db.update(connection_requests).set({ status: 'matching', updated_at: new Date().toISOString() })
+      .where(and(eq(connection_requests.id, offerId), eq(connection_requests.status, 'pending'), eq(connection_requests.recipient_id, actorId)))
+      .returning({ id: connection_requests.id }).run();
+    if (!offerClaim || !Array.isArray(offerClaim.rows) || offerClaim.rows.length === 0) {
+      await sendPrompt(chatId, '⌛ دا غوښتنه نور فعاله نه ده.', mainKeyboard(actor, await isAdmin(actorId)), actor);
+      return;
+    }
+    const searchClaim = await db.update(connection_requests).set({ status: 'connected', updated_at: new Date().toISOString() })
+      .where(and(eq(connection_requests.id, Number(search.id)), eq(connection_requests.status, 'searching'), eq(connection_requests.requester_id, Number(requester.telegram_id))))
+      .returning({ id: connection_requests.id }).run();
+    if (!searchClaim || !Array.isArray(searchClaim.rows) || searchClaim.rows.length === 0) {
+      await db.update(connection_requests).set({ status: 'expired', updated_at: new Date().toISOString() })
+        .where(and(eq(connection_requests.id, offerId), eq(connection_requests.status, 'matching'))).run();
+      await sendPrompt(chatId, '⌛ د غوښتونکي لټون پای ته رسېدلی؛ دا غوښتنه نوره فعاله نه ده.', mainKeyboard(actor, await isAdmin(actorId)), actor);
+      return;
+    }
+    const debited = await db.update(users).set({ stars: Number(requester.stars || 0) - cost, state: 'ready' })
+      .where(and(eq(users.telegram_id, Number(requester.telegram_id)), eq(users.stars, Number(requester.stars || 0))))
+      .returning({ telegram_id: users.telegram_id }).run();
+    if (!debited || !Array.isArray(debited.rows) || debited.rows.length === 0) {
+      await db.update(connection_requests).set({ status: 'cancelled', updated_at: new Date().toISOString() })
+        .where(and(eq(connection_requests.id, Number(search.id)), eq(connection_requests.status, 'connected'))).run();
+      await db.update(connection_requests).set({ status: 'rejected', updated_at: new Date().toISOString() })
+        .where(and(eq(connection_requests.id, offerId), eq(connection_requests.status, 'matching'))).run();
+      try { await api.sendMessage({ chat_id: Number(requester.telegram_id), text: '⚠️ ستا د ستورو بیلانس بدل شوی؛ اړیکه جوړه نه شوه او نوی لټون لغوه شو.' }); } catch (e) {}
+      await sendPrompt(chatId, '⚠️ د غوښتونکي بیلانس بدل شوی؛ اړیکه جوړه نه شوه.', mainKeyboard(actor, await isAdmin(actorId)), actor);
+      return;
+    }
     const oldSession = await activeSessionFor(actorId);
     if (oldSession) await endConnection(oldSession, 'accepted_new_request');
-    await db.update(users).set({ stars: Number(requester.stars || 0) - cost, state: 'ready' }).where(eq(users.telegram_id, Number(requester.telegram_id))).run();
-    await db.update(connection_requests).set({ status: 'connected', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, Number(search.id))).run();
-    await db.update(connection_requests).set({ status: 'accepted', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, offerId)).run();
-    for (const row of rows.filter(item => Number(item.requester_id) === Number(requester.telegram_id) && item.status === 'pending' && Number(item.id) !== offerId)) await db.update(connection_requests).set({ status: 'cancelled', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, Number(row.id))).run();
+    await db.update(connection_requests).set({ status: 'accepted', updated_at: new Date().toISOString() })
+      .where(and(eq(connection_requests.id, offerId), eq(connection_requests.status, 'matching'))).run();
+    for (const row of rows.filter(item => Number(item.requester_id) === Number(requester.telegram_id) && item.status === 'pending' && Number(item.id) !== offerId)) await db.update(connection_requests).set({ status: 'cancelled', updated_at: new Date().toISOString() }).where(and(eq(connection_requests.id, Number(row.id)), eq(connection_requests.status, 'pending'))).run();
     for (const row of rows.filter(item => Number(item.requester_id) === actorId && ['searching','pending'].includes(item.status))) {
       await db.update(connection_requests).set({ status: 'cancelled', updated_at: new Date().toISOString() })
-        .where(eq(connection_requests.id, Number(row.id))).run();
+        .where(and(eq(connection_requests.id, Number(row.id)), eq(connection_requests.status, row.status))).run();
     }
     const now = new Date().toISOString();
     await db.insert(chat_sessions).values({ first_user_telegram_id: Number(requester.telegram_id), second_user_telegram_id: actorId, status: 'connected',
@@ -1035,6 +1081,20 @@ async function handleGameCallback(query, actor, data, actorId, chatId) {
   }
   if (action === 'accept' && Number(game.opponent_id) === actorId) {
     try {
+      const connectionRequests = await db.select().from(connection_requests).all();
+      const activeSessionForPlayer = await activeSessionFor(Number(game.player_id));
+      const activeSessionForOpponent = await activeSessionFor(actorId);
+      const hasConnectionRequest = connectionRequests.some(row => ['searching', 'pending', 'matching'].includes(row.status) &&
+        (Number(row.requester_id) === Number(game.player_id) || Number(row.recipient_id) === Number(game.player_id) ||
+         Number(row.requester_id) === actorId || Number(row.recipient_id) === actorId));
+      if (activeSessionForPlayer || activeSessionForOpponent || hasConnectionRequest) {
+        await db.update(game_sessions).set({ status: 'cancelled', updated_at: new Date().toISOString() })
+          .where(and(eq(game_sessions.id, gameId), eq(game_sessions.status, 'pending'), eq(game_sessions.opponent_id, actorId))).run();
+        const notice = '⚠️ د ګېم یو لوبغاړی د Connection په بهیر کې دی؛ د ټکر د مخنیوي لپاره ګېم لغوه شو. بیا هڅه وکړه.';
+        try { await api.sendMessage({ chat_id: Number(game.player_id), text: notice }); } catch (e) {}
+        try { await api.sendMessage({ chat_id: actorId, text: notice }); } catch (e) {}
+        return;
+      }
       const acceptedAt = new Date().toISOString();
       // Atomic claim: only one callback can move this pending game to playing.
       const claimed = await db.update(game_sessions)
