@@ -741,6 +741,14 @@ async function resolveUserGame(game) {
   const fee = Number(game.fee_stars ?? await getSetting('game_fee_stars', 0.5));
   const winStars = Number(game.win_stars ?? await getSetting('game_win_stars', 3));
   const points = Number(game.points_award ?? await getSetting('game_win_points', 1));
+  if (![fee, winStars, points].every(Number.isFinite) || fee < 0 || winStars < 0 || points < 0 || !Number.isInteger(points)) {
+    await db.update(game_sessions).set({ status: 'settlement_error', updated_at: new Date().toISOString() })
+      .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'playing'))).run();
+    const notice = '⚠️ د ګېم مالي تنظیمات ناسم دي؛ د ستورو حساب ونه شو. له اډمین سره اړیکه ونیسه.';
+    try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: notice }); } catch (e) {}
+    try { await api.sendMessage({ chat_id: Number(opponent.telegram_id), text: notice }); } catch (e) {}
+    return;
+  }
   if (Number(player.stars || 0) < fee + winStars || Number(opponent.stars || 0) < fee + winStars) {
     await db.update(game_sessions).set({ status: 'cancelled', updated_at: new Date().toISOString() })
       .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'playing'))).run();
