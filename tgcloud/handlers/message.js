@@ -3,6 +3,7 @@ import { and, eq } from 'sdk/db';
 import { users, admins, required_chats, app_settings, favorites, chat_sessions, connection_requests, chat_messages, user_ratings, user_likes, game_sessions, user_blocks, reports } from '../schema.js';
 import { ROOT_ADMINS, LANGUAGES, COUNTRIES, AGES, languageKeyboard, countryKeyboard, ensureInlinePromptTracking, requiredChatInfo, listWords, isFollowing, otherSessionUser, getUser, safeDelete, isAdmin } from '../lib/shared.js';
 import { T } from '../lib/message-text.js';
+import { sendPrompt, getSetting, setSetting, ensureDefaults } from './message-core.js';
 import { tx, keyboard, menuKeyboard, ageKeyboard, genderKeyboard, settingsKeyboard, profileSettingsKeyboard, photoSettingsKeyboard, channelSettingsKeyboard, favoriteSettingsKeyboard, adminKeyboard, adminManagementKeyboard, adminUserSettingsKeyboard, channelKeyboard, actionFor } from './message-ui.js';
 
 // ── Admin profile and user list renderers ──
@@ -49,51 +50,8 @@ async function showUserList(chatId, user, page) {
   rows.push([{ text: w.main, callback_data: 'admin:main' }]);
   await sendPrompt(chatId, text, { inline_keyboard: rows }, user);
 }
-// ── Prompt delivery and settings ──
-async function sendPrompt(chatId, text, markup, user, parseMode) {
-  await ensureInlinePromptTracking();
-  if (user) {
-    const latest = await db.select({ last_prompt_id: users.last_prompt_id }).from(users)
-      .where(eq(users.telegram_id, Number(user.telegram_id))).get();
-    user.last_prompt_id = Number(latest && latest.last_prompt_id || 0);
-  }
-  if (user && Number(user.last_prompt_id) > 0) {
-    await safeDelete(chatId, Number(user.last_prompt_id));
-  }
-  const sent = await api.sendMessage({ chat_id: chatId, text: text, reply_markup: markup, ...(parseMode ? { parse_mode: parseMode } : {}) });
-  if (user) {
-    const inlineId = markup && Array.isArray(markup.inline_keyboard) && sent && sent.message_id ? sent.message_id : 0;
-    await db.update(users).set({ last_prompt_id: inlineId }).where(eq(users.telegram_id, Number(user.telegram_id))).run();
-    user.last_prompt_id = inlineId;
-  }
-  return sent;
-}
-async function getSetting(key, fallback) {
-  const row = await db.select().from(app_settings).where(eq(app_settings.setting_key, key)).get();
-  const value = Number(row && row.setting_value);
-  return row && Number.isFinite(value) && value >= 0 ? value : fallback;
-}
-async function setSetting(key, value) {
-  const old = await db.select().from(app_settings).where(eq(app_settings.setting_key, key)).get();
-  if (old) await db.update(app_settings).set({ setting_value: String(value) }).where(eq(app_settings.setting_key, key)).run();
-  else await db.insert(app_settings).values({ setting_key: key, setting_value: String(value) }).run();
-}
-async function ensureDefaults() {
-  const seed = await db.select().from(app_settings).where(eq(app_settings.setting_key, 'initial_required_chat_seeded')).get();
-  if (!seed) {
-    const old = await db.select().from(required_chats).where(eq(required_chats.chat_id, '-1004419974496')).get();
-    if (!old) await db.insert(required_chats).values({
-      chat_id: '-1004419974496', invite_link: 'https://t.me/AskTechPs', title: 'AskTechPs',
-      is_active: 1, created_at: new Date().toISOString()
-    }).run();
-    await db.insert(app_settings).values({ setting_key: 'initial_required_chat_seeded', setting_value: '1' }).run();
-  }
-  for (const id of ROOT_ADMINS) {
-    const row = await db.select().from(admins).where(eq(admins.telegram_id, id)).get();
-    if (!row) await db.insert(admins).values({ telegram_id: id, created_at: new Date().toISOString() }).run();
-  }
-}
 // ── Registration and required-chat membership ──
+
 async function getRequiredChats() { return await db.select().from(required_chats).where(eq(required_chats.is_active, 1)).all(); }
 function requiredChatButtonTitle(chat, user) {
   const info = requiredChatInfo(chat);
