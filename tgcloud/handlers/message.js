@@ -3,11 +3,82 @@ import { and, eq } from 'sdk/db';
 import { users, admins, required_chats, app_settings, favorites, chat_sessions, connection_requests, chat_messages, user_ratings, user_likes, game_sessions, user_blocks, reports } from '../schema.js';
 import { ROOT_ADMINS, LANGUAGES, COUNTRIES, AGES, languageKeyboard, countryKeyboard, ensureInlinePromptTracking, requiredChatInfo, listWords, isFollowing, otherSessionUser, getUser, safeDelete, isAdmin } from '../lib/shared.js';
 import { T } from '../lib/message-text.js';
-import { sendPrompt, getSetting, setSetting, ensureDefaults } from './message-core.js';
-import { getRequiredChats, requiredChatButtonTitle, channelError, showMembership, checkMembership, matchLanguage, showLanguage, showCountry, showGender, showAge, showName, showSurname } from './message-registration.js';
-import { tx, keyboard, menuKeyboard, ageKeyboard, genderKeyboard, settingsKeyboard, profileSettingsKeyboard, photoSettingsKeyboard, channelSettingsKeyboard, favoriteSettingsKeyboard, adminKeyboard, adminManagementKeyboard, adminUserSettingsKeyboard, channelKeyboard, actionFor } from './message-ui.js';
 
-// ── Admin profile and user list renderers ──
+// ── Keyboard builders and localized UI ──
+function tx(user) { return T[user && T[user.language] ? user.language : 'ps']; }
+
+function keyboard(rows, extra) {
+  const result = { keyboard: rows, resize_keyboard: true };
+  if (extra) Object.assign(result, extra);
+  return result;
+}
+function menuKeyboard(user, admin) {
+  const m = tx(user).menu;
+  const rows = [
+    [{ text: m[0] }, { text: m[1] }],
+    [{ text: m[2] }, { text: m[3] }],
+    [{ text: m[4] }, { text: m[5] }],
+    [{ text: m[6] }, { text: m[7] }],
+    [{ text: m[9] }, { text: m[10] }]
+  ];
+  if (admin) rows.push([{ text: m[8] }]);
+  return keyboard(rows);
+}
+function ageKeyboard() {
+  const rows = [];
+  for (let i = 0; i < AGES.length; i += 3) {
+    rows.push(AGES.slice(i, i + 3).map(function (age) {
+      return { text: String(age), callback_data: 'reg:age:' + String(age) };
+    }));
+  }
+  return { inline_keyboard: rows };
+}
+function genderKeyboard(user) {
+  return { inline_keyboard: [[
+    { text: tx(user).male, callback_data: 'reg:gender:male' },
+    { text: tx(user).female, callback_data: 'reg:gender:female' }
+  ]] };
+}
+function settingsKeyboard(user) {
+  const b = tx(user).settingsButtons;
+  return keyboard([[{ text: b[0] }, { text: b[1] }], [{ text: b[2] }, { text: b[3] }]]);
+}
+function profileSettingsKeyboard(user) {
+  const b = tx(user).profileSettingsButtons;
+  return keyboard([[{ text: b[0] }, { text: b[1] }], [{ text: b[2] }, { text: b[3] }], [{ text: b[4] }, { text: b[5] }], [{ text: b[6] }], [{ text: b[7] }], [{ text: b[8] }]]);
+}
+function photoSettingsKeyboard(user) {
+  const b = tx(user).photoSettingsButtons;
+  return keyboard([[{ text: b[0] }, { text: b[1] }], [{ text: b[2] }]]);
+}
+function channelSettingsKeyboard(user) {
+  const b = tx(user).channelSettingsButtons;
+  return keyboard([[{ text: b[0] }, { text: b[1] }], [{ text: b[2] }]]);
+}
+function favoriteSettingsKeyboard(user) {
+  const b = tx(user).favoriteSettingsButtons;
+  return keyboard([[{ text: b[0] }], [{ text: b[1] }]]);
+}
+function adminKeyboard(user) {
+  const b = tx(user).adminButtons;
+  return keyboard([[{ text: b[0] }], [{ text: b[1] }, { text: b[2] }], [{ text: b[3] }, { text: b[4] }], [{ text: b[5] }], [{ text: b[6] }], [{ text: b[7] }, { text: b[8] }], [{ text: b[9] }]]);
+}
+function adminManagementKeyboard(user) {
+  const b = tx(user).adminManagementButtons;
+  return keyboard([[{ text: b[0] }, { text: b[1] }], [{ text: b[2] }], [{ text: b[3] }]]);
+}
+function adminUserSettingsKeyboard(user, targetId, blocked) {
+  const b = user.language === 'en' ? ['🖼 Change photo','⭐ Stars','🏆 Points','❤️ Likes','⛔ Block','✅ Unblock','📨 Send message','🔙 Admin panel'] : user.language === 'fa' ? ['🖼 تغییر عکس','⭐ ستاره','🏆 امتیاز','❤️ لایک','⛔ مسدود','✅ رفع مسدودی','📨 ارسال پیام','🔙 پنل مدیریت'] : user.language === 'ur' ? ['🖼 تصویر بدلیں','⭐ ستارے','🏆 پوائنٹس','❤️ لائکس','⛔ بلاک','✅ ان بلاک','📨 پیغام بھیجیں','🔙 ایڈمن پینل'] : user.language === 'ar' ? ['🖼 تغيير الصورة','⭐ النجوم','🏆 النقاط','❤️ الإعجابات','⛔ حظر','✅ إلغاء الحظر','📨 إرسال رسالة','🔙 لوحة الإدارة'] : ['🖼 عکس بدلول','⭐ ستوري','🏆 نمرې','❤️ لایکونه','⛔ مسدودول','✅ خلاصول','📨 پیغام لېږل','🔙 اډمین پینل'];
+  return { inline_keyboard: [
+    [{ text: b[0], callback_data: 'admin:photo:' + targetId }],
+    [{ text: b[1] + ' +', callback_data: 'admin:balance:stars:add:' + targetId }, { text: b[1] + ' −', callback_data: 'admin:balance:stars:sub:' + targetId }],
+    [{ text: b[2] + ' +', callback_data: 'admin:balance:points:add:' + targetId }, { text: b[2] + ' −', callback_data: 'admin:balance:points:sub:' + targetId }],
+    [{ text: b[3] + ' +', callback_data: 'admin:balance:likes:add:' + targetId }, { text: b[3] + ' −', callback_data: 'admin:balance:likes:sub:' + targetId }],
+    [{ text: Number(blocked) === 1 ? b[5] : b[4], callback_data: 'admin:' + (Number(blocked) === 1 ? 'unblock:' : 'block:') + targetId }],
+    [{ text: b[6], callback_data: 'admin:send:' + targetId }],
+    [{ text: b[7], callback_data: 'admin:panel' }]
+  ] };
+}
 async function showAdminUserSettings(chatId, adminUser, target) {
   const country = COUNTRIES.find(item => item.code === target.country);
   const favCount = await db.$count(favorites, eq(favorites.user_telegram_id, Number(target.telegram_id)));
@@ -51,8 +122,140 @@ async function showUserList(chatId, user, page) {
   rows.push([{ text: w.main, callback_data: 'admin:main' }]);
   await sendPrompt(chatId, text, { inline_keyboard: rows }, user);
 }
+function channelKeyboard(user) {
+  const b = tx(user).channelButtons;
+  return keyboard([[{ text: b[0] }, { text: b[1] }], [{ text: b[2] }, { text: b[3] }]]);
+}
+function actionFor(input) {
+  for (const lang of Object.keys(T)) {
+    const t = T[lang], m = t.menu;
+    const pairs = [
+      ['find', m[0]], ['favorites', m[1]], ['random', m[2]], ['invite', m[3]], ['profile', m[4]],
+      ['language', m[5]], ['settings', m[6]], ['stats', m[7]], ['admin', m[8]], ['game', m[9]], ['leaderboards', m[10]], ['joined', t.joined],
+      ['country', t.profileSettingsButtons[0]], ['gender', t.profileSettingsButtons[1]], ['age', t.profileSettingsButtons[2]],
+      ['name', t.profileSettingsButtons[3]], ['surname', t.profileSettingsButtons[4]],
+      ['photoSettings', t.profileSettingsButtons[5]], ['channelSettings', t.profileSettingsButtons[6]], ['profileVisibility', t.profileSettingsButtons[7]],
+      ['profileSettings', t.settingsButtons[0]], ['favoriteSettings', t.settingsButtons[1]],
+      ['connectionSettings', t.settingsButtons[2]], ['rewardSettings', t.adminButtons[6]],
+      ['adminManagement', t.adminButtons[0]], ['channels', t.adminButtons[1]], ['broadcast', t.adminButtons[2]],
+      ['userSettings', t.adminButtons[3]], ['usersList', t.adminButtons[4]], ['rewardSettings', t.adminButtons[6]], ['connectionAdminSettings', t.adminButtons[7]], ['gameAdminSettings', t.adminButtons[8]], ['leaderboards', t.adminButtons[9]],
+      ['adminAdd', t.adminManagementButtons[0]], ['adminRemove', t.adminManagementButtons[1]],
+      ['adminsList', t.adminManagementButtons[2]], ['cancel', t.cancel], ['skip', t.skip],
+      ['photoSet', t.photoSettingsButtons[0]], ['photoRemove', t.photoSettingsButtons[1]],
+      ['channelSet', t.channelSettingsButtons[0]], ['channelRemoveProfile', t.channelSettingsButtons[1]],
+      ['favoritesList', t.favoriteSettingsButtons[0]]
+    ];
+    const backLabels = [t.settingsButtons[3], t.profileSettingsButtons[8], t.photoSettingsButtons[2],
+      t.channelSettingsButtons[2], t.favoriteSettingsButtons[1], t.adminManagementButtons[3]];
+    for (const label of backLabels) if (label === input) return 'back';
+    for (const pair of pairs) if (pair[1] === input) return pair[0];
+  }
+  return null;
+}
+// ── Prompt delivery and settings ──
+async function sendPrompt(chatId, text, markup, user, parseMode) {
+  await ensureInlinePromptTracking();
+  if (user) {
+    const latest = await db.select({ last_prompt_id: users.last_prompt_id }).from(users)
+      .where(eq(users.telegram_id, Number(user.telegram_id))).get();
+    user.last_prompt_id = Number(latest && latest.last_prompt_id || 0);
+  }
+  if (user && Number(user.last_prompt_id) > 0) {
+    await safeDelete(chatId, Number(user.last_prompt_id));
+  }
+  const sent = await api.sendMessage({ chat_id: chatId, text: text, reply_markup: markup, ...(parseMode ? { parse_mode: parseMode } : {}) });
+  if (user) {
+    const inlineId = markup && Array.isArray(markup.inline_keyboard) && sent && sent.message_id ? sent.message_id : 0;
+    await db.update(users).set({ last_prompt_id: inlineId }).where(eq(users.telegram_id, Number(user.telegram_id))).run();
+    user.last_prompt_id = inlineId;
+  }
+  return sent;
+}
+async function getSetting(key, fallback) {
+  const row = await db.select().from(app_settings).where(eq(app_settings.setting_key, key)).get();
+  const value = Number(row && row.setting_value);
+  return row && Number.isFinite(value) && value >= 0 ? value : fallback;
+}
+async function setSetting(key, value) {
+  const old = await db.select().from(app_settings).where(eq(app_settings.setting_key, key)).get();
+  if (old) await db.update(app_settings).set({ setting_value: String(value) }).where(eq(app_settings.setting_key, key)).run();
+  else await db.insert(app_settings).values({ setting_key: key, setting_value: String(value) }).run();
+}
+async function ensureDefaults() {
+  const seed = await db.select().from(app_settings).where(eq(app_settings.setting_key, 'initial_required_chat_seeded')).get();
+  if (!seed) {
+    const old = await db.select().from(required_chats).where(eq(required_chats.chat_id, '-1004419974496')).get();
+    if (!old) await db.insert(required_chats).values({
+      chat_id: '-1004419974496', invite_link: 'https://t.me/AskTechPs', title: 'AskTechPs',
+      is_active: 1, created_at: new Date().toISOString()
+    }).run();
+    await db.insert(app_settings).values({ setting_key: 'initial_required_chat_seeded', setting_value: '1' }).run();
+  }
+  for (const id of ROOT_ADMINS) {
+    const row = await db.select().from(admins).where(eq(admins.telegram_id, id)).get();
+    if (!row) await db.insert(admins).values({ telegram_id: id, created_at: new Date().toISOString() }).run();
+  }
+}
+// ── Registration and required-chat membership ──
+async function getRequiredChats() { return await db.select().from(required_chats).where(eq(required_chats.is_active, 1)).all(); }
+function requiredChatButtonTitle(chat, user) {
+  const info = requiredChatInfo(chat);
+  const labels = { ps: ['چینل ته ګډون', 'ګروپ ته ګډون'], fa: ['عضویت در کانال', 'عضویت در گروه'], en: ['Join channel', 'Join group'], ur: ['چینل میں شامل ہوں', 'گروپ میں شامل ہوں'], ar: ['الانضمام إلى القناة', 'الانضمام إلى المجموعة'] };
+  const pair = labels[user.language] || labels.ps;
+  return (info.type === 'channel' ? pair[0] : pair[1]) + (info.title ? ': ' + info.title : '');
+}
+function channelError(user, kind) {
+  const messages = {
+    ps: { invalid: '⚠️ ID ناسم دی یا بوټ لاسرسی نه لري.', member: '⚠️ بوټ په دې ګروپ/چینل کې غړی نه دی.', admin: '⚠️ بوټ باید په ګروپ/چینل کې مدیر وي.', link: '⚠️ د ګډون لینک پیدا یا جوړ نه شو.' },
+    fa: { invalid: '⚠️ شناسه نادرست است یا ربات دسترسی ندارد.', member: '⚠️ ربات عضو این گروه/کانال نیست.', admin: '⚠️ ربات باید مدیر باشد.', link: '⚠️ لینک عضویت پیدا یا ساخته نشد.' },
+    en: { invalid: '⚠️ Invalid ID or the bot cannot access this chat.', member: '⚠️ The bot is not a member of this group/channel.', admin: '⚠️ The bot must be an administrator.', link: '⚠️ Could not find or create a join link.' },
+    ur: { invalid: '⚠️ ID غلط ہے یا بوٹ کو رسائی نہیں۔', member: '⚠️ بوٹ اس گروپ/چینل کا رکن نہیں۔', admin: '⚠️ بوٹ کو ایڈمن ہونا چاہیے۔', link: '⚠️ شمولیت کا لنک نہیں ملا۔' },
+    ar: { invalid: '⚠️ المعرّف غير صحيح أو لا يوجد وصول.', member: '⚠️ البوت ليس عضوًا في المجموعة/القناة.', admin: '⚠️ يجب أن يكون البوت مشرفًا.', link: '⚠️ تعذّر العثور على رابط الانضمام.' }
+  };
+  return (messages[user.language] || messages.ps)[kind];
+}
+async function showMembership(chatId, user) {
+  const t = tx(user), chats = await getRequiredChats(), rows = [];
+  for (const chat of chats) if (chat.invite_link) rows.push([{ text: requiredChatButtonTitle(chat, user).slice(0, 60), url: chat.invite_link }]);
+  rows.push([{ text: t.joined, callback_data: 'reg:membership:check' }]);
+  await sendPrompt(chatId, t.membership, { inline_keyboard: rows }, user);
+}
+async function checkMembership(id) {
+  const chats = await getRequiredChats();
+  for (const chat of chats) {
+    try {
+      const member = await api.getChatMember({ chat_id: chat.chat_id, user_id: Number(id) });
+      const status = member && member.status;
+      if (!(status === 'creator' || status === 'administrator' || status === 'member' ||
+        (status === 'restricted' && member.is_member === true))) return false;
+    } catch (e) { return false; }
+  }
+  return true;
+}
+function matchLanguage(input) {
+  const cleanInput = String(input || '').normalize('NFC').trim().toLowerCase();
+  const aliases = {
+    ps: ['پښتو', 'pashto', 'ps'],
+    fa: ['دری', 'دري', 'dari', 'fa', 'persian'],
+    en: ['english', 'en'],
+    ur: ['اردو', 'urdu', 'ur'],
+    ar: ['العربية', 'عربي', 'arabic', 'ar']
+  };
+  return LANGUAGES.find(function (item) {
+    return [item.label].concat(aliases[item.code] || []).some(function (name) {
+      return String(name).normalize('NFC').trim().toLowerCase() === cleanInput;
+    });
+  }) || null;
+}
+async function showLanguage(chatId, user) { await sendPrompt(chatId, tx(user).lang, languageKeyboard(), user); }
+async function showCountry(chatId, user) { await sendPrompt(chatId, tx(user).country, countryKeyboard(), user); }
+async function showGender(chatId, user) { await sendPrompt(chatId, tx(user).gender, genderKeyboard(user), user); }
+async function showAge(chatId, user) { await sendPrompt(chatId, tx(user).age, ageKeyboard(), user); }
+async function showName(chatId, user) { await sendPrompt(chatId, tx(user).name, { force_reply: true }, user); }
+async function showSurname(chatId, user) {
+  await sendPrompt(chatId, tx(user).surname, { inline_keyboard: [[{ text: tx(user).skip, callback_data: 'reg:skip_surname' }]] }, user);
+}
 // ── Profiles, favorites, referrals, and statistics ──
-
 async function showMain(chatId, user, text) {
   user.state = 'ready';
   await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, Number(user.telegram_id))).run();
