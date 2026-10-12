@@ -691,6 +691,10 @@ async function tryOfferSearches() {
 async function startConnectionSearch(userId, type) {
   const user = await getUser(userId), cost = Number(await getSetting('connection_cost_stars', 1));
   if (!user) return;
+  if (!Number.isFinite(cost) || cost < 0) {
+    await sendPrompt(userId, '⚠️ د اړیکې د ستورو تنظیم ناسم دی. له اډمین سره اړیکه ونیسه.', mainKeyboard(user, await isAdmin(userId)), user);
+    return;
+  }
   if (Number(user.stars || 0) < cost) { await sendPrompt(userId, '⭐ د اړیکې لپاره ' + cost + ' ستوري پکار دي. ستا بیلانس: ' + Number(user.stars || 0), mainKeyboard(user, await isAdmin(userId)), user); return; }
   if (await activeSessionFor(userId)) { await sendPrompt(userId, '⚠️ ته لا له یوه کس سره په اړیکه کې یې. لومړی اړیکه پای ته ورسوه.', mainKeyboard(user, await isAdmin(userId)), user); return; }
   const activeGames = await db.select().from(game_sessions).all();
