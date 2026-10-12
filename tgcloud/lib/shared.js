@@ -25,6 +25,62 @@ export const COUNTRIES = [
 ];
 export const AGES = [12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40];
 
+const KEYBOARD_DANGER_WORDS = [
+  'cancel', 'reject', 'delete', 'remove', 'block', 'end connection', 'report',
+  'لغوه', 'ردول', 'حذف', 'مسدودول', 'بلاک', 'ختم', 'حظر', 'حذف', 'إلغاء',
+  'منسوخ', 'خارج', 'رد کردن', 'حذف کردن'
+];
+const KEYBOARD_SUCCESS_WORDS = [
+  'accept', 'confirm', 'save', 'submit', 'join', 'start search', 'follow',
+  'like', 'unblock', 'منل', 'تایید', 'تأیید', 'ثبت', 'ګډون مې وکړ',
+  'من می‌شوم', 'قبول', 'حفظ', 'انضمام', 'تأكيد', 'إلغاء الحظر', 'ان بلاک'
+];
+
+function inferKeyboardButtonStyle(button) {
+  const text = String(button && button.text || '').toLowerCase();
+  const data = String(button && (button.callback_data || button.url || '') || '').toLowerCase();
+  const value = text + ' ' + data;
+  if (button && ['primary', 'success', 'danger'].includes(button.style)) return button.style;
+  if (KEYBOARD_DANGER_WORDS.some(word => value.includes(word))) return 'danger';
+  if (KEYBOARD_SUCCESS_WORDS.some(word => value.includes(word))) return 'success';
+  return 'primary';
+}
+
+/**
+ * Add Telegram Bot API 9.4 button styles to every reply/inline keyboard button.
+ * Reply keyboard buttons may be strings, so normalize those to objects first.
+ * Markups such as ForceReply/RemoveKeyboard are returned unchanged.
+ */
+export function styleKeyboardMarkup(markup) {
+  if (!markup || typeof markup !== 'object') return markup;
+  if (Array.isArray(markup.inline_keyboard)) {
+    return {
+      ...markup,
+      inline_keyboard: markup.inline_keyboard.map(row =>
+        Array.isArray(row) ? row.map(button =>
+          button && typeof button === 'object'
+            ? { ...button, style: inferKeyboardButtonStyle(button) }
+            : button
+        ) : row
+      )
+    };
+  }
+  if (Array.isArray(markup.keyboard)) {
+    return {
+      ...markup,
+      keyboard: markup.keyboard.map(row =>
+        Array.isArray(row) ? row.map(button => {
+          const normalized = typeof button === 'string' ? { text: button } : button;
+          return normalized && typeof normalized === 'object'
+            ? { ...normalized, style: inferKeyboardButtonStyle(normalized) }
+            : normalized;
+        }) : row
+      )
+    };
+  }
+  return markup;
+}
+
 let inlinePromptTrackingReady = false;
 
 
