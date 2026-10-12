@@ -8,8 +8,16 @@ import { T } from '../lib/message-text.js';
 
 
 function tx(user) { return T[user && T[user.language] ? user.language : 'ps']; }
+function styleReplyRows(rows) {
+  const styles = ['primary', 'success', 'danger'];
+  return rows.map((row, rowIndex) => row.map((button, buttonIndex) => {
+    if (typeof button === 'string' || !button || button.style) return button;
+    // Keep the original label and emoji exactly as authored; add only Telegram's style field.
+    return { ...button, style: styles[(rowIndex + buttonIndex) % styles.length] };
+  }));
+}
 function keyboard(rows, extra) {
-  const result = { keyboard: rows, resize_keyboard: true };
+  const result = { keyboard: styleReplyRows(rows), resize_keyboard: true };
   if (extra) Object.assign(result, extra);
   return result;
 }
@@ -922,6 +930,13 @@ export async function tryMatchGames() {
       return true;
     }).sort((a,b) => Date.parse(b.last_active_at || '') - Date.parse(a.last_active_at || ''));
     if (!candidates.length) {
+      console.info('No eligible game opponent found yet', {
+        gameId: Number(game.id),
+        playerId: Number(game.player_id),
+        activeUsers: allUsers.filter(candidate => Number(candidate.is_blocked) !== 1 &&
+          Number(candidate.telegram_id) !== Number(game.player_id)).length,
+        waitSeconds
+      });
       if (age < waitSeconds * 1000) continue;
       const claimedForBot = await db.update(game_sessions)
         .set({ status: 'playing', updated_at: new Date().toISOString() })
@@ -953,6 +968,11 @@ export async function tryMatchGames() {
           ]] }
         });
         offerDelivered = true;
+        console.info('Game offer delivered', {
+          gameId: Number(game.id),
+          playerId: Number(game.player_id),
+          candidateId
+        });
         break;
       } catch (error) {
         console.error('Game offer delivery failed; trying next candidate', {
