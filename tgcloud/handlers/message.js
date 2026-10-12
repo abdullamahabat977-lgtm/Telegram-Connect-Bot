@@ -452,8 +452,10 @@ async function showSessionProfile(session, viewerId) {
 async function endConnection(session, reason) {
   if (!session || session.status !== 'connected') return;
   const endedAt = new Date().toISOString();
-  await db.update(chat_sessions).set({ status: 'ended', ended_at: endedAt, end_reason: reason || 'ended' })
-    .where(eq(chat_sessions.id, Number(session.id))).run();
+  const ended = await db.update(chat_sessions).set({ status: 'ended', ended_at: endedAt, end_reason: reason || 'ended' })
+    .where(and(eq(chat_sessions.id, Number(session.id)), eq(chat_sessions.status, 'connected')))
+    .returning({ id: chat_sessions.id }).run();
+  if (!ended || !Array.isArray(ended.rows) || ended.rows.length === 0) return;
   const firstId = Number(session.first_user_telegram_id), secondId = Number(session.second_user_telegram_id);
   for (const pair of [{ id: firstId, partnerId: secondId }, { id: secondId, partnerId: firstId }]) {
     const user = await getUser(pair.id), partner = await getUser(pair.partnerId);
@@ -615,8 +617,10 @@ async function tryOfferSearches() {
       const connected = allSessions.some(row => row.status === 'connected' &&
         (Number(row.first_user_telegram_id) === candidateId || Number(row.second_user_telegram_id) === candidateId));
       if (connected && candidate.connection_request_mode !== 'all') return false;
-      const pendingForCandidate = allRequests.some(row => Number(row.recipient_id) === candidateId && row.status === 'pending' && Number.isFinite(Date.parse(row.created_at || '')) && now - Date.parse(row.created_at || '') < waitSeconds * 1000);
-      if (pendingForCandidate) return false;
+      const candidateHasActiveRequest = allRequests.some(row =>
+        ['searching', 'matching', 'pending'].includes(row.status) &&
+        (Number(row.requester_id) === candidateId || Number(row.recipient_id) === candidateId));
+      if (candidateHasActiveRequest) return false;
       if (candidate.connection_request_mode === 'followed' &&
         !allFavorites.some(row => Number(row.user_telegram_id) === candidateId && Number(row.favorite_telegram_id) === Number(search.requester_id))) return false;
       if (search.request_type === 'find' && search.gender_filter !== 'auto' && candidate.gender !== search.gender_filter) return false;
@@ -839,6 +843,7 @@ async function tryMatchGames() {
   const rows = await db.select().from(game_sessions).all(), allUsers = await db.select().from(users).all();
   const allSessions = await db.select().from(chat_sessions).all();
   const allConnectionRequests = await db.select().from(connection_requests).all();
+  const allBlocks = await db.select().from(user_blocks).all();
   const waitSeconds = Math.max(1, Number(await getSetting('game_wait_seconds', 120)) || 120);
   const opponentMin = Number(await getSetting('game_opponent_min_stars', 3.5));
   const now = Date.now();
@@ -860,6 +865,11 @@ async function tryMatchGames() {
       if (allConnectionRequests.some(row => ['searching', 'pending', 'matching'].includes(row.status) &&
           (Number(row.requester_id) === id || Number(row.recipient_id) === id))) return false;
       if (allSessions.some(row => row.status === 'connected' && (Number(row.first_user_telegram_id) === id || Number(row.second_user_telegram_id) === id))) return false;
+      if (allBlocks.some(row =>
+          (Number(row.blocker_telegram_id) === id && Number(row.blocked_telegram_id) === Number(game.player_id)) ||
+          (Number(row.blocker_telegram_id) === Number(game.player_id) && Number(row.blocked_telegram_id) === id))) return false;
+      if (rows.some(row => Number(row.player_id) === Number(game.player_id) &&
+          Number(row.opponent_id) === id && row.status === 'rejected')) return false;
       return true;
     }).sort((a,b) => Date.parse(b.last_active_at || '') - Date.parse(a.last_active_at || ''));
     if (!candidates.length) continue;
