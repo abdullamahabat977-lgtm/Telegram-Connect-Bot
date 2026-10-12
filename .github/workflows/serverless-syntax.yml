@@ -50,11 +50,24 @@ jobs:
           assert.equal(inline.inline_keyboard[0][3].style, 'success');
           assert.equal(inline.inline_keyboard[0][4].style, 'danger');
 
+          const neutralInline = styleKeyboardMarkup({ inline_keyboard: [[
+            { text: 'Profile', callback_data: 'menu:profile' },
+            { text: 'Game', callback_data: 'menu:game' },
+            { text: 'Settings', callback_data: 'menu:settings' }
+          ]] });
+          assert.deepEqual(
+            [...new Set(neutralInline.inline_keyboard[0].map(button => button.style))].sort(),
+            ['danger', 'primary', 'success'],
+            'Neutral inline buttons should rotate through all three supported colors'
+          );
+
           const reply = styleKeyboardMarkup({ keyboard: [
-            ['Main menu', { text: 'Delete photo', callback_data: 'photo:delete' }]
+            ['Main menu', 'Profile', 'Game', { text: 'Delete photo', callback_data: 'photo:delete' }]
           ], resize_keyboard: true });
           assert.equal(reply.keyboard[0][0].style, 'primary');
-          assert.equal(reply.keyboard[0][1].style, 'danger');
+          assert.equal(reply.keyboard[0][1].style, 'success');
+          assert.equal(reply.keyboard[0][2].style, 'danger');
+          assert.equal(reply.keyboard[0][3].style, 'danger');
           assert.ok(reply.keyboard.flat().every(button => typeof button === 'object' && ['primary', 'success', 'danger'].includes(button.style)));
           console.log('Inline and reply keyboard styles passed.');
           JS
