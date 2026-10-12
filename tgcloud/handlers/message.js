@@ -1134,13 +1134,50 @@ export async function tryMatchGames() {
         });
         break;
       } catch (error) {
-        lastDeliveryError = error && (error.message || String(error)) || 'Unknown Telegram delivery error';
-        console.error('Game offer delivery failed; trying next candidate', {
+        const errorDescription = String(error && (error.description || error.message || error.stack) || error || 'Unknown Telegram delivery error');
+        lastDeliveryError = {
+          description: errorDescription,
+          errorCode: error && (error.error_code || error.code) || null
+        };
+        console.error('Game offer delivery failed; checking style compatibility and then trying next candidate', {
           gameId: Number(game.id),
           playerId: Number(game.player_id),
           candidateId,
-          error: lastDeliveryError
+          errorCode: lastDeliveryError.errorCode,
+          description: errorDescription
         });
+
+        // If the Telegram gateway/SDK rejects only the new button style field,
+        // retry this same offer once without styles before abandoning this candidate.
+        if (/style|keyboardbutton|inline keyboard button/i.test(errorDescription)) {
+          try {
+            await api.sendMessage({
+              chat_id: candidateId,
+              text: '🎲 یو فعال کارن غواړي له تا سره د ګېم لوبه وکړي.\n\nد لوبې د منلو لپاره باید لږ تر لږه ' + opponentMin + ' ستوري ولرې. د منلو یا ردولو انتخاب وکړه.',
+              reply_markup: { inline_keyboard: [[
+                { text: '✅ ګېم منل', callback_data: 'game:accept:' + game.id },
+                { text: '❌ ردول', callback_data: 'game:reject:' + game.id }
+              ]] }
+            });
+            offerDelivered = true;
+            console.warn('Game offer delivered using unstyled keyboard compatibility fallback', {
+              gameId: Number(game.id), playerId: Number(game.player_id), candidateId
+            });
+            break;
+          } catch (fallbackError) {
+            const fallbackDescription = String(fallbackError && (fallbackError.description || fallbackError.message || fallbackError.stack) || fallbackError);
+            lastDeliveryError = {
+              description: errorDescription + ' | unstyled fallback: ' + fallbackDescription,
+              errorCode: fallbackError && (fallbackError.error_code || fallbackError.code) || lastDeliveryError.errorCode
+            };
+            console.error('Unstyled game offer fallback also failed', {
+              gameId: Number(game.id), candidateId,
+              errorCode: lastDeliveryError.errorCode,
+              description: fallbackDescription
+            });
+          }
+        }
+
         try {
           const reset = await db.update(game_sessions)
             .set({ status: 'waiting', opponent_id: null, updated_at: new Date().toISOString() })
