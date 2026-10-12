@@ -967,7 +967,44 @@ export async function tryMatchGames() {
         .returning({ id: game_sessions.id }).run();
       if (!claimedForBot || !Array.isArray(claimedForBot.rows) || claimedForBot.rows.length === 0) continue;
       const playingGame = await db.select().from(game_sessions).where(eq(game_sessions.id, Number(game.id))).get();
-      if (playingGame && playingGame.status === 'playing') await resolveBotGame(playingGame);
+      if (playingGame && playingGame.status === 'playing') {
+        try {
+          await resolveBotGame(playingGame);
+        } catch (error) {
+          console.error('Bot game resolution failed unexpectedly', {
+            gameId: Number(game.id),
+            playerId: Number(game.player_id),
+            error: error && (error.message || String(error))
+          });
+          // Never leave a claimed game permanently in "playing" or risk a second settlement.
+          // Only the still-playing row can be moved to settlement_error.
+          try {
+            const failed = await db.update(game_sessions)
+              .set({ status: 'settlement_error', updated_at: new Date().toISOString() })
+              .where(and(
+                eq(game_sessions.id, Number(game.id)),
+                eq(game_sessions.status, 'playing')
+              ))
+              .returning({ id: game_sessions.id }).run();
+            if (failed && Array.isArray(failed.rows) && failed.rows.length > 0) {
+              try {
+                await api.sendMessage({
+                  chat_id: Number(game.player_id),
+                  text: '⚠️ د بوټ پر وړاندې د ګېم پر مهال تخنیکي ستونزه رامنځته شوه. د ستورو او پایلې حالت باید اډمین وڅېړي؛ مهرباني وکړه نوی ګېم مه پیلوه.'
+                });
+              } catch (notifyError) {
+                console.error('Could not notify player about bot game settlement error', {
+                  gameId: Number(game.id), notifyError
+                });
+              }
+            }
+          } catch (stateError) {
+            console.error('Could not mark bot game settlement error', {
+              gameId: Number(game.id), stateError
+            });
+          }
+        }
+      }
       continue;
     }
     // Telegram may reject a recipient who blocked the bot or is unreachable.
