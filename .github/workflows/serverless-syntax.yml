@@ -23,6 +23,38 @@ jobs:
             node --input-type=module --check < "$file"
           done < <(find tgcloud -type f -name '*.js' -print0)
 
+      - name: Test inline and reply keyboard button styles
+        shell: bash
+        run: |
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import { readFileSync } from 'node:fs';
+
+          const source = readFileSync('tgcloud/lib/shared.js', 'utf8');
+          const start = source.indexOf('const KEYBOARD_DANGER_WORDS');
+          const end = source.indexOf('\\nlet inlinePromptTrackingReady', start);
+          assert.ok(start >= 0 && end > start, 'Could not locate the keyboard style helper');
+          const moduleUrl = 'data:text/javascript;base64,' + Buffer.from(source.slice(start, end)).toString('base64');
+          const { styleKeyboardMarkup } = await import(moduleUrl);
+
+          const inline = styleKeyboardMarkup({ inline_keyboard: [[
+            { text: 'Accept request', callback_data: 'conn:accept:1' },
+            { text: 'Reject request', callback_data: 'conn:reject:1' },
+            { text: 'Unblock user', callback_data: 'admin:unblock:2' }
+          ]] });
+          assert.equal(inline.inline_keyboard[0][0].style, 'success');
+          assert.equal(inline.inline_keyboard[0][1].style, 'danger');
+          assert.equal(inline.inline_keyboard[0][2].style, 'success');
+
+          const reply = styleKeyboardMarkup({ keyboard: [
+            ['Main menu', { text: 'Delete photo', callback_data: 'photo:delete' }]
+          ], resize_keyboard: true });
+          assert.equal(reply.keyboard[0][0].style, 'primary');
+          assert.equal(reply.keyboard[0][1].style, 'danger');
+          assert.ok(reply.keyboard.flat().every(button => typeof button === 'object' && ['primary', 'success', 'danger'].includes(button.style)));
+          console.log('Inline and reply keyboard styles passed.');
+          JS
+
       - name: Validate data-integrity migration
         shell: bash
         run: |
