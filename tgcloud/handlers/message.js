@@ -1208,25 +1208,35 @@ export async function tryMatchGames() {
       // All eligible candidates failed Telegram delivery. Do not leave an invisible
       // waiting game that blocks connection search forever; close only the exact
       // state this matcher last wrote, so a concurrent accept/cancel is preserved.
-      const failedStatus = game.status;
-      const failedUpdatedAt = game.updated_at;
-      const failedOpponentId = Number(game.opponent_id || 0);
+      // Re-read the persisted row instead of relying only on the in-memory
+      // timestamp: gateways may normalize timestamp precision between writes.
+      // Close only waiting/pending offers; never overwrite a concurrent accept.
       let closed = false;
+      let latestGame = null;
       try {
-        const conditions = [
-          eq(game_sessions.id, Number(game.id)),
-          eq(game_sessions.player_id, Number(game.player_id)),
-          eq(game_sessions.status, failedStatus),
-          eq(game_sessions.updated_at, failedUpdatedAt)
-        ];
-        if (failedStatus === 'pending' && failedOpponentId > 0) {
-          conditions.push(eq(game_sessions.opponent_id, failedOpponentId));
+        const latestRows = await db.select().from(game_sessions).all();
+        latestGame = latestRows.find(row =>
+          Number(row.id) === Number(game.id) &&
+          Number(row.player_id) === Number(game.player_id)
+        ) || null;
+        if (latestGame && ['waiting', 'pending'].includes(latestGame.status)) {
+          const conditions = [
+            eq(game_sessions.id, Number(latestGame.id)),
+            eq(game_sessions.player_id, Number(game.player_id)),
+            eq(game_sessions.status, latestGame.status),
+            eq(game_sessions.updated_at, latestGame.updated_at)
+          ];
+          if (latestGame.status === 'pending' && Number(latestGame.opponent_id || 0) > 0) {
+            conditions.push(eq(game_sessions.opponent_id, Number(latestGame.opponent_id)));
+          } else if (latestGame.status === 'waiting') {
+            conditions.push(eq(game_sessions.opponent_id, null));
+          }
+          const closedResult = await db.update(game_sessions)
+            .set({ status: 'cancelled', updated_at: new Date().toISOString() })
+            .where(and(...conditions))
+            .returning({ id: game_sessions.id }).run();
+          closed = Boolean(closedResult && Array.isArray(closedResult.rows) && closedResult.rows.length > 0);
         }
-        const closedResult = await db.update(game_sessions)
-          .set({ status: 'cancelled', updated_at: new Date().toISOString() })
-          .where(and(...conditions))
-          .returning({ id: game_sessions.id }).run();
-        closed = Boolean(closedResult && Array.isArray(closedResult.rows) && closedResult.rows.length > 0);
       } catch (closeError) {
         console.error('Could not close game after all candidate deliveries failed', {
           gameId: Number(game.id), playerId: Number(game.player_id), closeError
@@ -1236,6 +1246,7 @@ export async function tryMatchGames() {
         gameId: Number(game.id),
         playerId: Number(game.player_id),
         candidateCount: candidates.length,
+        latestStatus: latestGame && latestGame.status,
         requestClosed: closed,
         lastDeliveryError
       });
@@ -1243,8 +1254,11 @@ export async function tryMatchGames() {
         await api.sendMessage({
           chat_id: Number(game.player_id),
           text: closed
-            ? '⚠️ مناسب سیال پیدا شو، خو ټیلیګرام ټولو هڅه شویو سیالانو ته پیغام ونه لېږه. د بند پاتې کېدو د مخنیوي لپاره د ګېم غوښتنه لغوه شوه؛ اوس بیا ګېم یا ناڅاپي اړیکه پیلولای شې.'
-            : '⚠️ سیال ته د ګېم پیغام ونه لېږل شو. د غوښتنې حالت د خوندیتوب لپاره په خپله نه دی بدل شوی؛ د ګېم لغوه کولو تڼۍ ووهه او که ستونزه دوام وکړي اډمین ته خبر ورکړه.'
+            ? '⚠️ مناسب سیال پیدا شو، خو ټیلیګرام ټولو هڅه شویو سیالانو ته پیغام ونه لېږه. د ګېم غوښتنه لغوه شوه؛ اوس بیا ګېم یا ناڅاپي اړیکه پیلولای شې.'
+            : '⚠️ سیال ته د ګېم پیغام ونه لېږل شو. که د ګېم غوښتنه لا فعاله وي، لاندې «❌ ګېم لغوه کول» تڼۍ ووهه. که ستونزه دوام وکړي، اډمین ته خبر ورکړه.',
+          ...(!closed && latestGame && ['waiting', 'pending'].includes(latestGame.status)
+            ? { reply_markup: { inline_keyboard: [[{ text: '❌ ګېم لغوه کول', callback_data: 'game:cancel' }]] } }
+            : {})
         });
       } catch (notifyError) {
         console.error('Could not notify game requester about offer delivery failure', {
