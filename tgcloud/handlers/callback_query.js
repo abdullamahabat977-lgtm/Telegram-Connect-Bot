@@ -1262,9 +1262,16 @@ async function handleGameCallback(query, actor, data, actorId, chatId) {
          Number(row.player_id) === actorId || Number(row.opponent_id) === actorId));
       const pairBlocked = await blockedPair(Number(game.player_id), actorId);
       if (activeSessionForPlayer || activeSessionForOpponent || hasConnectionRequest || hasOtherActiveGame || pairBlocked) {
-        await db.update(game_sessions).set({ status: 'cancelled', updated_at: new Date().toISOString() })
-          .where(and(eq(game_sessions.id, gameId), eq(game_sessions.status, 'pending'), eq(game_sessions.opponent_id, actorId))).run();
-        const notice = '⚠️ د ګېم یو لوبغاړی د Connection په بهیر کې دی؛ د ټکر د مخنیوي لپاره ګېم لغوه شو. بیا هڅه وکړه.';
+        const cancelled = await db.update(game_sessions).set({ status: 'cancelled', updated_at: new Date().toISOString() })
+          .where(and(eq(game_sessions.id, gameId), eq(game_sessions.status, 'pending'), eq(game_sessions.opponent_id, actorId)))
+          .returning({ id: game_sessions.id }).run();
+        if (!cancelled || !Array.isArray(cancelled.rows) || cancelled.rows.length === 0) {
+          await sendPrompt(chatId, '⌛ د ګېم حالت د کتنې پر مهال بدل شو؛ غوښتنه په خپله لغوه نه شوه. مهرباني وکړه حالت تازه وګوره.', mainKeyboard(actor, await isAdmin(actorId)), actor);
+          return;
+        }
+        const notice = pairBlocked
+          ? '⚠️ د دواړو لوبغاړو ترمنځ بلاک موجود دی؛ ګېم لغوه شو. بیا هڅه وکړه.'
+          : '⚠️ یو لوبغاړی د بلې اړیکې یا ګېم په بهیر کې دی؛ د ټکر د مخنیوي لپاره ګېم لغوه شو. بیا هڅه وکړه.';
         try { await api.sendMessage({ chat_id: Number(game.player_id), text: notice }); } catch (e) {}
         try { await api.sendMessage({ chat_id: actorId, text: notice }); } catch (e) {}
         return;
