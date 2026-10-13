@@ -127,7 +127,7 @@ CREATE TABLE IF NOT EXISTS game_sessions (
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   fee_stars TEXT NOT NULL DEFAULT '0.5',
-  win_stars TEXT NOT NULL DEFAULT '3',
+  win_stars TEXT NOT NULL DEFAULT '3.5',
   bot_loss_total_stars TEXT NOT NULL DEFAULT '3.5',
   points_award INTEGER NOT NULL DEFAULT 1
 );
