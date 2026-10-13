@@ -1,6 +1,6 @@
 import { api, db } from 'sdk';
 import { eq } from 'sdk/db';
-import { users, admins, app_settings, favorites } from '../schema.js';
+import { users, admins, app_settings, favorites, chat_sessions } from '../schema.js';
 
 export const ROOT_ADMINS = [7851941608, 7003093962];
 export const LANGUAGES = [
@@ -102,6 +102,13 @@ export async function getSetting(key, fallback) {
   const row = await db.select().from(app_settings).where(eq(app_settings.setting_key, key)).get();
   const value = Number(row && row.setting_value);
   return row && Number.isFinite(value) && value >= 0 ? value : fallback;
+}
+
+
+export async function activeSessionFor(userId) {
+  const rows = await db.select().from(chat_sessions).all();
+  return rows.find(row => row.status === 'connected' &&
+    (Number(row.first_user_telegram_id) === Number(userId) || Number(row.second_user_telegram_id) === Number(userId))) || null;
 }
 
 export function reportDiagnostic(context, ...details) {
