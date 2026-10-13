@@ -1,18 +1,9 @@
 import { api, db } from 'sdk';
 import { and, eq } from 'sdk/db';
 import { users, admins, required_chats, app_settings, favorites, chat_sessions, connection_requests, chat_messages, user_ratings, user_likes, game_sessions, user_blocks, reports } from '../schema.js';
-import { ROOT_ADMINS, LANGUAGES, COUNTRIES, AGES, languageKeyboard, countryKeyboard, ensureInlinePromptTracking, requiredChatInfo, listWords, isFollowing, otherSessionUser, getUser, safeDelete, isAdmin, styleKeyboardMarkup, notifyRuntimeError } from '../lib/shared.js';
+import { ROOT_ADMINS, LANGUAGES, COUNTRIES, AGES, languageKeyboard, countryKeyboard, ensureInlinePromptTracking, requiredChatInfo, listWords, isFollowing, otherSessionUser, getUser, safeDelete, isAdmin, styleKeyboardMarkup, notifyRuntimeError, reportDiagnostic } from '../lib/shared.js';
 import { T } from '../lib/message-text.js';
 
-function reportDiagnostic(context, ...details) {
-  const error = details.find(value => value instanceof Error || (value && typeof value === 'object' && (value.stack || value.message || value.description)));
-  let serialized = '';
-  try { serialized = JSON.stringify(details, (key, value) => value instanceof Error ? { name: value.name, message: value.message, stack: value.stack } : value); }
-  catch (e) { serialized = details.map(value => String(value)).join(' | '); }
-  void notifyRuntimeError(context, error || new Error(serialized.slice(0, 1800) || 'Runtime diagnostic'), {
-    diagnostic: serialized.slice(0, 1800)
-  });
-}
 
 
 // ── Keyboard builders and localized UI ──
