@@ -4,6 +4,17 @@ import { users, admins, required_chats, app_settings, favorites, chat_sessions, 
 import { ROOT_ADMINS, LANGUAGES, COUNTRIES, AGES, languageKeyboard, countryKeyboard, ensureInlinePromptTracking, requiredChatInfo, listWords, isFollowing, otherSessionUser, getUser, safeDelete, isAdmin, styleKeyboardMarkup, notifyRuntimeError } from '../lib/shared.js';
 import { T } from '../lib/message-text.js';
 
+function reportDiagnostic(context, ...details) {
+  const error = details.find(value => value instanceof Error || (value && typeof value === 'object' && (value.stack || value.message || value.description)));
+  let serialized = '';
+  try { serialized = JSON.stringify(details, (key, value) => value instanceof Error ? { name: value.name, message: value.message, stack: value.stack } : value); }
+  catch (e) { serialized = details.map(value => String(value)).join(' | '); }
+  void notifyRuntimeError(context, error || new Error(serialized.slice(0, 1800) || 'Runtime diagnostic'), {
+    diagnostic: serialized.slice(0, 1800)
+  });
+}
+
+
 // ── Keyboard builders and localized UI ──
 function tx(user) { return T[user && T[user.language] ? user.language : 'ps']; }
 
@@ -697,7 +708,7 @@ async function tryOfferSearches() {
         .returning({ id: connection_requests.id }).run();
       if (!released || !Array.isArray(released.rows) || released.rows.length === 0) {
         await db.update(connection_requests).set({ status: 'rejected', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, Number(offer.id))).run();
-        console.error('Could not release claimed connection search', { searchId: search.id, offerId: offer.id });
+        reportDiagnostic('message-handler', 'Could not release claimed connection search', { searchId: search.id, offerId: offer.id });
         continue;
       }
       allRequests.push(offer);
@@ -707,9 +718,9 @@ async function tryOfferSearches() {
           .where(and(eq(connection_requests.id, Number(search.id)), eq(connection_requests.status, 'matching'), eq(connection_requests.updated_at, claimAt)))
           .run();
       } catch (releaseError) {
-        console.error('Failed to release connection search after offer creation error', { searchId: search.id, error: releaseError });
+        reportDiagnostic('message-handler', 'Failed to release connection search after offer creation error', { searchId: search.id, error: releaseError });
       }
-      console.error('Failed to create connection offer', { searchId: search.id, requesterId: search.requester_id, candidateId: candidate.telegram_id, error });
+      reportDiagnostic('message-handler', 'Failed to create connection offer', { searchId: search.id, requesterId: search.requester_id, candidateId: candidate.telegram_id, error });
       continue;
     }
     try {
@@ -718,7 +729,7 @@ async function tryOfferSearches() {
         reply_markup: styleKeyboardMarkup({ inline_keyboard: [[{ text: '✅ غوښتنه منل', callback_data: 'conn:accept:' + offer.id }, { text: '❌ ردول', callback_data: 'conn:reject:' + offer.id }]] })
       });
     } catch (error) {
-      console.error('Failed to send connection offer to candidate', { searchId: search.id, offerId: offer.id, candidateId: candidate.telegram_id, error });
+      reportDiagnostic('message-handler', 'Failed to send connection offer to candidate', { searchId: search.id, offerId: offer.id, candidateId: candidate.telegram_id, error });
       await db.update(connection_requests).set({ status: 'rejected', updated_at: new Date().toISOString() })
         .where(and(eq(connection_requests.id, Number(offer.id)), eq(connection_requests.status, 'pending'))).run();
     }
@@ -786,7 +797,7 @@ async function beginConnectionSearch(chatId, user, type) {
     await sendPrompt(chatId, '🔎 د ملګري لټون پیل شو.\n\n⏳ د مناسب کس لټون تر ۲ دقیقو دوام کوي. که وخت تېر شي، د ستا راتلونکي پیغام یا تڼۍ پر مهال به لټون لغوه شي.\n\n⭐ د اړیکې منلو پر مهال به له تا ' + cost + ' ستوری کم شي.',
       { inline_keyboard: [[{ text: '❌ لټون لغوه کول', callback_data: 'conn:cancel_search:' + Number(search.id) }]] }, user);
   } catch (error) {
-    console.error('Failed to start connection search from message handler', {
+    reportDiagnostic('message-handler', 'Failed to start connection search from message handler', {
       userId: Number(user.telegram_id), type, stage,
       error: error && (error.stack || error.message || String(error))
     });
@@ -795,13 +806,13 @@ async function beginConnectionSearch(chatId, user, type) {
         await db.update(connection_requests).set({ status: 'cancelled', updated_at: new Date().toISOString() })
           .where(and(eq(connection_requests.id, Number(search.id)), eq(connection_requests.status, 'searching'))).run();
       } catch (cleanupError) {
-        console.error('Could not clean up failed connection search from message handler', {
+        reportDiagnostic('message-handler', 'Could not clean up failed connection search from message handler', {
           userId: Number(user.telegram_id), searchId: search.id, cleanupError
         });
       }
     }
     try { await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, Number(user.telegram_id))).run(); } catch (stateError) {
-      console.error('Could not restore user state after failed connection search from message handler', {
+      reportDiagnostic('message-handler', 'Could not restore user state after failed connection search from message handler', {
         userId: Number(user.telegram_id), stateError
       });
     }
@@ -812,14 +823,14 @@ async function beginConnectionSearch(chatId, user, type) {
         text: '⚠️ د ملګري لټون پیل نه شو. غوښتنه خوندي نه ده فعاله پاتې شوې؛ لږ وروسته بیا هڅه وکړه. که بیا تکرار شو، اډمین ته خبر ورکړه.'
       });
     } catch (notifyError) {
-      console.error('Could not notify user about connection search startup failure from message handler', {
+      reportDiagnostic('message-handler', 'Could not notify user about connection search startup failure from message handler', {
         userId: Number(user.telegram_id), notifyError
       });
     }
     return;
   }
   try { await tryOfferSearches(); } catch (error) {
-    console.error('Connection search matching failed after request creation', {
+    reportDiagnostic('message-handler', 'Connection search matching failed after request creation', {
       userId: Number(user.telegram_id), searchId: Number(search.id), type,
       error: error && (error.stack || error.message || String(error))
     });
@@ -829,7 +840,7 @@ async function beginConnectionSearch(chatId, user, type) {
         text: '⚠️ لټون پیل شو، خو د سیال لټولو پر مهال ستونزه وشوه. لږ وروسته بیا هڅه وکړه.'
       });
     } catch (notifyError) {
-      console.error('Could not notify user about matchmaking failure from message handler', {
+      reportDiagnostic('message-handler', 'Could not notify user about matchmaking failure from message handler', {
         userId: Number(user.telegram_id), notifyError
       });
     }
@@ -960,7 +971,7 @@ async function startDiceGame(chatId, user) {
         }
       }
     } catch (cleanupError) {
-      console.error('Could not clean up game after startup prompt failure', {
+      reportDiagnostic('message-handler', 'Could not clean up game after startup prompt failure', {
         gameId: Number(createdGame.id), playerId: Number(user.telegram_id), cleanupError
       });
     }
@@ -971,7 +982,7 @@ async function startDiceGame(chatId, user) {
   } catch (error) {
     // Keep the persisted waiting game recoverable and avoid turning a matcher error
     // into the generic message-handler failure. Record the actual cause for logs.
-    console.error('Game request was saved but matchmaking failed', {
+    reportDiagnostic('message-handler', 'Game request was saved but matchmaking failed', {
       gameId: Number(createdGame.id),
       playerId: Number(user.telegram_id),
       error: error && (error.stack || error.message || String(error))
@@ -982,7 +993,7 @@ async function startDiceGame(chatId, user) {
         text: '⚠️ د ګېم غوښتنه ثبت شوه، خو د سیال لټولو پر مهال تخنیکي ستونزه وشوه. غوښتنه لا د لټون په حالت کې ده؛ لږ وروسته بیا هڅه وکړه.'
       });
     } catch (notifyError) {
-      console.error('Could not notify player about matchmaking failure', {
+      reportDiagnostic('message-handler', 'Could not notify player about matchmaking failure', {
         playerId: Number(user.telegram_id), notifyError
       });
     }
@@ -1018,7 +1029,7 @@ export async function resolveBotGame(game) {
     playerDice = await api.sendDice({ chat_id: Number(player.telegram_id), emoji: '🎲' });
     botDice = await api.sendDice({ chat_id: Number(player.telegram_id), emoji: '🎲' });
   } catch (error) {
-    console.error('Bot game dice failed', { gameId: game.id, playerId: player.telegram_id, error });
+    reportDiagnostic('message-handler', 'Bot game dice failed', { gameId: game.id, playerId: player.telegram_id, error });
     await db.update(game_sessions).set({ status: 'cancelled', updated_at: new Date().toISOString() })
       .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'playing'))).run();
     try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: '⚠️ د ګېم تخنیکي ستونزه وه؛ ګېم لغوه شو او فیس نه دی اخیستل شوی. بیا هڅه وکړه.' }); } catch (e) {}
@@ -1188,7 +1199,7 @@ export async function tryMatchGames() {
         try {
           await resolveBotGame(playingGame);
         } catch (error) {
-          console.error('Bot game resolution failed unexpectedly', {
+          reportDiagnostic('message-handler', 'Bot game resolution failed unexpectedly', {
             gameId: Number(game.id),
             playerId: Number(game.player_id),
             error: error && (error.message || String(error))
@@ -1210,13 +1221,13 @@ export async function tryMatchGames() {
                   text: '⚠️ د بوټ پر وړاندې د ګېم پر مهال تخنیکي ستونزه رامنځته شوه. د ستورو او پایلې حالت باید اډمین وڅېړي؛ مهرباني وکړه نوی ګېم مه پیلوه.'
                 });
               } catch (notifyError) {
-                console.error('Could not notify player about bot game settlement error', {
+                reportDiagnostic('message-handler', 'Could not notify player about bot game settlement error', {
                   gameId: Number(game.id), notifyError
                 });
               }
             }
           } catch (stateError) {
-            console.error('Could not mark bot game settlement error', {
+            reportDiagnostic('message-handler', 'Could not mark bot game settlement error', {
               gameId: Number(game.id), stateError
             });
           }
@@ -1276,7 +1287,7 @@ export async function tryMatchGames() {
           description: errorDescription,
           errorCode: error && (error.error_code || error.code) || null
         };
-        console.error('Game offer delivery failed; checking style compatibility and then trying next candidate', {
+        reportDiagnostic('message-handler', 'Game offer delivery failed; checking style compatibility and then trying next candidate', {
           gameId: Number(game.id),
           playerId: Number(game.player_id),
           candidateId,
@@ -1307,7 +1318,7 @@ export async function tryMatchGames() {
               description: errorDescription + ' | unstyled fallback: ' + fallbackDescription,
               errorCode: fallbackError && (fallbackError.error_code || fallbackError.code) || lastDeliveryError.errorCode
             };
-            console.error('Unstyled game offer fallback also failed', {
+            reportDiagnostic('message-handler', 'Unstyled game offer fallback also failed', {
               gameId: Number(game.id), candidateId,
               errorCode: lastDeliveryError.errorCode,
               description: fallbackDescription
@@ -1325,7 +1336,7 @@ export async function tryMatchGames() {
             ))
             .returning({ id: game_sessions.id }).run();
           if (!reset || !Array.isArray(reset.rows) || reset.rows.length === 0) {
-            console.error('Could not reset undelivered game offer safely', {
+            reportDiagnostic('message-handler', 'Could not reset undelivered game offer safely', {
               gameId: Number(game.id), candidateId
             });
             break;
@@ -1334,7 +1345,7 @@ export async function tryMatchGames() {
           game.opponent_id = null;
           game.updated_at = new Date().toISOString();
         } catch (resetError) {
-          console.error('Error resetting undelivered game offer', {
+          reportDiagnostic('message-handler', 'Error resetting undelivered game offer', {
             gameId: Number(game.id), candidateId, error: resetError
           });
           break;
@@ -1385,7 +1396,7 @@ export async function tryMatchGames() {
           }
         }
       } catch (closeError) {
-        console.error('Could not close game after all candidate deliveries failed', {
+        reportDiagnostic('message-handler', 'Could not close game after all candidate deliveries failed', {
           gameId: Number(game.id), playerId: Number(game.player_id), closeError
         });
       }
@@ -1418,7 +1429,7 @@ export async function tryMatchGames() {
             : {})
         });
       } catch (notifyError) {
-        console.error('Could not notify game requester about offer delivery failure', {
+        reportDiagnostic('message-handler', 'Could not notify game requester about offer delivery failure', {
           gameId: Number(game.id), playerId: Number(game.player_id), notifyError
         });
       }
@@ -1548,7 +1559,7 @@ async function processMessage(message) {
           : user.language === 'ar'
             ? '🎉 أهلاً بك! أُضيفت مكافأة الترحيب إلى حسابك.\n\n⭐ النجوم: ' + welcomeStars + '\n🏆 النقاط: ' + welcomePoints + '\n❤️ الإعجابات: ' + welcomeLikes
             : '🎉 ښه راغلاست! ستا د ښه راغلاست جایزه ستا حساب ته اضافه شوه.\n\n⭐ ستوري: ' + welcomeStars + '\n🏆 نمرې: ' + welcomePoints + '\n❤️ لایکونه: ' + welcomeLikes;
-    try { await api.sendMessage({ chat_id: chatId, text: welcomeText }); } catch (e) { console.error('Welcome reward notification failed', e); }
+    try { await api.sendMessage({ chat_id: chatId, text: welcomeText }); } catch (e) { reportDiagnostic('message-handler', 'Welcome reward notification failed', e); }
     }
   }
   try { await tryOfferSearches(); } catch (error) { await notifyRuntimeError('message:connection-matching', error, { userId: id }); }
