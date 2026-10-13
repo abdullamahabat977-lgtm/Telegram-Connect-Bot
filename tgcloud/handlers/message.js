@@ -614,10 +614,6 @@ async function tryOfferSearches() {
     });
     if (!candidates.length) continue;
     candidates.sort((a, b) => {
-      const aConnected = allSessions.some(row => row.status === 'connected' && (Number(row.first_user_telegram_id) === Number(a.telegram_id) || Number(row.second_user_telegram_id) === Number(a.telegram_id)));
-      const bConnected = allSessions.some(row => row.status === 'connected' && (Number(row.first_user_telegram_id) === Number(b.telegram_id) || Number(row.second_user_telegram_id) === Number(b.telegram_id)));
-      const aFollowed = allFavorites.some(row => Number(row.user_telegram_id) === Number(search.requester_id) && Number(row.favorite_telegram_id) === Number(a.telegram_id));
-      const bFollowed = allFavorites.some(row => Number(row.user_telegram_id) === Number(search.requester_id) && Number(row.favorite_telegram_id) === Number(b.telegram_id));
       const rank = item => allSessions.some(row => row.status === 'connected' && (Number(row.first_user_telegram_id) === Number(item.telegram_id) || Number(row.second_user_telegram_id) === Number(item.telegram_id))) ? 1 :
         allFavorites.some(row => Number(row.user_telegram_id) === Number(search.requester_id) && Number(row.favorite_telegram_id) === Number(item.telegram_id)) ? 2 : 0;
       return rank(a) - rank(b) || Date.parse(b.last_active_at || '') - Date.parse(a.last_active_at || '');
