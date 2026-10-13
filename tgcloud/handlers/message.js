@@ -995,7 +995,7 @@ export async function tryMatchGames() {
         const last = Date.parse(candidate.last_active_at || '');
         return Number.isFinite(last) && now - last <= 2 * 60 * 1000;
       });
-      const recentWithStars = recentUsers.filter(candidate => Number(candidate.stars || 0) >= opponentMin);
+      const recentWithStars = recentUsers.filter(candidate => Number(candidate.stars || 0) >= requiredBalance);
       const connectedUserIds = new Set(allSessions.filter(row => row.status === 'connected')
         .flatMap(row => [Number(row.first_user_telegram_id), Number(row.second_user_telegram_id)]));
       const activeRequestUserIds = new Set(allConnectionRequests.filter(row => ['searching', 'pending', 'matching'].includes(row.status))
