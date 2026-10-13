@@ -559,8 +559,9 @@ async function expireUserTimedActions(userId) {
   for (const game of games) {
     const isOwnGame = Number(game.player_id) === id;
     const isIncomingOffer = Number(game.opponent_id) === id && game.status === 'pending';
-    // Never let a matchmaking timeout cancel a game that has already started.
-    if (!['waiting', 'pending'].includes(game.status) || (!isOwnGame && !isIncomingOffer)) continue;
+    // On the user's next interaction, clear stale games (including a "playing"
+    // row left behind by a crashed serverless invocation) after the configured timeout.
+    if (!['waiting', 'pending', 'playing'].includes(game.status) || (!isOwnGame && !isIncomingOffer && Number(game.opponent_id) !== id)) continue;
     const timerStart = game.status === 'waiting' ? (game.created_at || game.updated_at) : (game.updated_at || game.created_at);
     const age = now - Date.parse(timerStart || '');
     if (Number.isFinite(age) && age < gameWait * 1000) continue;
