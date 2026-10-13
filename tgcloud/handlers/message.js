@@ -752,7 +752,19 @@ async function beginConnectionSearch(chatId, user, type) {
     }).returning().run();
     search = inserted && Array.isArray(inserted.rows) ? inserted.rows[0] : null;
     if (!search || !Number.isSafeInteger(Number(search.id)) || Number(search.id) <= 0) {
-      throw new Error('Connection search insert returned no usable row');
+      // Verify the write directly in case this adapter omits RETURNING rows.
+      const verifiedSearches = await db.select().from(connection_requests)
+        .where(and(
+          eq(connection_requests.requester_id, Number(user.telegram_id)),
+          eq(connection_requests.status, 'searching'),
+          eq(connection_requests.created_at, now)
+        )).all();
+      search = Array.isArray(verifiedSearches)
+        ? verifiedSearches.find(row => row.updated_at === now && row.recipient_id == null) || null
+        : null;
+    }
+    if (!search || !Number.isSafeInteger(Number(search.id)) || Number(search.id) <= 0) {
+      throw new Error('Connection search insert could not be verified after insert; returning rows were empty and fallback lookup found no matching row');
     }
 
     stage = 'set-user-state';
@@ -891,9 +903,19 @@ async function startDiceGame(chatId, user) {
     created_at: now, updated_at: now, fee_stars: Number(await getSetting('game_fee_stars', 0.5)),
     win_stars: Number(await getSetting('game_win_stars', 3)), bot_loss_total_stars: Number(await getSetting('game_bot_loss_total_stars', 3.5)),
     points_award: Number(await getSetting('game_win_points', 1)) }).returning().run();
-  const createdGame = insertedGame && Array.isArray(insertedGame.rows) ? insertedGame.rows[0] : null;
+  // Some Serverless SDK/database adapters may not expose RETURNING rows consistently.
+  // Confirm the insert by its exact player + timestamps before declaring it failed.
+  let createdGame = insertedGame && Array.isArray(insertedGame.rows) ? insertedGame.rows[0] : null;
   if (!createdGame || !Number.isSafeInteger(Number(createdGame.id)) || Number(createdGame.id) <= 0) {
-    throw new Error('Game insert returned no usable game row');
+    const verifiedRows = await db.select().from(game_sessions)
+      .where(and(eq(game_sessions.player_id, userId), eq(game_sessions.status, 'waiting'), eq(game_sessions.created_at, now)))
+      .all();
+    createdGame = Array.isArray(verifiedRows)
+      ? verifiedRows.find(row => row.updated_at === now && row.opponent_id == null) || null
+      : null;
+  }
+  if (!createdGame || !Number.isSafeInteger(Number(createdGame.id)) || Number(createdGame.id) <= 0) {
+    throw new Error('Game insert could not be verified after insert; returning rows were empty and fallback lookup found no matching row');
   }
   try {
     await sendPrompt(chatId, '🎲 د ګېم سیال لټول کېږي.\n\n📩 د منلو/ردولو پیغام یوازې هغه کارن ته استول کېږي چې په تېرو ۲ دقیقو کې له بوټ سره فعال و، کافي ستوري ولري، او بل فعال ګېم یا اړیکه ونه لري.\n\n⏳ که په ټاکلي وخت کې مناسب سیال پیدا نه شي، ګېم به د بوټ پر وړاندې حل شي؛ که لغوه کول غواړې، لاندې تڼۍ ووهه.', { inline_keyboard: [[{ text: '❌ ګېم لغوه کول', callback_data: 'game:cancel' }]] }, user);
