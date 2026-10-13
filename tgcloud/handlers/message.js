@@ -1,10 +1,14 @@
 import { api, db } from 'sdk';
 import { and, eq } from 'sdk/db';
 import { users, admins, required_chats, app_settings, favorites, chat_sessions, connection_requests, chat_messages, user_ratings, user_likes, game_sessions, user_blocks, reports } from '../schema.js';
-import { ROOT_ADMINS, LANGUAGES, COUNTRIES, AGES, languageKeyboard, countryKeyboard, ensureInlinePromptTracking, requiredChatInfo, listWords, isFollowing, otherSessionUser, getUser, safeDelete, isAdmin, styleKeyboardMarkup, notifyRuntimeError, reportDiagnostic, getSetting } from '../lib/shared.js';
+import { ROOT_ADMINS, LANGUAGES, COUNTRIES, AGES, languageKeyboard, countryKeyboard, ensureInlinePromptTracking, requiredChatInfo, listWords, isFollowing, otherSessionUser, getUser, safeDelete, isAdmin, styleKeyboardMarkup, notifyRuntimeError, reportDiagnostic, getSetting as sharedGetSetting } from '../lib/shared.js';
 import { T } from '../lib/message-text.js';
 
 
+
+async function getSetting(key, fallback) {
+  return sharedGetSetting(key, fallback);
+}
 
 // ── Keyboard builders and localized UI ──
 function tx(user) { return T[user && T[user.language] ? user.language : 'ps']; }
