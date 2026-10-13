@@ -1289,6 +1289,15 @@ async function renderAdminConnectionSettings(chatId, user) {
   await sendPrompt(chatId, text, { inline_keyboard: rows }, user);
 }
 async function renderAdminGameSettings(chatId, user) {
+  // Remove obsolete game settings from app_settings when an admin opens this panel.
+  // They are no longer read by the game logic; deleting only these keys is safe.
+  for (const legacyKey of ['game_opponent_min_stars', 'game_win_stars', 'game_bot_loss_total_stars']) {
+    try {
+      await db.delete(app_settings).where(eq(app_settings.setting_key, legacyKey)).run();
+    } catch (error) {
+      reportDiagnostic('admin-game-settings-cleanup', 'Could not remove obsolete setting: ' + legacyKey, error);
+    }
+  }
   const keys = [
     ['game_min_stars','⭐ د لوبې لږ تر لږه بیلانس / د ګټلو جایزه',3.5],
     ['game_fee_stars','💰 د لوبې فیس',0.5], ['game_win_points','⭐ د ګټلو نمرې',1],
