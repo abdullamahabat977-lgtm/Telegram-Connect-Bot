@@ -692,13 +692,13 @@ async function relayConnectionMessage(message, session) {
 async function startDiceGame(chatId, user) {
   const minStars = Number(await getSetting('game_min_stars', 3.5));
   const fee = Number(await getSetting('game_fee_stars', 0.5));
-  const requiredBalance = minStars + fee;
+  const requiredBalance = minStars;
   if (![minStars, fee, requiredBalance].every(Number.isFinite) || minStars <= 0 || fee < 0 || fee >= minStars) {
     await sendPrompt(chatId, '⚠️ د ګېم تنظیمات ناسم دي: فیس باید له جایزې څخه کم وي. له اډمین سره اړیکه ونیسه.', menuKeyboard(user, await isAdmin(user.telegram_id)), user);
     return;
   }
   if (Number(user.stars || 0) < requiredBalance) {
-    await sendPrompt(chatId, '🎲 د ګېم لپاره لږ تر لږه ' + requiredBalance + ' ستوري پکار دي (جایزه ' + minStars + ' + فیس ' + fee + ').\n\nستا بیلانس: ' + Number(user.stars || 0), menuKeyboard(user, await isAdmin(user.telegram_id)), user);
+    await sendPrompt(chatId, '🎲 د ګېم لپاره لږ تر لږه ' + requiredBalance + ' ستوري پکار دي (جایزه ' + minStars + '؛ فیس ' + fee + ' د جایزې له اندازې کمېږي).\n\nستا بیلانس: ' + Number(user.stars || 0), menuKeyboard(user, await isAdmin(user.telegram_id)), user);
     return;
   }
   const rows = await db.select().from(game_sessions).all();
@@ -844,7 +844,7 @@ export async function resolveBotGame(game) {
     try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: '⚠️ د ګېم مالي تنظیمات ناسم دي؛ فیس نه دی تصفیه شوی. له اډمین سره اړیکه ونیسه.' }); } catch (e) {}
     return;
   }
-  if (balance < fee + winStars) {
+  if (balance < winStars) {
     await db.update(game_sessions).set({ status: 'cancelled', updated_at: new Date().toISOString() })
       .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'playing'))).run();
     try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: '⚠️ ستوري نور د ګېم فیس لپاره کافي نه دي؛ ګېم لغوه شو او فیس نه دی اخیستل شوی.' }); } catch (e) {}
@@ -869,15 +869,15 @@ export async function resolveBotGame(game) {
     try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: '⚠️ د تاس پایله تایید نه شوه؛ مالي تصفیه ونه شوه. له اډمین سره اړیکه ونیسه.' }); } catch (e) {}
     return;
   }
-  let outcome = '🤝 مساوي! یوازې د ګېم فیس حساب شو.';
+  let outcome = '🤝 مساوي! یوازې د ګېم فیس ' + fee + ' ستوری کم شو.';
   let newBalance = balance - fee, newPoints = pointsBalance;
   if (playerRoll > botRoll) {
-    newBalance += winStars;
+    newBalance = balance + winStars - fee;
     newPoints += points;
-    outcome = '🎉 ته وګټلې! +' + winStars + ' ستوري او +' + points + ' نمرې.';
+    outcome = '🎉 ته وګټلې! ستا خالصه جایزه ' + (winStars - fee) + ' ستوري او +' + points + ' نمرې ده.';
   } else if (botRoll > playerRoll) {
-    newBalance -= winStars;
-    outcome = '🤖 بوټ وګټله! ستا ټول لګښت ' + (fee + winStars) + ' ستوري شو.';
+    newBalance = balance - winStars;
+    outcome = '🤖 بوټ وګټله! ستا ټول لګښت ' + winStars + ' ستوري شو (فیس پکې شامل دی).';
   }
   const balanceUpdate = await db.update(users).set({ stars: newBalance, points: newPoints })
     .where(and(eq(users.telegram_id, Number(player.telegram_id)), eq(users.stars, balance), eq(users.points, pointsBalance)))
@@ -909,7 +909,7 @@ export async function tryMatchGames() {
   const waitSeconds = Math.max(1, Number(await getSetting('game_wait_seconds', 120)) || 120);
   const minStars = Number(await getSetting('game_min_stars', 3.5));
   const fee = Number(await getSetting('game_fee_stars', 0.5));
-  const requiredBalance = minStars + fee;
+  const requiredBalance = minStars;
   const now = Date.now();
 
   // Expire stale incoming offers globally, not only when one of their players
@@ -1094,7 +1094,7 @@ export async function tryMatchGames() {
       try {
         await api.sendMessage({
           chat_id: candidateId,
-          text: '🎲 یو فعال کارن غواړي له تا سره د ګېم لوبه وکړي.\n\nد لوبې لپاره لږ تر لږه ' + requiredBalance + ' ستوري پکار دي (جایزه ' + minStars + ' + فیس ' + fee + '). د منلو یا ردولو انتخاب وکړه.',
+          text: '🎲 یو فعال کارن غواړي له تا سره د ګېم لوبه وکړي.\n\nد لوبې لپاره لږ تر لږه ' + requiredBalance + ' ستوري پکار دي. د ګټلو جایزه ' + minStars + ' ده او فیس ' + fee + ' له جایزې کمېږي. د منلو یا ردولو انتخاب وکړه.',
           reply_markup: styleKeyboardMarkup({ inline_keyboard: [[
             { text: '✅ ګېم منل', callback_data: 'game:accept:' + game.id },
             { text: '❌ ردول', callback_data: 'game:reject:' + game.id }
@@ -1127,7 +1127,7 @@ export async function tryMatchGames() {
           try {
             await api.sendMessage({
               chat_id: candidateId,
-              text: '🎲 یو فعال کارن غواړي له تا سره د ګېم لوبه وکړي.\n\nد لوبې لپاره لږ تر لږه ' + requiredBalance + ' ستوري پکار دي (جایزه ' + minStars + ' + فیس ' + fee + '). د منلو یا ردولو انتخاب وکړه.',
+              text: '🎲 یو فعال کارن غواړي له تا سره د ګېم لوبه وکړي.\n\nد لوبې لپاره لږ تر لږه ' + requiredBalance + ' ستوري پکار دي. د ګټلو جایزه ' + minStars + ' ده او فیس ' + fee + ' له جایزې کمېږي. د منلو یا ردولو انتخاب وکړه.',
               reply_markup: { inline_keyboard: [[
                 { text: '✅ ګېم منل', callback_data: 'game:accept:' + game.id },
                 { text: '❌ ردول', callback_data: 'game:reject:' + game.id }
