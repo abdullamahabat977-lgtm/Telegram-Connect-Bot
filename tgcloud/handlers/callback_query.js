@@ -903,7 +903,7 @@ async function resolveUserGame(game) {
     try { await api.sendMessage({ chat_id: Number(opponent.telegram_id), text: notice }); } catch (e) {}
     return;
   }
-  if (Number(player.stars || 0) < fee + winStars || Number(opponent.stars || 0) < fee + winStars) {
+  if (Number(player.stars || 0) < winStars || Number(opponent.stars || 0) < winStars) {
     await db.update(game_sessions).set({ status: 'cancelled', updated_at: new Date().toISOString() })
       .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'playing'))).run();
     try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: '⚠️ د لوبې لپاره د یوه لوبغاړي بیلانس کافي نه دی.' }); } catch (e) {}
@@ -930,7 +930,7 @@ async function resolveUserGame(game) {
     try { await api.sendMessage({ chat_id: Number(opponent.telegram_id), text: notice }); } catch (e) {}
     return;
   }
-  const playerBalance = Number(player.stars || 0) - fee, opponentBalance = Number(opponent.stars || 0) - fee;
+  const playerBalance = Number(player.stars || 0), opponentBalance = Number(opponent.stars || 0);
   const pRoll = Number(pDice && pDice.dice && pDice.dice.value || 0), oRoll = Number(oDice && oDice.dice && oDice.dice.value || 0);
   if (![pRoll, oRoll].every(value => Number.isInteger(value) && value >= 1 && value <= 6)) {
     await db.update(game_sessions).set({ status: 'settlement_error', updated_at: new Date().toISOString() })
@@ -940,15 +940,15 @@ async function resolveUserGame(game) {
     try { await api.sendMessage({ chat_id: Number(opponent.telegram_id), text: notice }); } catch (e) {}
     return;
   }
-  let pFinal = playerBalance, oFinal = opponentBalance, result = '🤝 مساوي! دواړه یوازې د لوبې فیس ورکوي.';
+  let pFinal = playerBalance - fee, oFinal = opponentBalance - fee, result = '🤝 مساوي! دواړه یوازې د لوبې فیس ورکوي.';
   const playerPoints = Number(player.points || 0), opponentPoints = Number(opponent.points || 0);
   let playerPointsFinal = playerPoints, opponentPointsFinal = opponentPoints;
   if (pRoll > oRoll) {
-    pFinal += winStars; oFinal = Math.max(0, oFinal - winStars);
+    pFinal = playerBalance + winStars - fee; oFinal = opponentBalance - winStars;
     playerPointsFinal += points;
     result = '🏆 ' + (player.name || player.first_name || 'لومړي لوبغاړي') + ' وګټله.';
   } else if (oRoll > pRoll) {
-    oFinal += winStars; pFinal = Math.max(0, pFinal - winStars);
+    oFinal = opponentBalance + winStars - fee; pFinal = playerBalance - winStars;
     opponentPointsFinal += points;
     result = '🏆 ' + (opponent.name || opponent.first_name || 'دویم لوبغاړي') + ' وګټله.';
   }
