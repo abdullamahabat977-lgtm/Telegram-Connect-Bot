@@ -1627,9 +1627,10 @@ async function handleCallback(query) {
   let user = await getUser(id);
   if (!user || Number(user.is_blocked) === 1) return;
   try { await db.update(users).set({ last_active_at: new Date().toISOString() }).where(eq(users.telegram_id, id)).run(); } catch (e) {}
-  // Handle cancellation before expiry/matching work so this callback cannot
-  // rematch the user's waiting game immediately before trying to cancel it.
-  if (data === 'game:cancel') {
+  // Process every game callback against the exact game state first. Running the
+  // global matcher before accept/reject can expire or reassign the offer between
+  // the user's click and the atomic game-state claim.
+  if (data.startsWith('game:')) {
     await handleGameCallback(query, user, data, id, chatId);
     return;
   }
