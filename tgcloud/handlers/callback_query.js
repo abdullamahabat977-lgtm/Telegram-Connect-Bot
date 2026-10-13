@@ -771,8 +771,20 @@ async function startConnectionSearch(userId, type) {
     await sendPrompt(userId, '🔎 ستا د ملګري لټون یا د اړیکې غوښتنه لا فعاله ده. لومړی یې پای ته ورسوه، بیا نوی لټون پیل کړه.', { inline_keyboard: [[{ text: '❌ لټون لغوه کول', callback_data: 'conn:cancel_search' }]] }, user);
     return;
   }
-  let search = null, startupStage = 'insert-search';
+  let search = null, startupStage = 'claim-user-state';
   try {
+    // Claim the user's ready state before inserting. Two rapid button presses can
+    // both pass the read-only preflight; this compare-and-set lets only one start.
+    const stateClaim = await db.update(users).set({ state: 'searching_connection' })
+      .where(and(eq(users.telegram_id, Number(userId)), eq(users.state, 'ready')))
+      .returning({ telegram_id: users.telegram_id }).run();
+    if (!stateClaim || !Array.isArray(stateClaim.rows) || stateClaim.rows.length === 0) {
+      await sendPrompt(userId, '⌛ د لټون غوښتنه لا د پیل په حال کې ده یا د کارن حالت بدل شوی دی. لږ شېبه وروسته بیا هڅه وکړه.',
+        mainKeyboard(user, await isAdmin(userId)), user);
+      return;
+    }
+    user.state = 'searching_connection';
+    startupStage = 'insert-search';
     const now = new Date().toISOString();
     const inserted = await db.insert(connection_requests).values({
       requester_id: Number(userId), recipient_id: null, status: 'searching', request_type: type,
@@ -784,11 +796,6 @@ async function startConnectionSearch(userId, type) {
     if (!search || !Number.isSafeInteger(Number(search.id)) || Number(search.id) <= 0) {
       throw new Error('Connection search insert returned no usable row');
     }
-
-    startupStage = 'set-user-state';
-    await db.update(users).set({ state: 'searching_connection' })
-      .where(eq(users.telegram_id, Number(userId))).run();
-    user.state = 'searching_connection';
 
     startupStage = 'send-search-prompt';
     await sendPrompt(userId, '🔎 د ملګري لټون پیل شو.\n\n⏳ د مناسب کس لټون تر ۲ دقیقو دوام کوي. که وخت تېر شي، د ستا راتلونکي پیغام یا تڼۍ پر مهال به لټون لغوه شي.\n\n⭐ د منلو پر مهال به ' + cost + ' ستوری کم شي.',
