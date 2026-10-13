@@ -1592,13 +1592,28 @@ async function handleGameCallback(query, actor, data, actorId, chatId) {
           eq(game_sessions.opponent_id, actorId)
         ))
         .returning({ id: game_sessions.id }).run();
-      if (!claimed || !Array.isArray(claimed.rows) || claimed.rows.length === 0) {
-        await sendPrompt(chatId, '⌛ دا ګېم نور فعال نه دی یا مخکې منل شوی دی.', mainKeyboard(actor, await isAdmin(actorId)), actor);
-        return;
+      // Some serverless DB adapters apply UPDATE but return an empty RETURNING
+      // result. Verify the persisted row before treating that as a failed accept.
+      let playing = null;
+      if (claimed && Array.isArray(claimed.rows) && claimed.rows.length > 0) {
+        playing = await db.select().from(game_sessions).where(eq(game_sessions.id, gameId)).get();
+      } else {
+        playing = await db.select().from(game_sessions).where(eq(game_sessions.id, gameId)).get();
+        const thisAcceptWon = playing &&
+          playing.status === 'playing' &&
+          Number(playing.opponent_id) === actorId &&
+          String(playing.updated_at || '') === acceptedAt;
+        if (!thisAcceptWon) {
+          await sendPrompt(chatId, '⌛ دا ګېم نور فعال نه دی یا مخکې منل شوی دی.', mainKeyboard(actor, await isAdmin(actorId)), actor);
+          return;
+        }
       }
-      const playing = await db.select().from(game_sessions).where(eq(game_sessions.id, gameId)).get();
       if (!playing || playing.status !== 'playing' || Number(playing.opponent_id) !== actorId) {
-        reportDiagnostic('callback-handler', 'Claimed game could not be verified before resolution', { gameId, actorId, playing });
+        await notifyRuntimeError('callback:game-accept-state-verification', new Error('Accepted game state could not be verified'), {
+          gameId, actorId, observedStatus: playing && playing.status,
+          observedUpdatedAt: playing && playing.updated_at, acceptedAt
+        });
+        await sendPrompt(chatId, '⚠️ د ګېم حالت تایید نه شو؛ فیس نه دی قصداً اخیستل شوی. مهرباني وکړه له اډمین سره اړیکه ونیسه.', mainKeyboard(actor, await isAdmin(actorId)), actor);
         return;
       }
       await resolveUserGame(playing);
