@@ -1,7 +1,7 @@
 import { api, db } from 'sdk';
 import { and, eq } from 'sdk/db';
 import { users, admins, required_chats, favorites, chat_sessions, connection_requests, chat_messages, user_ratings, user_likes, game_sessions, user_blocks, reports } from '../schema.js';
-import { LANGUAGES, COUNTRIES, AGES, countryKeyboard, ensureInlinePromptTracking, requiredChatInfo, listWords, isFollowing, otherSessionUser, getUser, safeDelete, isAdmin, styleKeyboardMarkup, notifyRuntimeError, reportDiagnostic, getSetting as sharedGetSetting } from '../lib/shared.js';
+import { activeSessionFor, LANGUAGES, COUNTRIES, AGES, countryKeyboard, ensureInlinePromptTracking, requiredChatInfo, listWords, isFollowing, otherSessionUser, getUser, safeDelete, isAdmin, styleKeyboardMarkup, notifyRuntimeError, reportDiagnostic, getSetting as sharedGetSetting } from '../lib/shared.js';
 import { TEXT } from '../lib/callback-text.js';
 import { tryMatchGames } from './message.js';
 
@@ -415,10 +415,6 @@ async function handleSettingsCallback(query, actor, data, actorId, chatId) {
   }
 }
 
-async function activeSessionFor(userId) {
-  const rows = await db.select().from(chat_sessions).all();
-  return rows.find(row => row.status === 'connected' && (Number(row.first_user_telegram_id) === Number(userId) || Number(row.second_user_telegram_id) === Number(userId))) || null;
-}
 async function blockedPair(firstId, secondId) {
   const rows = await db.select().from(user_blocks).all();
   return rows.some(row => (Number(row.blocker_telegram_id) === Number(firstId) && Number(row.blocked_telegram_id) === Number(secondId)) ||
