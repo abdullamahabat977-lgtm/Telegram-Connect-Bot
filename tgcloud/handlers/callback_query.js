@@ -786,8 +786,35 @@ async function startConnectionSearch(userId, type) {
     });
     if (search && Number(search.id) > 0) {
       try {
-        await db.update(connection_requests).set({ status: 'cancelled', updated_at: new Date().toISOString() })
-          .where(and(eq(connection_requests.id, Number(search.id)), eq(connection_requests.status, 'searching'))).run();
+        // The matcher may have claimed this row while the startup prompt was being sent.
+        // Clean up both pre-offer states with compare-and-set updates; never overwrite a
+        // row that has already advanced to connected.
+        for (const status of ['searching', 'matching']) {
+          await db.update(connection_requests).set({ status: 'cancelled', updated_at: new Date().toISOString() })
+            .where(and(eq(connection_requests.id, Number(search.id)), eq(connection_requests.status, status))).run();
+        }
+        // Offers created by the matcher for this just-created search are separate rows.
+        // If prompt delivery failed, leaving one pending makes the next search look active.
+        const relatedOffers = (await db.select().from(connection_requests).all()).filter(row =>
+          Number(row.requester_id) === Number(userId) &&
+          row.status === 'pending' &&
+          String(row.created_at || '') >= String(search.created_at || '')
+        );
+        for (const offer of relatedOffers) {
+          const cancelledOffer = await db.update(connection_requests)
+            .set({ status: 'cancelled', updated_at: new Date().toISOString() })
+            .where(and(eq(connection_requests.id, Number(offer.id)), eq(connection_requests.status, 'pending')))
+            .returning({ id: connection_requests.id }).run();
+          if (cancelledOffer && Array.isArray(cancelledOffer.rows) && cancelledOffer.rows.length > 0) {
+            try {
+              await api.sendMessage({ chat_id: Number(offer.recipient_id), text: '⌛ د اړیکې غوښتنه د تخنیکي ستونزې له امله لغوه شوه.' });
+            } catch (notifyError) {
+              console.warn('Could not notify recipient about cleaned-up connection offer', {
+                searchId: Number(search.id), offerId: Number(offer.id), recipientId: Number(offer.recipient_id), notifyError
+              });
+            }
+          }
+        }
       } catch (cleanupError) {
         console.error('Could not clean up failed connection search', { userId: Number(userId), searchId: search.id, cleanupError });
       }
