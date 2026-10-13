@@ -1034,13 +1034,45 @@ export async function resolveBotGame(game) {
   try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: '🎲 د ګېم پایله\n\nستا 🎲: ' + playerRoll + '\n\nد بوټ 🎲: ' + botRoll + '\n\n' + outcome + '\n\n⭐ اوسنی بیلانس: ' + newBalance }); } catch (e) {}
 }
 export async function tryMatchGames() {
-  const rows = await db.select().from(game_sessions).all(), allUsers = await db.select().from(users).all();
+  let rows = await db.select().from(game_sessions).all();
+  const allUsers = await db.select().from(users).all();
   const allSessions = await db.select().from(chat_sessions).all();
   const allConnectionRequests = await db.select().from(connection_requests).all();
   const allBlocks = await db.select().from(user_blocks).all();
   const waitSeconds = Math.max(1, Number(await getSetting('game_wait_seconds', 120)) || 120);
   const opponentMin = Number(await getSetting('game_opponent_min_stars', 3.5));
   const now = Date.now();
+
+  // Expire stale incoming offers globally, not only when one of their players
+  // starts another game. Otherwise an old pending offer can overlap a new one.
+  for (const staleOffer of rows.filter(row => row.status === 'pending')) {
+    const stamp = staleOffer.updated_at || staleOffer.created_at;
+    const offerAge = now - Date.parse(stamp || '');
+    if (Number.isFinite(offerAge) && offerAge < waitSeconds * 1000) continue;
+    const conditions = [
+      eq(game_sessions.id, Number(staleOffer.id)),
+      eq(game_sessions.status, 'pending'),
+      eq(game_sessions.player_id, Number(staleOffer.player_id)),
+      eq(game_sessions.opponent_id, Number(staleOffer.opponent_id))
+    ];
+    if (staleOffer.updated_at != null) conditions.push(eq(game_sessions.updated_at, staleOffer.updated_at));
+    const expired = await db.update(game_sessions)
+      .set({ status: 'cancelled', updated_at: new Date().toISOString() })
+      .where(and(...conditions))
+      .returning({ id: game_sessions.id }).run();
+    if (!expired || !Array.isArray(expired.rows) || expired.rows.length === 0) continue;
+    for (const targetId of [Number(staleOffer.player_id), Number(staleOffer.opponent_id)]) {
+      if (!Number.isSafeInteger(targetId) || targetId <= 0) continue;
+      try {
+        await api.sendMessage({ chat_id: targetId, text: '⌛ د ګېم غوښتنې وخت پای ته رسېدلی؛ دا ګېم نور فعال نه دی. نوې غوښتنه پیلولای شې.' });
+      } catch (notifyError) {
+        console.warn('Could not notify player about expired game offer', {
+          gameId: Number(staleOffer.id), targetId, notifyError
+        });
+      }
+    }
+  }
+  rows = await db.select().from(game_sessions).all();
   for (const game of rows.filter(row => row.status === 'waiting' || row.status === 'pending')) {
     const timerStart = game.status === 'pending' ? (game.updated_at || game.created_at) : game.created_at;
     const age = now - Date.parse(timerStart || '');
