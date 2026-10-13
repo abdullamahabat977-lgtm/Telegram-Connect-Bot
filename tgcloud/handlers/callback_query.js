@@ -1,7 +1,7 @@
 import { api, db } from 'sdk';
 import { and, eq } from 'sdk/db';
 import { users, admins, required_chats, app_settings, favorites, chat_sessions, connection_requests, chat_messages, user_ratings, user_likes, game_sessions, user_blocks, reports } from '../schema.js';
-import { ROOT_ADMINS, LANGUAGES, COUNTRIES, AGES, countryKeyboard, ensureInlinePromptTracking, requiredChatInfo, listWords, isFollowing, otherSessionUser, getUser, safeDelete, isAdmin, styleKeyboardMarkup } from '../lib/shared.js';
+import { ROOT_ADMINS, LANGUAGES, COUNTRIES, AGES, countryKeyboard, ensureInlinePromptTracking, requiredChatInfo, listWords, isFollowing, otherSessionUser, getUser, safeDelete, isAdmin, styleKeyboardMarkup, notifyRuntimeError } from '../lib/shared.js';
 import { TEXT } from '../lib/callback-text.js';
 import { resolveBotGame, tryMatchGames } from './message.js';
 
@@ -1734,6 +1734,12 @@ export default async function (query) {
     await handleCallback(query);
   } catch (error) {
     console.error('Random Connect callback_query handler error', { data: query && query.data, from: query && query.from && query.from.id, error });
+    await notifyRuntimeError('handlers/callback_query.js', error, {
+      updateType: 'callback_query',
+      callbackData: query && query.data,
+      userId: query && query.from && query.from.id,
+      chatId: query && query.message && query.message.chat && query.message.chat.id
+    });
     if (query && query.message && query.message.chat && query.message.chat.id) {
       try { await api.sendMessage({ chat_id: query.message.chat.id, text: '⚠️ تخنیکي ستونزه رامنځته شوه. بیا هڅه وکړه.' }); } catch (e) {}
     }
