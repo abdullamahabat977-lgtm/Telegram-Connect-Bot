@@ -170,6 +170,8 @@ export const game_sessions = table('game_sessions', {
   updated_at: text('updated_at').notNull(),
   fee_stars: real('fee_stars').notNull().default(0.5),
   win_stars: real('win_stars').notNull().default(3.5),
+  // Legacy compatibility column: keep it so existing database rows remain readable.
+  // Current game creation and settlement must not use this field.
   bot_loss_total_stars: real('bot_loss_total_stars').notNull().default(3.5),
   points_award: integer('points_award').notNull().default(1),
   }, (t) => ({
