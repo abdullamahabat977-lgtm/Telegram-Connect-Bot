@@ -956,19 +956,34 @@ async function resolveUserGame(game) {
   }
 
   // Compare-and-set each balance so a concurrent admin adjustment or other update is never overwritten.
-  const playerUpdate = await db.update(users).set({ stars: pFinal, points: playerPointsFinal })
+  let playerUpdate = await db.update(users).set({ stars: pFinal, points: playerPointsFinal })
     .where(and(
       eq(users.telegram_id, Number(player.telegram_id)),
       eq(users.stars, Number(player.stars || 0)),
       eq(users.points, playerPoints)
     )).returning({ telegram_id: users.telegram_id }).run();
   if (!playerUpdate || !Array.isArray(playerUpdate.rows) || playerUpdate.rows.length === 0) {
-    await db.update(game_sessions).set({ status: 'settlement_error', updated_at: new Date().toISOString() })
-      .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'playing'))).run();
-    const notice = '⚠️ د لوبې پر مهال د یوه لوبغاړي بیلانس بدل شوی؛ د ستورو حساب ودرول شو. له اډمین سره اړیکه ونیسه.';
-    try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: notice }); } catch (e) {}
-    try { await api.sendMessage({ chat_id: Number(opponent.telegram_id), text: notice }); } catch (e) {}
-    return;
+    // Verify persisted values: this adapter can apply UPDATE while omitting RETURNING rows.
+    const persistedPlayer = await getUser(Number(player.telegram_id));
+    const playerUpdateActuallyApplied = persistedPlayer &&
+      Number(persistedPlayer.stars || 0) === pFinal &&
+      Number(persistedPlayer.points || 0) === playerPointsFinal;
+    if (!playerUpdateActuallyApplied) {
+      await notifyRuntimeError('callback:game-player-balance-conflict', new Error('Player compare-and-set balance update did not persist expected values'), {
+        gameId: Number(game.id), playerId: Number(player.telegram_id), opponentId: Number(opponent.telegram_id),
+        expectedPlayerStars: Number(player.stars || 0), actualPlayerStars: persistedPlayer && persistedPlayer.stars,
+        targetPlayerStars: pFinal, expectedPlayerPoints: playerPoints,
+        actualPlayerPoints: persistedPlayer && persistedPlayer.points, targetPlayerPoints: playerPointsFinal,
+        playerRoll: pRoll, opponentRoll: oRoll
+      });
+      await db.update(game_sessions).set({ status: 'settlement_error', updated_at: new Date().toISOString() })
+        .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'playing'))).run();
+      const notice = '⚠️ د لوبې د ستورو حساب د بیلانس د اختلاف له امله ودرول شو؛ اډمین ته راپور واستول شو. له اډمین سره اړیکه ونیسه.';
+      try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: notice }); } catch (e) {}
+      try { await api.sendMessage({ chat_id: Number(opponent.telegram_id), text: notice }); } catch (e) {}
+      return;
+    }
+    playerUpdate = { rows: [{ telegram_id: Number(player.telegram_id) }] };
   }
   let opponentUpdate = null;
   try {
@@ -978,10 +993,26 @@ async function resolveUserGame(game) {
         eq(users.stars, Number(opponent.stars || 0)),
         eq(users.points, opponentPoints)
       )).returning({ telegram_id: users.telegram_id }).run();
+    if (!opponentUpdate || !Array.isArray(opponentUpdate.rows) || opponentUpdate.rows.length === 0) {
+      const persistedOpponent = await getUser(Number(opponent.telegram_id));
+      if (persistedOpponent &&
+          Number(persistedOpponent.stars || 0) === oFinal &&
+          Number(persistedOpponent.points || 0) === opponentPointsFinal) {
+        opponentUpdate = { rows: [{ telegram_id: Number(opponent.telegram_id) }] };
+      }
+    }
   } catch (opponentUpdateError) {
     reportDiagnostic('callback-handler', 'Opponent balance update failed during game settlement', { gameId: game.id, opponentId: opponent.telegram_id, opponentUpdateError });
   }
   if (!opponentUpdate || !Array.isArray(opponentUpdate.rows) || opponentUpdate.rows.length === 0) {
+    const persistedOpponent = await getUser(Number(opponent.telegram_id));
+    await notifyRuntimeError('callback:game-opponent-balance-conflict', new Error('Opponent compare-and-set balance update did not persist expected values'), {
+      gameId: Number(game.id), playerId: Number(player.telegram_id), opponentId: Number(opponent.telegram_id),
+      expectedOpponentStars: Number(opponent.stars || 0), actualOpponentStars: persistedOpponent && persistedOpponent.stars,
+      targetOpponentStars: oFinal, expectedOpponentPoints: opponentPoints,
+      actualOpponentPoints: persistedOpponent && persistedOpponent.points, targetOpponentPoints: opponentPointsFinal,
+      playerRoll: pRoll, opponentRoll: oRoll
+    });
     // Compensate only if the first balance still equals the value written by this settlement.
     try {
       await db.update(users).set({ stars: Number(player.stars || 0), points: playerPoints })
@@ -1004,12 +1035,20 @@ async function resolveUserGame(game) {
     .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'playing')))
     .returning({ id: game_sessions.id }).run();
   if (!completed || !Array.isArray(completed.rows) || completed.rows.length === 0) {
-    await db.update(game_sessions).set({ status: 'settlement_error', updated_at: new Date().toISOString() })
-      .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'playing'))).run();
-    const notice = '⚠️ د ستورو حساب وشو، خو د لوبې پایله بشپړه ثبت نه شوه. له اډمین سره اړیکه ونیسه.';
-    try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: notice }); } catch (e) {}
-    try { await api.sendMessage({ chat_id: Number(opponent.telegram_id), text: notice }); } catch (e) {}
-    return;
+    const persistedGame = await db.select().from(game_sessions).where(eq(game_sessions.id, Number(game.id))).get();
+    if (!persistedGame || persistedGame.status !== 'completed') {
+      await notifyRuntimeError('callback:game-completion-not-confirmed', new Error('Balance updates succeeded but game completion was not confirmed'), {
+        gameId: Number(game.id), observedStatus: persistedGame && persistedGame.status,
+        playerId: Number(player.telegram_id), opponentId: Number(opponent.telegram_id),
+        playerStars: pFinal, opponentStars: oFinal, playerRoll: pRoll, opponentRoll: oRoll
+      });
+      await db.update(game_sessions).set({ status: 'settlement_error', updated_at: new Date().toISOString() })
+        .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'playing'))).run();
+      const notice = '⚠️ د ستورو حساب وشو، خو د لوبې پایله تایید نه شوه؛ اډمین ته راپور واستول شو. له اډمین سره اړیکه ونیسه.';
+      try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: notice }); } catch (e) {}
+      try { await api.sendMessage({ chat_id: Number(opponent.telegram_id), text: notice }); } catch (e) {}
+      return;
+    }
   }
   for (const pair of [{ id: Number(player.telegram_id), mine: pRoll, other: oRoll, balance: pFinal }, { id: Number(opponent.telegram_id), mine: oRoll, other: pRoll, balance: oFinal }]) {
     try { await api.sendMessage({ chat_id: pair.id, text: '🎲 د ګېم پایله\n\nستا 🎲: ' + pair.mine + '\n\nد سیال 🎲: ' + pair.other + '\n\n' + result + '\n\n⭐ اوسنی بیلانس: ' + pair.balance }); } catch (e) {}
