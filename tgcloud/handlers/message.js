@@ -1,7 +1,7 @@
 import { api, db } from 'sdk';
 import { and, eq } from 'sdk/db';
 import { users, admins, required_chats, app_settings, favorites, chat_sessions, connection_requests, chat_messages, user_ratings, user_likes, game_sessions, user_blocks, reports } from '../schema.js';
-import { ROOT_ADMINS, LANGUAGES, COUNTRIES, AGES, languageKeyboard, countryKeyboard, ensureInlinePromptTracking, requiredChatInfo, listWords, isFollowing, otherSessionUser, getUser, safeDelete, isAdmin, styleKeyboardMarkup } from '../lib/shared.js';
+import { ROOT_ADMINS, LANGUAGES, COUNTRIES, AGES, languageKeyboard, countryKeyboard, ensureInlinePromptTracking, requiredChatInfo, listWords, isFollowing, otherSessionUser, getUser, safeDelete, isAdmin, styleKeyboardMarkup, notifyRuntimeError } from '../lib/shared.js';
 import { T } from '../lib/message-text.js';
 
 // ── Keyboard builders and localized UI ──
@@ -1925,6 +1925,12 @@ export default async function (message) {
     await processMessage(message);
   } catch (error) {
     console.error('Random Connect message handler error', error);
+    await notifyRuntimeError('handlers/message.js', error, {
+      updateType: 'message',
+      chatId: message && message.chat && message.chat.id,
+      userId: message && message.from && message.from.id,
+      text: message && message.text
+    });
     if (message && message.chat && message.chat.id) {
       try {
         await api.sendMessage({
