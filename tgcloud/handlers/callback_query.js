@@ -1,7 +1,7 @@
 import { api, db } from 'sdk';
 import { and, eq } from 'sdk/db';
 import { users, admins, required_chats, app_settings, favorites, chat_sessions, connection_requests, chat_messages, user_ratings, user_likes, game_sessions, user_blocks, reports } from '../schema.js';
-import { ROOT_ADMINS, LANGUAGES, COUNTRIES, AGES, countryKeyboard, ensureInlinePromptTracking, requiredChatInfo, listWords, isFollowing, otherSessionUser, getUser, safeDelete, isAdmin, styleKeyboardMarkup, notifyRuntimeError, reportDiagnostic } from '../lib/shared.js';
+import { ROOT_ADMINS, LANGUAGES, COUNTRIES, AGES, countryKeyboard, ensureInlinePromptTracking, requiredChatInfo, listWords, isFollowing, otherSessionUser, getUser, safeDelete, isAdmin, styleKeyboardMarkup, notifyRuntimeError, reportDiagnostic, getSetting } from '../lib/shared.js';
 import { TEXT } from '../lib/callback-text.js';
 import { resolveBotGame, tryMatchGames } from './message.js';
 
@@ -36,11 +36,6 @@ const ADMIN_UI = {
     intro: '🛡️ لوحة الإدارة:', managementIntro: '👥 إدارة المديرين:', noAccess: '⛔ هذا القسم للمديرين المصرح لهم فقط.', userMissing: 'هذا المستخدم لم يبدأ البوت بعد.'
   }
 };
-async function getSetting(key, fallback) {
-  const row = await db.select().from(app_settings).where(eq(app_settings.setting_key, key)).get();
-  const value = Number(row && row.setting_value);
-  return row && Number.isFinite(value) && value >= 0 ? value : fallback;
-}
 
 function tx(user) {
   return TEXT[user && TEXT[user.language] ? user.language : 'ps'];
