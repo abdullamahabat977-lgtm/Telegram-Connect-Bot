@@ -1639,9 +1639,9 @@ async function handleCallback(query) {
     await handleGameCallback(query, user, data, id, chatId);
     return;
   }
-  try { await expireUserTimedActions(id); } catch (e) { console.error('User timed-action check failed', e); }
-  try { await tryOfferSearches(); } catch (e) { console.error('Connection matching check failed', e); }
-  try { await tryMatchGames(); } catch (e) { console.error('Game matching check failed', e); }
+  try { await expireUserTimedActions(id); } catch (error) { await notifyRuntimeError('callback:expire-user-actions', error, { userId: id, callbackData: data }); }
+  try { await tryOfferSearches(); } catch (error) { await notifyRuntimeError('callback:connection-matching', error, { userId: id, callbackData: data }); }
+  try { await tryMatchGames(); } catch (error) { await notifyRuntimeError('callback:game-matching', error, { userId: id, callbackData: data }); }
   if (data.startsWith('admin:')) { await handleAdminCallback(query, user, data, id, chatId); return; }
   if (data.startsWith('settings:')) { await handleSettingsCallback(query, user, data, id, chatId); return; }
   if (data.startsWith('conn:')) { await handleConnectionCallback(query, user, data, id, chatId); return; }
@@ -1733,7 +1733,6 @@ export default async function (query) {
   try {
     await handleCallback(query);
   } catch (error) {
-    console.error('Random Connect callback_query handler error', { data: query && query.data, from: query && query.from && query.from.id, error });
     await notifyRuntimeError('handlers/callback_query.js', error, {
       updateType: 'callback_query',
       callbackData: query && query.data,
