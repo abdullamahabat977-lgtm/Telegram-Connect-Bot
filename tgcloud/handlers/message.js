@@ -179,9 +179,20 @@ async function sendPrompt(chatId, text, markup, user, parseMode) {
   return sent;
 }
 async function setSetting(key, value) {
+  const storedValue = String(value);
   const old = await db.select().from(app_settings).where(eq(app_settings.setting_key, key)).get();
-  if (old) await db.update(app_settings).set({ setting_value: String(value) }).where(eq(app_settings.setting_key, key)).run();
-  else await db.insert(app_settings).values({ setting_key: key, setting_value: String(value) }).run();
+  if (old) {
+    await db.update(app_settings).set({ setting_value: storedValue }).where(eq(app_settings.setting_key, key)).run();
+  } else {
+    await db.insert(app_settings).values({ setting_key: key, setting_value: storedValue }).run();
+  }
+
+  // Read the value back so the admin is not told a setting was saved when
+  // the database adapter failed to persist it.
+  const saved = await db.select().from(app_settings).where(eq(app_settings.setting_key, key)).get();
+  if (!saved || String(saved.setting_value) !== storedValue) {
+    throw new Error('Setting persistence verification failed for key: ' + key);
+  }
 }
 async function ensureDefaults() {
   const seed = await db.select().from(app_settings).where(eq(app_settings.setting_key, 'initial_required_chat_seeded')).get();
