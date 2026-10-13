@@ -691,8 +691,14 @@ async function relayConnectionMessage(message, session) {
 // ── Dice game lifecycle ──
 async function startDiceGame(chatId, user) {
   const minStars = Number(await getSetting('game_min_stars', 3.5));
-  if (Number(user.stars || 0) < minStars) {
-    await sendPrompt(chatId, '🎲 د ګېم لپاره لږ تر لږه ' + minStars + ' ستوري پکار دي.\n\nستا بیلانس: ' + Number(user.stars || 0), menuKeyboard(user, await isAdmin(user.telegram_id)), user);
+  const fee = Number(await getSetting('game_fee_stars', 0.5));
+  const requiredBalance = minStars + fee;
+  if (![minStars, fee, requiredBalance].every(Number.isFinite) || minStars <= 0 || fee < 0 || fee >= minStars) {
+    await sendPrompt(chatId, '⚠️ د ګېم تنظیمات ناسم دي: فیس باید له جایزې څخه کم وي. له اډمین سره اړیکه ونیسه.', menuKeyboard(user, await isAdmin(user.telegram_id)), user);
+    return;
+  }
+  if (Number(user.stars || 0) < requiredBalance) {
+    await sendPrompt(chatId, '🎲 د ګېم لپاره لږ تر لږه ' + requiredBalance + ' ستوري پکار دي (جایزه ' + minStars + ' + فیس ' + fee + ').\n\nستا بیلانس: ' + Number(user.stars || 0), menuKeyboard(user, await isAdmin(user.telegram_id)), user);
     return;
   }
   const rows = await db.select().from(game_sessions).all();
@@ -743,9 +749,8 @@ async function startDiceGame(chatId, user) {
   }
   const now = new Date().toISOString();
   const insertedGame = await db.insert(game_sessions).values({ player_id: Number(user.telegram_id), opponent_id: null, status: 'waiting',
-    created_at: now, updated_at: now, fee_stars: Number(await getSetting('game_fee_stars', 0.5)),
-    win_stars: Number(await getSetting('game_win_stars', 3)), bot_loss_total_stars: Number(await getSetting('game_bot_loss_total_stars', 3.5)),
-    points_award: Number(await getSetting('game_win_points', 1)) }).returning().run();
+    created_at: now, updated_at: now, fee_stars: fee,
+    win_stars: minStars, points_award: Number(await getSetting('game_win_points', 1)) }).returning().run();
   // Some Serverless SDK/database adapters may not expose RETURNING rows consistently.
   // Confirm the insert by its exact player + timestamps before declaring it failed.
   let createdGame = insertedGame && Array.isArray(insertedGame.rows) ? insertedGame.rows[0] : null;
@@ -830,17 +835,16 @@ export async function resolveBotGame(game) {
     return;
   }
   const fee = Number(game.fee_stars ?? await getSetting('game_fee_stars', 0.5));
-  const winStars = Number(game.win_stars ?? await getSetting('game_win_stars', 3));
-  const botLossTotal = Number(game.bot_loss_total_stars ?? await getSetting('game_bot_loss_total_stars', 3.5));
+  const winStars = Number(game.win_stars ?? await getSetting('game_min_stars', 3.5));
   const points = Number(game.points_award ?? await getSetting('game_win_points', 1));
   const balance = Number(player.stars || 0), pointsBalance = Number(player.points || 0);
-  if (![fee, winStars, botLossTotal, points].every(Number.isFinite) || fee < 0 || winStars < 0 || botLossTotal < 0 || points < 0) {
+  if (![fee, winStars, points].every(Number.isFinite) || fee < 0 || winStars <= 0 || fee >= winStars || points < 0 || !Number.isInteger(points)) {
     await db.update(game_sessions).set({ status: 'settlement_error', updated_at: new Date().toISOString() })
       .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'playing'))).run();
     try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: '⚠️ د ګېم مالي تنظیمات ناسم دي؛ فیس نه دی تصفیه شوی. له اډمین سره اړیکه ونیسه.' }); } catch (e) {}
     return;
   }
-  if (balance < fee) {
+  if (balance < fee + winStars) {
     await db.update(game_sessions).set({ status: 'cancelled', updated_at: new Date().toISOString() })
       .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'playing'))).run();
     try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: '⚠️ ستوري نور د ګېم فیس لپاره کافي نه دي؛ ګېم لغوه شو او فیس نه دی اخیستل شوی.' }); } catch (e) {}
@@ -872,10 +876,8 @@ export async function resolveBotGame(game) {
     newPoints += points;
     outcome = '🎉 ته وګټلې! +' + winStars + ' ستوري او +' + points + ' نمرې.';
   } else if (botRoll > playerRoll) {
-    const extraLoss = Math.max(0, botLossTotal - fee);
-    const actualLoss = Math.min(extraLoss, Math.max(0, newBalance));
-    newBalance -= actualLoss;
-    outcome = '🤖 بوټ وګټله! ستا ټول لګښت ' + (fee + actualLoss) + ' ستوري شو.';
+    newBalance -= winStars;
+    outcome = '🤖 بوټ وګټله! ستا ټول لګښت ' + (fee + winStars) + ' ستوري شو.';
   }
   const balanceUpdate = await db.update(users).set({ stars: newBalance, points: newPoints })
     .where(and(eq(users.telegram_id, Number(player.telegram_id)), eq(users.stars, balance), eq(users.points, pointsBalance)))
@@ -905,7 +907,9 @@ export async function tryMatchGames() {
   const allConnectionRequests = await db.select().from(connection_requests).all();
   const allBlocks = await db.select().from(user_blocks).all();
   const waitSeconds = Math.max(1, Number(await getSetting('game_wait_seconds', 120)) || 120);
-  const opponentMin = Number(await getSetting('game_opponent_min_stars', 3.5));
+  const minStars = Number(await getSetting('game_min_stars', 3.5));
+  const fee = Number(await getSetting('game_fee_stars', 0.5));
+  const requiredBalance = minStars + fee;
   const now = Date.now();
 
   // Expire stale incoming offers globally, not only when one of their players
@@ -966,7 +970,7 @@ export async function tryMatchGames() {
     const busyGameIds = new Set(rows.filter(row => ['pending','playing'].includes(row.status) && isFreshGame(row)).flatMap(row => [Number(row.player_id), Number(row.opponent_id || 0)]).concat(rows.filter(row => row.status === 'waiting').map(row => Number(row.player_id))).concat(rows.filter(row => row.status === 'settlement_error').flatMap(row => [Number(row.player_id), Number(row.opponent_id || 0)])));
     const candidates = allUsers.filter(candidate => {
       const id = Number(candidate.telegram_id);
-      if (id === Number(game.player_id) || id === Number(game.opponent_id || 0) || Number(candidate.is_blocked) === 1 || Number(candidate.stars || 0) < opponentMin) return false;
+      if (id === Number(game.player_id) || id === Number(game.opponent_id || 0) || Number(candidate.is_blocked) === 1 || Number(candidate.stars || 0) < requiredBalance) return false;
       const last = Date.parse(candidate.last_active_at || '');
       if (!Number.isFinite(last) || now - last > 2 * 60 * 1000) return false;
       if (busyGameIds.has(id)) return false;
@@ -1090,7 +1094,7 @@ export async function tryMatchGames() {
       try {
         await api.sendMessage({
           chat_id: candidateId,
-          text: '🎲 یو فعال کارن غواړي له تا سره د ګېم لوبه وکړي.\n\nد لوبې د منلو لپاره باید لږ تر لږه ' + opponentMin + ' ستوري ولرې. د منلو یا ردولو انتخاب وکړه.',
+          text: '🎲 یو فعال کارن غواړي له تا سره د ګېم لوبه وکړي.\n\nد لوبې لپاره لږ تر لږه ' + requiredBalance + ' ستوري پکار دي (جایزه ' + minStars + ' + فیس ' + fee + '). د منلو یا ردولو انتخاب وکړه.',
           reply_markup: styleKeyboardMarkup({ inline_keyboard: [[
             { text: '✅ ګېم منل', callback_data: 'game:accept:' + game.id },
             { text: '❌ ردول', callback_data: 'game:reject:' + game.id }
@@ -1123,7 +1127,7 @@ export async function tryMatchGames() {
           try {
             await api.sendMessage({
               chat_id: candidateId,
-              text: '🎲 یو فعال کارن غواړي له تا سره د ګېم لوبه وکړي.\n\nد لوبې د منلو لپاره باید لږ تر لږه ' + opponentMin + ' ستوري ولرې. د منلو یا ردولو انتخاب وکړه.',
+              text: '🎲 یو فعال کارن غواړي له تا سره د ګېم لوبه وکړي.\n\nد لوبې لپاره لږ تر لږه ' + requiredBalance + ' ستوري پکار دي (جایزه ' + minStars + ' + فیس ' + fee + '). د منلو یا ردولو انتخاب وکړه.',
               reply_markup: { inline_keyboard: [[
                 { text: '✅ ګېم منل', callback_data: 'game:accept:' + game.id },
                 { text: '❌ ردول', callback_data: 'game:reject:' + game.id }
@@ -1286,9 +1290,8 @@ async function renderAdminConnectionSettings(chatId, user) {
 }
 async function renderAdminGameSettings(chatId, user) {
   const keys = [
-    ['game_min_stars','⭐ د لوبې لږ تر لږه بیلانس',3.5], ['game_opponent_min_stars','👤 د سیال لږ تر لږه بیلانس',3.5],
-    ['game_fee_stars','💰 د لوبې فیس',0.5], ['game_win_stars','🏆 د ګټلو ستوري',3],
-    ['game_bot_loss_total_stars','🤖 د بوټ پر وړاندې د بایللو ټول لګښت',3.5], ['game_win_points','⭐ د ګټلو نمرې',1],
+    ['game_min_stars','⭐ د لوبې لږ تر لږه بیلانس / د ګټلو جایزه',3.5],
+    ['game_fee_stars','💰 د لوبې فیس',0.5], ['game_win_points','⭐ د ګټلو نمرې',1],
     ['game_wait_seconds','⏱ د سیال انتظار ثانیې',120]
   ];
   let text = '🎲 د ګېم تنظیمات\n\n';
@@ -1484,9 +1487,17 @@ async function processMessage(message) {
   const adminSettingMatch = String(user.state || '').match(/^admin_set_setting:([a-z_]+)$/);
   if (adminSettingMatch) {
     const key = adminSettingMatch[1], value = Number(input);
-    const allowed = ['welcome_reward_stars','welcome_reward_points','welcome_reward_likes','referral_reward_stars','referral_reward_points','referral_reward_likes','connection_search_seconds','connection_idle_minutes','connection_max_minutes','connection_cost_stars','game_min_stars','game_opponent_min_stars','game_fee_stars','game_win_stars','game_bot_loss_total_stars','game_win_points','game_wait_seconds'];
+    const allowed = ['welcome_reward_stars','welcome_reward_points','welcome_reward_likes','referral_reward_stars','referral_reward_points','referral_reward_likes','connection_search_seconds','connection_idle_minutes','connection_max_minutes','connection_cost_stars','game_min_stars','game_fee_stars','game_win_points','game_wait_seconds'];
     if (!(await isAdmin(id))) { await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, id)).run(); user.state = 'ready'; await sendPrompt(chatId, tx(user).noAccess, menuKeyboard(user, false), user); return; }
     if (!allowed.includes(key) || !Number.isFinite(value) || value < 0 || value > 1000000 || ((key.startsWith('welcome_reward_') || key.startsWith('referral_reward_') || key.includes('seconds') || key.includes('minutes') || key === 'game_win_points') && !Number.isInteger(value))) { await sendPrompt(chatId, '⚠️ معتبر عدد ولیکه. د ستورو فیس اعشاري کېدای شي، لکه 0.5.', { force_reply: true }, user); return; }
+    if (key === 'game_fee_stars' || key === 'game_min_stars') {
+      const prize = key === 'game_min_stars' ? value : Number(await getSetting('game_min_stars', 3.5));
+      const configuredFee = key === 'game_fee_stars' ? value : Number(await getSetting('game_fee_stars', 0.5));
+      if (!Number.isFinite(prize) || prize <= 0 || !Number.isFinite(configuredFee) || configuredFee < 0 || configuredFee >= prize) {
+        await sendPrompt(chatId, '⚠️ د لوبې فیس باید له جایزې څخه کم وي. لومړی مناسب مقدار وټاکه، بیا بیا هڅه وکړه.', { force_reply: true }, user);
+        return;
+      }
+    }
     await setSetting(key, value);
     user.state = 'admin_menu'; await db.update(users).set({ state: 'admin_menu' }).where(eq(users.telegram_id, id)).run();
     if (key.startsWith('welcome_reward_') || key.startsWith('referral_reward_')) await renderAdminRewardSettings(chatId, user);
