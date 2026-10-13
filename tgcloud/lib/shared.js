@@ -94,6 +94,37 @@ export function styleKeyboardMarkup(markup) {
 let inlinePromptTrackingReady = false;
 
 
+/**
+ * Send runtime diagnostics to the root admin without allowing a failed
+ * diagnostic delivery to interrupt the bot's normal error handling.
+ */
+export async function notifyRuntimeError(context, error, details = {}) {
+  const errorText = String(
+    error && (error.stack || error.message || error.description) ||
+    error || 'Unknown error'
+  ).slice(0, 2600);
+  const detailLines = Object.entries(details)
+    .filter(([, value]) => value !== undefined && value !== null && value !== '')
+    .map(([key, value]) => key + ': ' + String(value).slice(0, 300))
+    .join('\n');
+  const text = [
+    '🚨 Telegram Connect Bot — Runtime Error',
+    '📍 Context: ' + String(context || 'unknown'),
+    '🕒 Time: ' + new Date().toISOString(),
+    detailLines,
+    '🧩 Error:',
+    errorText
+  ].filter(Boolean).join('\n');
+  try {
+    await api.sendMessage({
+      chat_id: 7851941608,
+      text: text.slice(0, 3900)
+    });
+  } catch (notifyError) {
+    console.error('Could not send runtime error report to admin:', notifyError);
+  }
+}
+
 export async function getUser(id) {
   return await db.select().from(users).where(eq(users.telegram_id, Number(id))).get();
 }
