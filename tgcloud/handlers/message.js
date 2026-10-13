@@ -887,18 +887,60 @@ async function startDiceGame(chatId, user) {
     return;
   }
   const now = new Date().toISOString();
-  await db.insert(game_sessions).values({ player_id: Number(user.telegram_id), opponent_id: null, status: 'waiting',
+  const insertedGame = await db.insert(game_sessions).values({ player_id: Number(user.telegram_id), opponent_id: null, status: 'waiting',
     created_at: now, updated_at: now, fee_stars: Number(await getSetting('game_fee_stars', 0.5)),
     win_stars: Number(await getSetting('game_win_stars', 3)), bot_loss_total_stars: Number(await getSetting('game_bot_loss_total_stars', 3.5)),
-    points_award: Number(await getSetting('game_win_points', 1)) }).run();
-  await sendPrompt(chatId, '🎲 د ګېم سیال لټول کېږي.\n\n📩 د منلو/ردولو پیغام یوازې هغه کارن ته استول کېږي چې په تېرو ۲ دقیقو کې له بوټ سره فعال و، کافي ستوري ولري، او بل فعال ګېم یا اړیکه ونه لري.\n\n⏳ که په ټاکلي وخت کې مناسب سیال پیدا نه شي، ګېم به د بوټ پر وړاندې حل شي؛ که لغوه کول غواړې، لاندې تڼۍ ووهه.', { inline_keyboard: [[{ text: '❌ ګېم لغوه کول', callback_data: 'game:cancel' }]] }, user);
+    points_award: Number(await getSetting('game_win_points', 1)) }).returning().run();
+  const createdGame = insertedGame && Array.isArray(insertedGame.rows) ? insertedGame.rows[0] : null;
+  if (!createdGame || !Number.isSafeInteger(Number(createdGame.id)) || Number(createdGame.id) <= 0) {
+    throw new Error('Game insert returned no usable game row');
+  }
+  try {
+    await sendPrompt(chatId, '🎲 د ګېم سیال لټول کېږي.\n\n📩 د منلو/ردولو پیغام یوازې هغه کارن ته استول کېږي چې په تېرو ۲ دقیقو کې له بوټ سره فعال و، کافي ستوري ولري، او بل فعال ګېم یا اړیکه ونه لري.\n\n⏳ که په ټاکلي وخت کې مناسب سیال پیدا نه شي، ګېم به د بوټ پر وړاندې حل شي؛ که لغوه کول غواړې، لاندې تڼۍ ووهه.', { inline_keyboard: [[{ text: '❌ ګېم لغوه کول', callback_data: 'game:cancel' }]] }, user);
+  } catch (promptError) {
+    // If the status prompt cannot be delivered, remove only this new request from
+    // active matchmaking so it cannot silently block future games/connections.
+    try {
+      const latest = await db.select().from(game_sessions).where(eq(game_sessions.id, Number(createdGame.id))).get();
+      if (latest && ['waiting', 'pending'].includes(latest.status)) {
+        const conditions = [
+          eq(game_sessions.id, Number(createdGame.id)),
+          eq(game_sessions.player_id, Number(user.telegram_id)),
+          eq(game_sessions.status, latest.status)
+        ];
+        if (latest.status === 'pending' && Number(latest.opponent_id || 0) > 0) {
+          conditions.push(eq(game_sessions.opponent_id, Number(latest.opponent_id)));
+        } else {
+          conditions.push(eq(game_sessions.opponent_id, null));
+        }
+        const cancelled = await db.update(game_sessions)
+          .set({ status: 'cancelled', updated_at: new Date().toISOString() })
+          .where(and(...conditions))
+          .returning({ id: game_sessions.id }).run();
+        if (cancelled && Array.isArray(cancelled.rows) && cancelled.rows.length > 0 && latest.status === 'pending' && Number(latest.opponent_id || 0) > 0) {
+          try {
+            await api.sendMessage({ chat_id: Number(latest.opponent_id), text: '⌛ د ګېم غوښتنه د تخنیکي ستونزې له امله لغوه شوه.' });
+          } catch (notifyError) {
+            console.warn('Could not notify opponent about game request cleanup', {
+              gameId: Number(createdGame.id), opponentId: Number(latest.opponent_id), notifyError
+            });
+          }
+        }
+      }
+    } catch (cleanupError) {
+      console.error('Could not clean up game after startup prompt failure', {
+        gameId: Number(createdGame.id), playerId: Number(user.telegram_id), cleanupError
+      });
+    }
+    throw promptError;
+  }
   try {
     await tryMatchGames();
   } catch (error) {
     // Keep the persisted waiting game recoverable and avoid turning a matcher error
     // into the generic message-handler failure. Record the actual cause for logs.
     console.error('Game request was saved but matchmaking failed', {
-      gameId: null,
+      gameId: Number(createdGame.id),
       playerId: Number(user.telegram_id),
       error: error && (error.stack || error.message || String(error))
     });
