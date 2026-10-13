@@ -946,11 +946,11 @@ async function resolveUserGame(game) {
   if (pRoll > oRoll) {
     pFinal = playerBalance + winStars - fee; oFinal = opponentBalance - winStars;
     playerPointsFinal += points;
-    result = '🏆 ' + (player.name || player.first_name || 'لومړي لوبغاړي') + ' وګټله.';
+    result = '🏆 ' + (player.name || player.first_name || 'لومړي لوبغاړي') + ' وګټله؛ خالصه جایزه ' + (winStars - fee) + ' ستوري ده.';
   } else if (oRoll > pRoll) {
     oFinal = opponentBalance + winStars - fee; pFinal = playerBalance - winStars;
     opponentPointsFinal += points;
-    result = '🏆 ' + (opponent.name || opponent.first_name || 'دویم لوبغاړي') + ' وګټله.';
+    result = '🏆 ' + (opponent.name || opponent.first_name || 'دویم لوبغاړي') + ' وګټله؛ خالصه جایزه ' + (winStars - fee) + ' ستوري ده.';
   }
 
   // Compare-and-set each balance so a concurrent admin adjustment or other update is never overwritten.
