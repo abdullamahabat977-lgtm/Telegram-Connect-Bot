@@ -398,35 +398,6 @@ async function activeSessionFor(userId) {
   return rows.find(row => row.status === 'connected' &&
     (Number(row.first_user_telegram_id) === Number(userId) || Number(row.second_user_telegram_id) === Number(userId))) || null;
 }
-async function publicProfileText(target, viewerId) {
-  const fullName = [target.name || target.first_name || 'کارن', target.surname || ''].filter(Boolean).join(' ');
-  const gender = target.gender === 'female' ? 'ښځینه' : target.gender === 'male' ? 'نارینه' : 'نه دی ثبت';
-  const followerOnly = target.profile_visibility === 'followers' && !(await isFollowing(viewerId, target.telegram_id));
-  if (followerOnly) return '👤 نوم: ' + fullName + '\n\n⚧ جنسیت: ' + gender + '\n\n🔒 د بشپړ پروفایل لیدلو لپاره لومړی دا کارن فالو کړه.';
-  const country = COUNTRIES.find(item => item.code === target.country);
-  const language = LANGUAGES.find(item => item.code === target.language);
-  const favCount = await db.$count(favorites, eq(favorites.user_telegram_id, Number(target.telegram_id)));
-  return '👤 نوم: ' + fullName + '\n\n⚧ جنسیت: ' + gender + '\n\n🌍 هېواد: ' + (country ? country.label : '—') +
-    '\n\n🎂 عمر: ' + (target.age || '—') + '\n\n🗣️ ژبه: ' + (language ? language.label : target.language || '—') +
-    '\n\n📢 عام چینل: ' + (target.channel_username || '—') + '\n\n📨 ریفرلونه: ' + Number(target.referral_count || 0) +
-    '\n\n👥 پالو ملګري: ' + favCount + '\n\n🏆 نمرې: ' + Number(target.points || 0) +
-    '\n\n❤️ لایکونه: ' + Number(target.likes || 0);
-}
-function sessionKeyboard(targetId, sessionId, isFollowingTarget, liked) {
-  return { inline_keyboard: [
-    [{ text: isFollowingTarget ? '❤️ فالو شوی' : '➕ فالو کول', callback_data: 'session:follow:' + targetId + ':' + sessionId },
-     { text: liked ? '💔 لایک بېرته اخستل' : '❤️ لایک', callback_data: 'session:like:' + targetId + ':' + sessionId }],
-    [{ text: '⭐ 1', callback_data: 'session:rate:' + targetId + ':1:' + sessionId },
-     { text: '⭐ 2', callback_data: 'session:rate:' + targetId + ':2:' + sessionId },
-     { text: '⭐ 3', callback_data: 'session:rate:' + targetId + ':3:' + sessionId },
-     { text: '⭐ 4', callback_data: 'session:rate:' + targetId + ':4:' + sessionId },
-     { text: '⭐ 5', callback_data: 'session:rate:' + targetId + ':5:' + sessionId }],
-    [{ text: '👤 پروفایل لیدل', callback_data: 'session:profile:' + targetId + ':' + sessionId },
-     { text: '🛑 اړیکه پای ته رسول', callback_data: 'session:end:' + sessionId }],
-    [{ text: '🚩 راپور', callback_data: 'session:report:' + targetId + ':' + sessionId },
-     { text: '🗑 د وروستیو ۱۰ دقیقو پیغامونه حذفول', callback_data: 'session:delete_recent:' + targetId + ':' + sessionId }]
-  ] };
-}
 // ── Chat sessions and connection lifecycle ──
 async function endConnection(session, reason) {
   if (!session || session.status !== 'connected') return;
