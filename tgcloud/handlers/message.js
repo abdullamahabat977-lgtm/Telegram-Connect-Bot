@@ -1237,7 +1237,21 @@ export async function tryMatchGames() {
         .set({ opponent_id: candidateId, status: 'pending', updated_at: offeredAt })
         .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'waiting')))
         .returning({ id: game_sessions.id }).run();
-      if (!claimed || !Array.isArray(claimed.rows) || claimed.rows.length === 0) break;
+      let didClaim = Boolean(claimed && Array.isArray(claimed.rows) && claimed.rows.length > 0);
+      // The Serverless adapter may apply the update but return no RETURNING rows.
+      // Verify the exact persisted state before abandoning the candidate.
+      if (!didClaim) {
+        const verifyGames = await db.select().from(game_sessions).all();
+        const verifiedGame = verifyGames.find(row =>
+          Number(row.id) === Number(game.id) &&
+          Number(row.player_id) === Number(game.player_id)
+        );
+        didClaim = Boolean(verifiedGame &&
+          verifiedGame.status === 'pending' &&
+          Number(verifiedGame.opponent_id) === candidateId &&
+          verifiedGame.updated_at === offeredAt);
+      }
+      if (!didClaim) continue;
       // Keep the in-memory snapshot current so this same matcher run cannot offer one candidate multiple games.
       game.opponent_id = candidateId;
       game.status = 'pending';
