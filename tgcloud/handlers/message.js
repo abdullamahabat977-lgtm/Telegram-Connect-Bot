@@ -563,9 +563,6 @@ async function expireUserTimedActions(userId) {
     const timerStart = game.status === 'waiting' ? (game.created_at || game.updated_at) : (game.updated_at || game.created_at);
     const age = now - Date.parse(timerStart || '');
     if (Number.isFinite(age) && age < gameWait * 1000) continue;
-    // An expired own waiting game is resolved against the bot by tryMatchGames below,
-    // rather than cancelled here before the fallback can run.
-    if (isOwnGame && game.status === 'waiting' && Number.isFinite(age) && age >= gameWait * 1000) continue;
     const ownerCondition = isOwnGame
       ? eq(game_sessions.player_id, id)
       : eq(game_sessions.opponent_id, id);
@@ -1513,6 +1510,11 @@ async function processMessage(message) {
       .where(eq(users.telegram_id, id)).run();
   }
   if (!user) return;
+  // Run expiry before any state-specific early return: the next message after a timeout
+  // must release this user's stale game/connection rows and restore the menu state.
+  try { await expireUserTimedActions(id); } catch (expiryError) {
+    await notifyRuntimeError('message:expire-user-actions', expiryError, { userId: id, text: input });
+  }
   if (Number(user.is_blocked) !== 1) { try { await db.update(users).set({ last_active_at: new Date().toISOString() }).where(eq(users.telegram_id, id)).run(); } catch (e) {} }
   if (Number(user.is_blocked) === 1) {
     await sendPrompt(chatId, tx(user).blocked, { remove_keyboard: true }, user);
@@ -1549,9 +1551,8 @@ async function processMessage(message) {
     try { await api.sendMessage({ chat_id: chatId, text: welcomeText }); } catch (e) { console.error('Welcome reward notification failed', e); }
     }
   }
-  try { await expireUserTimedActions(id); } catch (e) { console.error('User timed-action check failed', e); }
-  try { await tryOfferSearches(); } catch (e) { console.error('Connection matching check failed', e); }
-  try { await tryMatchGames(); } catch (e) { console.error('Game matching check failed', e); }
+  try { await tryOfferSearches(); } catch (error) { await notifyRuntimeError('message:connection-matching', error, { userId: id }); }
+  try { await tryMatchGames(); } catch (error) { await notifyRuntimeError('message:game-matching', error, { userId: id }); }
   // Keep user messages visible; only replace the bot's previous prompt.
   const protectedStates = ['admin_menu', 'admin_management_menu', 'admin_channels_menu', 'waiting_admin_id', 'waiting_remove_admin_id', 'waiting_channel_details', 'waiting_remove_channel_id', 'waiting_broadcast', 'waiting_user_settings_id'];
   const adminEditState = /^(admin_edit_user_photo|admin_send_user_message):\d+$/.test(String(user.state || '')) || /^admin_adjust_balance:(stars|points|likes):(add|sub):\d+$/.test(String(user.state || '')) || /^admin_edit_user_(name|surname):\d+$/.test(String(user.state || ''));
@@ -2008,7 +2009,6 @@ export default async function (message) {
   try {
     await processMessage(message);
   } catch (error) {
-    console.error('Random Connect message handler error', error);
     await notifyRuntimeError('handlers/message.js', error, {
       updateType: 'message',
       chatId: message && message.chat && message.chat.id,
