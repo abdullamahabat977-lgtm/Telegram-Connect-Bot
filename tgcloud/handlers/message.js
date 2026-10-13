@@ -1334,6 +1334,16 @@ export async function tryMatchGames() {
             .where(and(...conditions))
             .returning({ id: game_sessions.id }).run();
           closed = Boolean(closedResult && Array.isArray(closedResult.rows) && closedResult.rows.length > 0);
+          // Verify persisted state because this Serverless adapter can apply a
+          // write while returning an empty RETURNING result.
+          if (!closed) {
+            const verifyRows = await db.select().from(game_sessions).all();
+            const verified = verifyRows.find(row =>
+              Number(row.id) === Number(latestGame.id) &&
+              Number(row.player_id) === Number(game.player_id)
+            );
+            closed = Boolean(verified && verified.status === 'cancelled');
+          }
         }
       } catch (closeError) {
         console.error('Could not close game after all candidate deliveries failed', {
@@ -1347,6 +1357,13 @@ export async function tryMatchGames() {
         latestStatus: latestGame && latestGame.status,
         requestClosed: closed,
         lastDeliveryError
+      });
+      await notifyRuntimeError('game-matchmaking:offer-delivery', lastDeliveryError || new Error('No eligible candidate accepted Telegram message delivery'), {
+        gameId: Number(game.id),
+        playerId: Number(game.player_id),
+        candidateCount: candidates.length,
+        latestStatus: latestGame && latestGame.status,
+        requestClosed: closed
       });
       try {
         await api.sendMessage({
