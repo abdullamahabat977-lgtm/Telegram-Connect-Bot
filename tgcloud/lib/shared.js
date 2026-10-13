@@ -98,6 +98,12 @@ let inlinePromptTrackingReady = false;
  * Send runtime diagnostics to the root admin without allowing a failed
  * diagnostic delivery to interrupt the bot's normal error handling.
  */
+export async function getSetting(key, fallback) {
+  const row = await db.select().from(app_settings).where(eq(app_settings.setting_key, key)).get();
+  const value = Number(row && row.setting_value);
+  return row && Number.isFinite(value) && value >= 0 ? value : fallback;
+}
+
 export function reportDiagnostic(context, ...details) {
   const error = details.find(value => value instanceof Error || (value && typeof value === 'object' && (value.stack || value.message || value.description)));
   let serialized = '';
