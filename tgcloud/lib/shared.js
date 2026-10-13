@@ -121,7 +121,8 @@ export async function notifyRuntimeError(context, error, details = {}) {
       text: text.slice(0, 3900)
     });
   } catch (notifyError) {
-    console.error('Could not send runtime error report to admin:', notifyError);
+    // Do not write diagnostics to console: the deployment console is not available to the owner.
+    // The original error path must continue even if Telegram cannot deliver this report.
   }
 }
 
