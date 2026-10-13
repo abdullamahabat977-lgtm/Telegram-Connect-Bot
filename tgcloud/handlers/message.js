@@ -1,7 +1,7 @@
 import { api, db } from 'sdk';
 import { and, eq } from 'sdk/db';
 import { users, admins, required_chats, app_settings, favorites, chat_sessions, connection_requests, chat_messages, user_ratings, user_likes, game_sessions, user_blocks, reports } from '../schema.js';
-import { ROOT_ADMINS, LANGUAGES, COUNTRIES, AGES, languageKeyboard, countryKeyboard, ensureInlinePromptTracking, requiredChatInfo, listWords, isFollowing, otherSessionUser, getUser, safeDelete, isAdmin, styleKeyboardMarkup, notifyRuntimeError, reportDiagnostic } from '../lib/shared.js';
+import { ROOT_ADMINS, LANGUAGES, COUNTRIES, AGES, languageKeyboard, countryKeyboard, ensureInlinePromptTracking, requiredChatInfo, listWords, isFollowing, otherSessionUser, getUser, safeDelete, isAdmin, styleKeyboardMarkup, notifyRuntimeError, reportDiagnostic, getSetting } from '../lib/shared.js';
 import { T } from '../lib/message-text.js';
 
 
@@ -172,11 +172,6 @@ async function sendPrompt(chatId, text, markup, user, parseMode) {
     user.last_prompt_id = inlineId;
   }
   return sent;
-}
-async function getSetting(key, fallback) {
-  const row = await db.select().from(app_settings).where(eq(app_settings.setting_key, key)).get();
-  const value = Number(row && row.setting_value);
-  return row && Number.isFinite(value) && value >= 0 ? value : fallback;
 }
 async function setSetting(key, value) {
   const old = await db.select().from(app_settings).where(eq(app_settings.setting_key, key)).get();
