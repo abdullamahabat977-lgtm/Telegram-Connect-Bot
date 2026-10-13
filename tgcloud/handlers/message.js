@@ -603,7 +603,20 @@ async function tryOfferSearches() {
     const expiredSearch = await db.update(connection_requests).set({ status: 'expired', updated_at: new Date().toISOString() })
       .where(and(eq(connection_requests.id, Number(staleSearch.id)), eq(connection_requests.status, 'searching')))
       .returning({ id: connection_requests.id }).run();
-    if (!expiredSearch || !Array.isArray(expiredSearch.rows) || expiredSearch.rows.length === 0) continue;
+    let didExpireSearch = Boolean(expiredSearch && Array.isArray(expiredSearch.rows) && expiredSearch.rows.length > 0);
+    if (!didExpireSearch) {
+      const verifyRequests = await db.select().from(connection_requests).all();
+      const verified = verifyRequests.find(row => Number(row.id) === Number(staleSearch.id));
+      didExpireSearch = Boolean(verified && verified.status === 'expired');
+    }
+    if (!didExpireSearch) {
+      await notifyRuntimeError('connection-timeout:expire-search', new Error('Could not expire stale connection search'), {
+        requestId: Number(staleSearch.id),
+        requesterId: Number(staleSearch.requester_id),
+        ageSeconds: Number.isFinite(staleAge) ? Math.floor(staleAge / 1000) : 'unknown'
+      });
+      continue;
+    }
     staleSearch.status = 'expired';
     await db.update(users).set({ state: 'ready' }).where(and(eq(users.telegram_id, Number(staleSearch.requester_id)), eq(users.state, 'searching_connection'))).run();
     for (const staleOffer of allRequests.filter(row => Number(row.requester_id) === Number(staleSearch.requester_id) && row.status === 'pending')) {
@@ -1082,7 +1095,22 @@ export async function tryMatchGames() {
       .set({ status: 'cancelled', updated_at: new Date().toISOString() })
       .where(and(...conditions))
       .returning({ id: game_sessions.id }).run();
-    if (!expired || !Array.isArray(expired.rows) || expired.rows.length === 0) continue;
+    let didExpire = Boolean(expired && Array.isArray(expired.rows) && expired.rows.length > 0);
+    if (!didExpire) {
+      // Verify persisted state when this adapter applies UPDATE but omits RETURNING rows.
+      const verifyRows = await db.select().from(game_sessions).all();
+      const verified = verifyRows.find(row => Number(row.id) === Number(staleOffer.id));
+      didExpire = Boolean(verified && verified.status === 'cancelled');
+    }
+    if (!didExpire) {
+      await notifyRuntimeError('game-timeout:expire-pending-offer', new Error('Could not expire stale pending game offer'), {
+        gameId: Number(staleOffer.id),
+        playerId: Number(staleOffer.player_id),
+        opponentId: Number(staleOffer.opponent_id),
+        ageSeconds: Number.isFinite(offerAge) ? Math.floor(offerAge / 1000) : 'unknown'
+      });
+      continue;
+    }
     for (const targetId of [Number(staleOffer.player_id), Number(staleOffer.opponent_id)]) {
       if (!Number.isSafeInteger(targetId) || targetId <= 0) continue;
       try {
@@ -1358,7 +1386,10 @@ export async function tryMatchGames() {
         requestClosed: closed,
         lastDeliveryError
       });
-      await notifyRuntimeError('game-matchmaking:offer-delivery', lastDeliveryError || new Error('No eligible candidate accepted Telegram message delivery'), {
+      await notifyRuntimeError('game-matchmaking:offer-delivery', lastDeliveryError
+        ? new Error('Telegram sendMessage failed: ' + String(lastDeliveryError.description || 'unknown Telegram error') +
+          '; errorCode=' + String(lastDeliveryError.errorCode || 'unknown'))
+        : new Error('No eligible candidate accepted Telegram message delivery; no Telegram send error was captured'), {
         gameId: Number(game.id),
         playerId: Number(game.player_id),
         candidateCount: candidates.length,
