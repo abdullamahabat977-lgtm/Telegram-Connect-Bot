@@ -1352,6 +1352,30 @@ async function processMessage(message) {
     await sendPrompt(chatId, tx(user).blocked, { remove_keyboard: true }, user);
     return;
   }
+  // Test-bot recovery command: allow an administrator to release games left in settlement_error.
+  // This only changes the game status; it does not alter any user's stars or points.
+  if (input === '/cleartestgames' || input === '/cleartestgames@' + String((await getSetting('bot_username', '') || '')).replace(/^@/, '')) {
+    if (!(await isAdmin(id))) {
+      await sendPrompt(chatId, '⛔ دا امر یوازې د اډمین لپاره دی.', menuKeyboard(user, false), user);
+      return;
+    }
+    const failedGames = await db.select().from(game_sessions).all();
+    let cleared = 0;
+    for (const game of failedGames.filter(row => row.status === 'settlement_error')) {
+      const result = await db.update(game_sessions)
+        .set({ status: 'cancelled', updated_at: new Date().toISOString() })
+        .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'settlement_error')))
+        .returning({ id: game_sessions.id }).run();
+      if (result && Array.isArray(result.rows) && result.rows.length > 0) {
+        cleared++;
+      } else {
+        const verified = await db.select().from(game_sessions).where(eq(game_sessions.id, Number(game.id))).get();
+        if (verified && verified.status === 'cancelled') cleared++;
+      }
+    }
+    await sendPrompt(chatId, '✅ د ټېسټ بوټ د خراب حالت پاتې لوبې پاکې شوې.\nلغوه شوې لوبې: ' + cleared + '\n\nیادونه: د لوبغاړو ستوري او نمرې نه دي بدل شوي.', menuKeyboard(user, await isAdmin(id)), user);
+    return;
+  }
   if (Number(user.welcome_reward_claimed || 0) !== 1) {
     const welcomeStars = Number(await getSetting('welcome_reward_stars', 10));
     const welcomePoints = Number(await getSetting('welcome_reward_points', 3));
