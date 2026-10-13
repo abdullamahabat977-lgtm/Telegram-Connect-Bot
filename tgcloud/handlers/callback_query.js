@@ -1436,8 +1436,14 @@ async function handleSessionCallback(query, actor, data, actorId, chatId) {
 }
 async function handleGameCallback(query, actor, data, actorId, chatId) {
   const p = data.split(':'), action = p[1], gameId = Number(p[2]);
-  const rows = await db.select().from(game_sessions).all(), game = rows.find(row => Number(row.id) === gameId);
+  let rows = await db.select().from(game_sessions).all(), game = rows.find(row => Number(row.id) === gameId);
   if (action === 'cancel') {
+    // The cancel button is handled before the general callback expiry pass.
+    // Expire this user's stale game here too, then re-read persisted state.
+    try { await expireUserTimedActions(actorId); }
+    catch (error) { await notifyRuntimeError('callback:expire-before-game-cancel', error, { userId: actorId, gameId }); }
+    rows = await db.select().from(game_sessions).all();
+    game = rows.find(row => Number(row.id) === gameId);
     // Cancel only this user's own waiting/pending games, and only if the status
     // has not changed since we read it. Never cancel a game already in settlement.
     let cancelledCount = 0;
