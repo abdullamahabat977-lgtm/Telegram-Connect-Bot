@@ -578,9 +578,6 @@ async function expireUserTimedActions(userId) {
     const timerStart = game.status === 'waiting' ? (game.created_at || game.updated_at) : (game.updated_at || game.created_at);
     const age = now - Date.parse(timerStart || '');
     if (Number.isFinite(age) && age < gameWait * 1000) continue;
-    // Leave an expired own waiting game for the matchmaking fallback; explicit cancel
-    // callbacks still cancel it through handleGameCallback.
-    if (isOwnGame && game.status === 'waiting' && Number.isFinite(age) && age >= gameWait * 1000) continue;
     const ownerCondition = isOwnGame ? eq(game_sessions.player_id, id) : eq(game_sessions.opponent_id, id);
     const cancelled = await db.update(game_sessions).set({ status: 'cancelled', updated_at: new Date().toISOString() })
       .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, game.status), ownerCondition))
