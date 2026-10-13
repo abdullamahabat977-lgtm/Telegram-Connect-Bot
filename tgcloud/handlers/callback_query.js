@@ -261,7 +261,7 @@ async function handleAdminCallback(query, actor, data, actorId, chatId) {
   }
   if (p[1] === 'setting') {
     const key = p[2];
-    const allowed = ['welcome_reward_stars','welcome_reward_points','welcome_reward_likes','referral_reward_stars','referral_reward_points','referral_reward_likes','connection_search_seconds','connection_idle_minutes','connection_max_minutes','connection_cost_stars','game_min_stars','game_opponent_min_stars','game_fee_stars','game_win_stars','game_bot_loss_total_stars','game_win_points','game_wait_seconds'];
+    const allowed = ['welcome_reward_stars','welcome_reward_points','welcome_reward_likes','referral_reward_stars','referral_reward_points','referral_reward_likes','connection_search_seconds','connection_idle_minutes','connection_max_minutes','connection_cost_stars','game_min_stars','game_fee_stars','game_win_points','game_wait_seconds'];
     if (!allowed.includes(key)) return;
     actor.state = 'admin_set_setting:' + key;
     await db.update(users).set({ state: actor.state }).where(eq(users.telegram_id, actorId)).run();
@@ -893,9 +893,9 @@ async function resolveUserGame(game) {
     return;
   }
   const fee = Number(game.fee_stars ?? await getSetting('game_fee_stars', 0.5));
-  const winStars = Number(game.win_stars ?? await getSetting('game_win_stars', 3));
+  const winStars = Number(game.win_stars ?? await getSetting('game_min_stars', 3.5));
   const points = Number(game.points_award ?? await getSetting('game_win_points', 1));
-  if (![fee, winStars, points].every(Number.isFinite) || fee < 0 || winStars < 0 || points < 0 || !Number.isInteger(points)) {
+  if (![fee, winStars, points].every(Number.isFinite) || fee < 0 || winStars <= 0 || fee >= winStars || points < 0 || !Number.isInteger(points)) {
     await db.update(game_sessions).set({ status: 'settlement_error', updated_at: new Date().toISOString() })
       .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'playing'))).run();
     const notice = '⚠️ د ګېم مالي تنظیمات ناسم دي؛ د ستورو حساب ونه شو. له اډمین سره اړیکه ونیسه.';
@@ -1578,8 +1578,7 @@ async function handleGameCallback(query, actor, data, actorId, chatId) {
          player_id: playerId, opponent_id: null, status: 'waiting',
          created_at: rejectedAt, updated_at: rejectedAt,
          fee_stars: Number(game.fee_stars ?? await getSetting('game_fee_stars', 0.5)),
-         win_stars: Number(game.win_stars ?? await getSetting('game_win_stars', 3)),
-         bot_loss_total_stars: Number(game.bot_loss_total_stars ?? await getSetting('game_bot_loss_total_stars', 3.5)),
+         win_stars: Number(game.win_stars ?? await getSetting('game_min_stars', 3.5)),
          points_award: Number(game.points_award ?? await getSetting('game_win_points', 1))
        }).run();
        if (player) await sendPrompt(Number(player.telegram_id), '❌ سیال غوښتنه رد کړه؛ د بل سیال لټون روان دی.\\n\\nکه غواړې، لټون لغوه کولای شې.', { inline_keyboard: [[{ text: '❌ ګېم لغوه کول', callback_data: 'game:cancel' }]] }, player);
