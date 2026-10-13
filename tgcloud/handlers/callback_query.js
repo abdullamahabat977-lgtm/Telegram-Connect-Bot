@@ -593,16 +593,30 @@ async function tryOfferSearches() {
   const games = await db.select().from(game_sessions).all();
   const now = Date.now(), wait = Math.max(1, Number(await getSetting('connection_search_seconds', 120)) || 120);
   // Expire abandoned searches globally so stale requests cannot block future searches.
-  for (const staleSearch of requests.filter(row => row.status === 'searching' && !row.recipient_id)) {
-    const staleAge = now - Date.parse(staleSearch.created_at || '');
+  for (const staleSearch of requests.filter(row => ['searching', 'matching'].includes(row.status) && !row.recipient_id)) {
+    // A process interruption after searching -> matching must not leave the user
+    // permanently blocked. Matching is short-lived, so age it from updated_at.
+    const stamp = staleSearch.status === 'matching'
+      ? (staleSearch.updated_at || staleSearch.created_at)
+      : staleSearch.created_at;
+    const staleAge = now - Date.parse(stamp || '');
     if (Number.isFinite(staleAge) && staleAge < wait * 1000) continue;
+    const conditions = [
+      eq(connection_requests.id, Number(staleSearch.id)),
+      eq(connection_requests.status, staleSearch.status)
+    ];
+    if (staleSearch.updated_at != null) conditions.push(eq(connection_requests.updated_at, staleSearch.updated_at));
     const expiredSearch = await db.update(connection_requests).set({ status: 'expired', updated_at: new Date().toISOString() })
-      .where(and(eq(connection_requests.id, Number(staleSearch.id)), eq(connection_requests.status, 'searching')))
+      .where(and(...conditions))
       .returning({ id: connection_requests.id }).run();
     if (!expiredSearch || !Array.isArray(expiredSearch.rows) || expiredSearch.rows.length === 0) continue;
     staleSearch.status = 'expired';
     await db.update(users).set({ state: 'ready' }).where(and(eq(users.telegram_id, Number(staleSearch.requester_id)), eq(users.state, 'searching_connection'))).run();
-    for (const staleOffer of requests.filter(row => Number(row.requester_id) === Number(staleSearch.requester_id) && row.status === 'pending')) {
+    for (const staleOffer of requests.filter(row =>
+      Number(row.requester_id) === Number(staleSearch.requester_id) &&
+      row.status === 'pending' &&
+      String(row.created_at || '') >= String(staleSearch.created_at || '')
+    )) {
       const expiredOffer = await db.update(connection_requests).set({ status: 'expired', updated_at: new Date().toISOString() })
         .where(and(eq(connection_requests.id, Number(staleOffer.id)), eq(connection_requests.status, 'pending')))
         .returning({ id: connection_requests.id }).run();
