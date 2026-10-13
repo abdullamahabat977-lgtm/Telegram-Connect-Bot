@@ -98,6 +98,16 @@ let inlinePromptTrackingReady = false;
  * Send runtime diagnostics to the root admin without allowing a failed
  * diagnostic delivery to interrupt the bot's normal error handling.
  */
+export function reportDiagnostic(context, ...details) {
+  const error = details.find(value => value instanceof Error || (value && typeof value === 'object' && (value.stack || value.message || value.description)));
+  let serialized = '';
+  try { serialized = JSON.stringify(details, (key, value) => value instanceof Error ? { name: value.name, message: value.message, stack: value.stack } : value); }
+  catch (e) { serialized = details.map(value => String(value)).join(' | '); }
+  void notifyRuntimeError(context, error || new Error(serialized.slice(0, 1800) || 'Runtime diagnostic'), {
+    diagnostic: serialized.slice(0, 1800)
+  });
+}
+
 export async function notifyRuntimeError(context, error, details = {}) {
   const errorText = String(
     error && (error.stack || error.message || error.description) ||
