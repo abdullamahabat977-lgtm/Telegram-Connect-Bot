@@ -320,11 +320,6 @@ async function showFavoriteSettings(chatId, user, page) {
   rows.push([{ text: '⚙️ ' + w.settings, callback_data: 'settings:open' }, { text: w.main, callback_data: 'settings:main' }]);
   await sendPrompt(chatId, text, { inline_keyboard: rows }, user);
 }
-async function showSettingsSection(chatId, user, state, text, markup) {
-  user.state = state;
-  await db.update(users).set({ state }).where(eq(users.telegram_id, Number(user.telegram_id))).run();
-  await sendPrompt(chatId, text, markup, user);
-}
 function escapeHtml(value) {
   return String(value == null ? '' : value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
@@ -398,11 +393,6 @@ async function completeProfile(chatId, user, extra) {
   await showMain(chatId, user, (extra ? extra + '\n' : '') + tx(user).ready);
 }
 
-async function hasBlockEitherWay(firstId, secondId) {
-  const rows = await db.select().from(user_blocks).all();
-  return rows.some(row => (Number(row.blocker_telegram_id) === Number(firstId) && Number(row.blocked_telegram_id) === Number(secondId)) ||
-    (Number(row.blocker_telegram_id) === Number(secondId) && Number(row.blocked_telegram_id) === Number(firstId)));
-}
 async function activeSessionFor(userId) {
   const rows = await db.select().from(chat_sessions).all();
   return rows.find(row => row.status === 'connected' &&
@@ -438,17 +428,6 @@ function sessionKeyboard(targetId, sessionId, isFollowingTarget, liked) {
   ] };
 }
 // ── Chat sessions and connection lifecycle ──
-async function showSessionProfile(session, viewerId) {
-  const targetId = otherSessionUser(session, viewerId);
-  const target = await getUser(targetId), viewer = await getUser(viewerId);
-  if (!target || !viewer) return;
-  const following = await isFollowing(viewerId, targetId);
-  const likes = await db.select().from(user_likes).where(eq(user_likes.liker_id, Number(viewerId))).all();
-  const liked = likes.some(row => Number(row.liked_id) === targetId);
-  const text = '🤝 اړیکه فعاله ده.\n\n' + await publicProfileText(target, viewerId) +
-    '\n\n💡 د بل کس د بشپړ پروفایل لپاره، که یې پروفایل یوازې پالو ملګرو ته ښکاري، هغه فالو کړه.';
-  await sendPrompt(viewerId, text, sessionKeyboard(targetId, session.id, following, liked), viewer);
-}
 async function endConnection(session, reason) {
   if (!session || session.status !== 'connected') return;
   const endedAt = new Date().toISOString();
@@ -718,117 +697,6 @@ async function tryOfferSearches() {
       reportDiagnostic('message-handler', 'Failed to send connection offer to candidate', { searchId: search.id, offerId: offer.id, candidateId: candidate.telegram_id, error });
       await db.update(connection_requests).set({ status: 'rejected', updated_at: new Date().toISOString() })
         .where(and(eq(connection_requests.id, Number(offer.id)), eq(connection_requests.status, 'pending'))).run();
-    }
-  }
-}
-async function beginConnectionSearch(chatId, user, type) {
-  const cost = Number(await getSetting('connection_cost_stars', 1));
-  if (!Number.isFinite(cost) || cost < 0) {
-    await sendPrompt(chatId, '⚠️ د اړیکې د ستورو تنظیم ناسم دی. له اډمین سره اړیکه ونیسه.', menuKeyboard(user, await isAdmin(user.telegram_id)), user);
-    return;
-  }
-  if (Number(user.stars || 0) < cost) {
-    await sendPrompt(chatId, '⭐ د اړیکې غوښتنې لپاره لږ تر لږه ' + cost + ' ستوري پکار دي.\n\nستا اوسنی بیلانس: ' + Number(user.stars || 0), menuKeyboard(user, await isAdmin(user.telegram_id)), user);
-    return;
-  }
-  const current = await activeSessionFor(user.telegram_id);
-  if (current) {
-    await sendPrompt(chatId, '⚠️ ته اوس له یوه کس سره په اړیکه کې یې. لومړی اړیکه پای ته ورسوه.', menuKeyboard(user, await isAdmin(user.telegram_id)), user);
-    return;
-  }
-  const activeGames = await db.select().from(game_sessions).all();
-  if (activeGames.some(row => ['waiting', 'pending', 'playing', 'settlement_error'].includes(row.status) &&
-      (Number(row.player_id) === Number(user.telegram_id) || Number(row.opponent_id) === Number(user.telegram_id)))) {
-    await sendPrompt(chatId, '⚠️ ته لا د ګېم په بهیر کې یې. لومړی ګېم پای ته ورسوه یا یې لغوه کړه، بیا د ملګري لټون پیل کړه.', menuKeyboard(user, await isAdmin(user.telegram_id)), user);
-    return;
-  }
-  const activeRequests = await db.select().from(connection_requests).all();
-  if (activeRequests.some(row => ['searching', 'matching', 'pending'].includes(row.status) &&
-      (Number(row.requester_id) === Number(user.telegram_id) || Number(row.recipient_id) === Number(user.telegram_id)))) {
-    await sendPrompt(chatId, '🔎 ستا د ملګري لټون یا د اړیکې غوښتنه لا فعاله ده. لومړی یې پای ته ورسوه، بیا نوی لټون پیل کړه.', { inline_keyboard: [[{ text: '❌ لټون لغوه کول', callback_data: 'conn:cancel_search' }]] }, user);
-    return;
-  }
-  let search = null, stage = 'insert-search';
-  try {
-    const now = new Date().toISOString();
-    const inserted = await db.insert(connection_requests).values({
-      requester_id: Number(user.telegram_id), recipient_id: null, status: 'searching', request_type: type,
-      gender_filter: type === 'find' ? (user.search_gender || 'auto') : 'auto',
-      language_filter: type === 'find' ? (user.search_language || 'auto') : 'auto',
-      created_at: now, updated_at: now
-    }).returning().run();
-    search = inserted && Array.isArray(inserted.rows) ? inserted.rows[0] : null;
-    if (!search || !Number.isSafeInteger(Number(search.id)) || Number(search.id) <= 0) {
-      // Verify the write directly in case this adapter omits RETURNING rows.
-      const verifiedSearches = await db.select().from(connection_requests)
-        .where(and(
-          eq(connection_requests.requester_id, Number(user.telegram_id)),
-          eq(connection_requests.status, 'searching'),
-          eq(connection_requests.created_at, now)
-        )).all();
-      search = Array.isArray(verifiedSearches)
-        ? verifiedSearches.find(row => row.updated_at === now && row.recipient_id == null) || null
-        : null;
-    }
-    if (!search || !Number.isSafeInteger(Number(search.id)) || Number(search.id) <= 0) {
-      throw new Error('Connection search insert could not be verified after insert; returning rows were empty and fallback lookup found no matching row');
-    }
-
-    stage = 'set-user-state';
-    await db.update(users).set({ state: 'searching_connection' })
-      .where(eq(users.telegram_id, Number(user.telegram_id))).run();
-    user.state = 'searching_connection';
-
-    stage = 'send-search-prompt';
-    await sendPrompt(chatId, '🔎 د ملګري لټون پیل شو.\n\n⏳ د مناسب کس لټون تر ۲ دقیقو دوام کوي. که وخت تېر شي، د ستا راتلونکي پیغام یا تڼۍ پر مهال به لټون لغوه شي.\n\n⭐ د اړیکې منلو پر مهال به له تا ' + cost + ' ستوری کم شي.',
-      { inline_keyboard: [[{ text: '❌ لټون لغوه کول', callback_data: 'conn:cancel_search:' + Number(search.id) }]] }, user);
-  } catch (error) {
-    reportDiagnostic('message-handler', 'Failed to start connection search from message handler', {
-      userId: Number(user.telegram_id), type, stage,
-      error: error && (error.stack || error.message || String(error))
-    });
-    if (search && Number(search.id) > 0) {
-      try {
-        await db.update(connection_requests).set({ status: 'cancelled', updated_at: new Date().toISOString() })
-          .where(and(eq(connection_requests.id, Number(search.id)), eq(connection_requests.status, 'searching'))).run();
-      } catch (cleanupError) {
-        reportDiagnostic('message-handler', 'Could not clean up failed connection search from message handler', {
-          userId: Number(user.telegram_id), searchId: search.id, cleanupError
-        });
-      }
-    }
-    try { await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, Number(user.telegram_id))).run(); } catch (stateError) {
-      reportDiagnostic('message-handler', 'Could not restore user state after failed connection search from message handler', {
-        userId: Number(user.telegram_id), stateError
-      });
-    }
-    user.state = 'ready';
-    try {
-      await api.sendMessage({
-        chat_id: Number(chatId),
-        text: '⚠️ د ملګري لټون پیل نه شو. غوښتنه خوندي نه ده فعاله پاتې شوې؛ لږ وروسته بیا هڅه وکړه. که بیا تکرار شو، اډمین ته خبر ورکړه.'
-      });
-    } catch (notifyError) {
-      reportDiagnostic('message-handler', 'Could not notify user about connection search startup failure from message handler', {
-        userId: Number(user.telegram_id), notifyError
-      });
-    }
-    return;
-  }
-  try { await tryOfferSearches(); } catch (error) {
-    reportDiagnostic('message-handler', 'Connection search matching failed after request creation', {
-      userId: Number(user.telegram_id), searchId: Number(search.id), type,
-      error: error && (error.stack || error.message || String(error))
-    });
-    try {
-      await api.sendMessage({
-        chat_id: Number(chatId),
-        text: '⚠️ لټون پیل شو، خو د سیال لټولو پر مهال ستونزه وشوه. لږ وروسته بیا هڅه وکړه.'
-      });
-    } catch (notifyError) {
-      reportDiagnostic('message-handler', 'Could not notify user about matchmaking failure from message handler', {
-        userId: Number(user.telegram_id), notifyError
-      });
     }
   }
 }
