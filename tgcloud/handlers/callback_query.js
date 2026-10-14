@@ -1565,35 +1565,52 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
       return;
     }
     let debited = null, debitError = null;
+    const debitAt = new Date().toISOString();
+    const expectedBalanceAfterDebit = Number(requester.stars || 0) - cost;
     try {
-      debited = await db.update(users).set({ stars: Number(requester.stars || 0) - cost, state: 'ready' })
+      debited = await db.update(users).set({
+        stars: expectedBalanceAfterDebit,
+        state: 'ready',
+        last_active_at: debitAt
+      })
         .where(and(eq(users.telegram_id, Number(requester.telegram_id)), eq(users.stars, Number(requester.stars || 0))))
         .returning({ telegram_id: users.telegram_id }).run();
     } catch (error) {
       debitError = error;
-      reportDiagnostic('callback-handler', 'Connection requester debit returned an error', { offerId, requesterId: requester.telegram_id, error });
+      reportDiagnostic('callback-handler', 'Connection requester debit returned an error; verifying persisted balance before deciding', {
+        offerId, requesterId: requester.telegram_id, debitAt, error
+      });
     }
-    if (!debited || !Array.isArray(debited.rows) || debited.rows.length === 0) {
-      let refundedAfterAmbiguousDebit = false;
-      if (debitError) {
-        try {
-          const refund = await db.update(users).set({ stars: Number(requester.stars || 0), state: 'ready' })
-            .where(and(
-              eq(users.telegram_id, Number(requester.telegram_id)),
-              eq(users.stars, Number(requester.stars || 0) - cost)
-            )).returning({ telegram_id: users.telegram_id }).run();
-          refundedAfterAmbiguousDebit = Boolean(refund && Array.isArray(refund.rows) && refund.rows.length > 0);
-        } catch (refundError) {
-          reportDiagnostic('callback-handler', 'Could not compensate ambiguous connection debit', { offerId, requesterId: requester.telegram_id, refundError });
-        }
+    let debitVerified = Boolean(debited && Array.isArray(debited.rows) && debited.rows.length > 0);
+    if (!debitVerified) {
+      // Serverless DB adapters may commit an UPDATE but return no usable RETURNING rows.
+      // Verify this exact debit using its timestamp marker before treating it as a failure.
+      const persistedRequester = await getUser(Number(requester.telegram_id));
+      debitVerified = Boolean(persistedRequester &&
+        Number(persistedRequester.stars) === expectedBalanceAfterDebit &&
+        persistedRequester.state === 'ready' &&
+        String(persistedRequester.last_active_at || '') === debitAt);
+      if (debitVerified) {
+        console.info('Verified connection requester debit after empty RETURNING/error result', {
+          offerId, requesterId: Number(requester.telegram_id), debitAt
+        });
       }
+    }
+    if (!debitVerified) {
+      const persistedRequester = await getUser(Number(requester.telegram_id));
+      reportDiagnostic('callback-handler', 'Connection requester debit could not be verified; connection acceptance aborted', {
+        offerId, requesterId: Number(requester.telegram_id),
+        expectedBalanceAfterDebit,
+        observedBalance: persistedRequester && Number(persistedRequester.stars),
+        observedState: persistedRequester && persistedRequester.state,
+        observedLastActiveAt: persistedRequester && persistedRequester.last_active_at,
+        debitAt, debitError
+      });
       await db.update(connection_requests).set({ status: 'cancelled', updated_at: new Date().toISOString() })
         .where(and(eq(connection_requests.id, Number(search.id)), eq(connection_requests.status, 'connected'))).run();
       await db.update(connection_requests).set({ status: 'rejected', updated_at: new Date().toISOString() })
         .where(and(eq(connection_requests.id, offerId), eq(connection_requests.status, 'matching'))).run();
-      const notice = refundedAfterAmbiguousDebit
-        ? '⚠️ د ستورو حساب د تخنیکي ستونزې له امله بشپړ نه شو؛ ستوري بېرته ستانه شول او اړیکه جوړه نه شوه.'
-        : '⚠️ ستا د ستورو بیلانس بدل شوی یا د ډیټابیس ستونزه وه؛ اړیکه جوړه نه شوه. که بیلانس بدل شوی وي، له اډمین سره اړیکه ونیسه.';
+      const notice = '⚠️ د ستورو د کمولو عملیات تایید نه شول؛ اړیکه جوړه نه شوه. که ستوري کم شوي وي، له اډمین سره اړیکه ونیسه.';
       try { await api.sendMessage({ chat_id: Number(requester.telegram_id), text: notice }); } catch (e) {}
       await sendPrompt(chatId, notice, mainKeyboard(actor, await isAdmin(actorId)), actor);
       return;
