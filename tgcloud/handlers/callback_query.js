@@ -809,30 +809,36 @@ async function startConnectionSearch(userId, type) {
         reportDiagnostic('callback-handler', 'Could not inspect rejected connection search claim', { userId: Number(userId), diagnosticError });
       }
 
-      // Recover only a demonstrably orphaned state: after the grace period the user
-      // must still be searching_connection and have no active request, game, or session.
-      // Both updates are compare-and-set operations, so a concurrent state change wins.
+      // A stale searching_connection state cannot safely be reclaimed in the same
+      // callback: another Serverless invocation may still be between claim and insert.
+      // Clear only when the latest snapshot proves there is no request, game, or session,
+      // then ask the user to start again in a fresh callback.
       if (recoverySnapshot &&
           recoverySnapshot.latestUser && recoverySnapshot.latestUser.state === 'searching_connection' &&
           recoverySnapshot.activeRequests.length === 0 &&
           recoverySnapshot.activeGames.length === 0 &&
           !recoverySnapshot.latestSession) {
-        const reset = await db.update(users).set({ state: 'ready' })
+        await db.update(users).set({ state: 'ready' })
           .where(and(eq(users.telegram_id, Number(userId)), eq(users.state, 'searching_connection')))
-          .returning({ telegram_id: users.telegram_id }).run();
-        if (reset && Array.isArray(reset.rows) && reset.rows.length > 0) {
+          .run();
+        const verifiedUser = await getUser(userId);
+        reportDiagnostic('callback-handler', 'Checked orphaned connection search state recovery', {
+          userId: Number(userId),
+          stateAfterReset: verifiedUser && verifiedUser.state
+        });
+        if (verifiedUser && verifiedUser.state === 'ready') {
           user.state = 'ready';
-          stateClaim = await db.update(users).set({ state: 'searching_connection' })
-            .where(and(eq(users.telegram_id, Number(userId)), eq(users.state, 'ready')))
-            .returning({ telegram_id: users.telegram_id }).run();
-          if (stateClaim && Array.isArray(stateClaim.rows) && stateClaim.rows.length > 0) {
-            reportDiagnostic('callback-handler', 'Recovered orphaned connection search state', { userId: Number(userId) });
-          }
+          await sendPrompt(userId, '✅ د لټون زوړ حالت پاک شو. اوس د ملګري لټون بیا پیل کړه.',
+            mainKeyboard(user, await isAdmin(userId)), user);
+          return;
         }
       }
 
       if (!stateClaim || !Array.isArray(stateClaim.rows) || stateClaim.rows.length === 0) {
-        await sendPrompt(userId, '⌛ د لټون حالت زوړ پاتې شوی و یا لا فعاله غوښتنه شته. حالت وکتل شو؛ لږ شېبه وروسته بیا هڅه وکړه.',
+        const latestUser = await getUser(userId);
+        await sendPrompt(userId, latestUser && latestUser.state === 'searching_connection'
+          ? '⌛ د لټون حالت لا هم په ډیټابېس کې فعال ښکاري. که غوښتنه فعاله نه وي، بیا هڅه وکړه؛ که ستونزه پاتې شي، اډمین ته خبر ورکړه.'
+          : '⌛ د لټون حالت بدل شوی دی. لږ شېبه وروسته بیا هڅه وکړه.',
           mainKeyboard(user, await isAdmin(userId)), user);
         return;
       }
