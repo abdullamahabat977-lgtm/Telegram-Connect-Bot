@@ -195,15 +195,6 @@ async function setSetting(key, value) {
   }
 }
 async function ensureDefaults() {
-  // One-time-per-startup cleanup of removed game-setting rows. Keep these names
-  // here only for deletion; current game logic and admin buttons do not use them.
-  for (const legacyKey of ['game_opponent_min_stars', 'game_win_stars', 'game_bot_loss_total_stars']) {
-    try {
-      await db.delete(app_settings).where(eq(app_settings.setting_key, legacyKey)).run();
-    } catch (error) {
-      reportDiagnostic('legacy-game-settings-cleanup', 'Could not remove obsolete setting: ' + legacyKey, error);
-    }
-  }
   const seed = await db.select().from(app_settings).where(eq(app_settings.setting_key, 'initial_required_chat_seeded')).get();
   if (!seed) {
     const old = await db.select().from(required_chats).where(eq(required_chats.chat_id, '-1004419974496')).get();
