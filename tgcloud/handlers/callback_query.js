@@ -856,8 +856,28 @@ async function startConnectionSearch(userId, type) {
 
       if (!stateClaim || !Array.isArray(stateClaim.rows) || stateClaim.rows.length === 0) {
         const latestUser = await getUser(userId);
+        if (latestUser && latestUser.state === 'searching_connection') {
+          // The user-facing message alone cannot distinguish an orphaned state from
+          // a concurrent active request/game/session. Send the exact snapshot to the
+          // admin so the next fix is based on database evidence, not guesses.
+          reportDiagnostic('callback-handler', 'Connection search state claim still blocked after recovery attempt', {
+            userId: Number(userId),
+            latestUserState: latestUser.state,
+            snapshotUserState: recoverySnapshot && recoverySnapshot.latestUser && recoverySnapshot.latestUser.state,
+            activeRequests: recoverySnapshot ? recoverySnapshot.activeRequests.map(row => ({
+              id: Number(row.id), status: row.status,
+              requesterId: Number(row.requester_id), recipientId: Number(row.recipient_id || 0)
+            })) : 'snapshot-unavailable',
+            activeGames: recoverySnapshot ? recoverySnapshot.activeGames.map(row => ({
+              id: Number(row.id), status: row.status,
+              playerId: Number(row.player_id), opponentId: Number(row.opponent_id || 0)
+            })) : 'snapshot-unavailable',
+            hasActiveSession: recoverySnapshot ? Boolean(recoverySnapshot.latestSession) : 'snapshot-unavailable',
+            recoveryAction: 'Could not reclaim searching_connection state; see snapshot above'
+          });
+        }
         await sendPrompt(userId, latestUser && latestUser.state === 'searching_connection'
-          ? '⌛ د لټون حالت لا هم په ډیټابېس کې فعال ښکاري. که غوښتنه فعاله نه وي، بیا هڅه وکړه؛ که ستونزه پاتې شي، اډمین ته خبر ورکړه.'
+          ? '⌛ د لټون حالت لا هم په ډیټابېس کې فعال ښکاري. د ستونزې د معلومولو لپاره اډمین ته راپور ولېږل شو؛ لږ وروسته بیا هڅه وکړه.'
           : '⌛ د لټون حالت بدل شوی دی. لږ شېبه وروسته بیا هڅه وکړه.',
           mainKeyboard(user, await isAdmin(userId)), user);
         return;
