@@ -1,6 +1,6 @@
 import { api, db } from 'sdk';
 import { and, eq } from 'sdk/db';
-import { users, admins, required_chats, favorites, chat_sessions, connection_requests, chat_messages, user_ratings, user_likes, game_sessions, user_blocks, reports } from '../schema.js';
+import { users, admins, required_chats, favorites, chat_sessions, connection_requests, chat_messages, user_ratings, user_likes, game_sessions, user_blocks } from '../schema.js';
 import { activeSessionFor, LANGUAGES, COUNTRIES, AGES, countryKeyboard, ensureInlinePromptTracking, requiredChatInfo, listWords, isFollowing, otherSessionUser, getUser, safeDelete, isAdmin, styleKeyboardMarkup, notifyRuntimeError, reportDiagnostic, getSetting as sharedGetSetting } from '../lib/shared.js';
 import { TEXT } from '../lib/callback-text.js';
 import { tryMatchGames } from './message.js';
@@ -427,7 +427,7 @@ async function publicProfileText(target, viewerId) {
     return '👤 نوم: ' + name + '\n\n⚧ جنسیت: ' + gender + '\n\n🔒 د بشپړ پروفایل لپاره لومړی دا کارن فالو کړه.';
   }
   const country = COUNTRIES.find(item => item.code === target.country), language = LANGUAGES.find(item => item.code === target.language);
-  const favCount = await db.$count(favorites, eq(favorites.user_telegram_id, Number(target.telegram_id)));
+  const favCount = await db.$count(favorites, eq(favorites.favorite_telegram_id, Number(target.telegram_id)));
   return '👤 نوم: ' + name + '\n\n⚧ جنسیت: ' + gender + '\n\n🌍 هېواد: ' + (country ? country.label : '—') +
     '\n\n🎂 عمر: ' + (target.age || '—') + '\n\n🗣️ ژبه: ' + (language ? language.label : target.language || '—') +
     '\n\n📢 عام چینل: ' + (target.channel_username || '—') + '\n\n📨 ریفرلونه: ' + Number(target.referral_count || 0) +
@@ -453,16 +453,10 @@ function sessionEndedKeyboard(user, admin) {
   return markup;
 }
 function sessionKeyboard(targetId, sessionId, following, liked) {
-  return { inline_keyboard: [
-    [{ text: following ? '❤️ فالو شوی' : '➕ فالو کول', callback_data: 'session:follow:' + targetId + ':' + sessionId },
-     { text: liked ? '💔 لایک بېرته اخستل' : '❤️ لایک', callback_data: 'session:like:' + targetId + ':' + sessionId }],
-    [{ text: '⭐ 1', callback_data: 'session:rate:' + targetId + ':1:' + sessionId },
-     { text: '⭐ 2', callback_data: 'session:rate:' + targetId + ':2:' + sessionId },
-     { text: '⭐ 3', callback_data: 'session:rate:' + targetId + ':3:' + sessionId },
-     { text: '⭐ 4', callback_data: 'session:rate:' + targetId + ':4:' + sessionId },
-     { text: '⭐ 5', callback_data: 'session:rate:' + targetId + ':5:' + sessionId }],
-    [{ text: '🚩 راپور', callback_data: 'session:report:' + targetId + ':' + sessionId }]
-  ] };
+  return { inline_keyboard: [[
+    { text: following ? '❤️ فالو شوی' : '➕ فالو کول', callback_data: 'session:follow:' + targetId + ':' + sessionId },
+    { text: liked ? '💔 لایک بېرته اخستل' : '❤️ لایک', callback_data: 'session:like:' + targetId + ':' + sessionId }
+  ]] };
 }
 async function showSessionProfile(session, viewerId) {
   const targetId = otherSessionUser(session, viewerId), target = await getUser(targetId), viewer = await getUser(viewerId);
@@ -496,6 +490,18 @@ async function showSessionProfile(session, viewerId) {
   }
   await sendPrompt(viewerId, text, markup, viewer);
 }
+async function availableRatingButtons(raterId, ratedId, sessionId) {
+  const allRatings = await db.select().from(user_ratings).all();
+  const alreadyGiven = allRatings
+    .filter(row => Number(row.rater_id) === Number(raterId) && Number(row.rated_id) === Number(ratedId))
+    .reduce((sum, row) => sum + Math.max(0, Number(row.rating) || 0), 0);
+  const remaining = Math.max(0, 5 - alreadyGiven);
+  const buttons = [];
+  for (let rating = 1; rating <= remaining; rating++) {
+    buttons.push({ text: '⭐ ' + rating, callback_data: 'session:rate:' + ratedId + ':' + rating + ':' + sessionId });
+  }
+  return buttons;
+}
 async function endConnection(session, reason) {
   if (!session || session.status !== 'connected') return;
   const endedAt = new Date().toISOString();
@@ -515,12 +521,13 @@ async function endConnection(session, reason) {
     await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, pair.id)).run();
     const name = partner ? [partner.name || partner.first_name || 'کارن', partner.surname || ''].filter(Boolean).join(' ') : 'کارن';
     const following = await isFollowing(pair.id, pair.partnerId);
+    const ratingButtons = await availableRatingButtons(pair.id, pair.partnerId, session.id);
     const rows = [];
+    if (ratingButtons.length) rows.push(ratingButtons);
     if (!following) rows.push([{ text: '➕ ' + name + ' فالو کول', callback_data: 'session:follow:' + pair.partnerId + ':' + session.id }]);
-    rows.push([{ text: '🚩 راپور کول', callback_data: 'session:report:' + pair.partnerId + ':' + session.id }]);
     rows.push([{ text: '🔙 اصلي مېنو', callback_data: 'settings:main' }]);
     try {
-      await sendPrompt(pair.id, '🛑 اړیکه پای ته ورسېده.\n\n👤 د تېر ملګري نوم: ' + name + '\n\nراپور یا فالو کول انتخاب کړه؛ د پیغامونو حذفولو لپاره د کیبورډ تڼۍ وکاروه.', { inline_keyboard: rows }, user);
+      await sendPrompt(pair.id, '🛑 اړیکه پای ته ورسېده.\n\n👤 د تېر ملګري نوم: ' + name + '\n\nکه غواړې، خپل پاتې نمرې ورکړه یا ملګری فالو کړه. د پیغامونو حذفولو لپاره د کیبورډ تڼۍ وکاروه.', { inline_keyboard: rows }, user);
     } catch (e) {}
     try {
       const keyboard = sessionEndedKeyboard(user, await isAdmin(pair.id));
@@ -1885,7 +1892,7 @@ async function handleSessionCallback(query, actor, data, actorId, chatId) {
   if (!Number.isSafeInteger(targetId) || targetId <= 0) return;
   const target = await getUser(targetId);
   if (!target) return;
-  if (targetId === actorId && ['follow', 'like', 'rate', 'report'].includes(action)) {
+  if (targetId === actorId && ['follow', 'like', 'rate'].includes(action)) {
     await sendPrompt(chatId, '⚠️ دا عمل پر خپل پروفایل نه شي ترسره کېدای.', mainKeyboard(actor, await isAdmin(actorId)), actor);
     return;
   }
@@ -1925,23 +1932,35 @@ async function handleSessionCallback(query, actor, data, actorId, chatId) {
       await sendPrompt(chatId, '⚠️ د نمرو ورکولو لپاره باید همدا ستا له تېر ملګري سره پای ته رسېدلې اړیکه وي.', mainKeyboard(actor, await isAdmin(actorId)), actor);
       return;
     }
-    const rows = await db.select().from(user_ratings).where(eq(user_ratings.session_id, sessionId)).all();
-    if (rows.some(row => Number(row.rater_id) === actorId && Number(row.rated_id) === targetId)) {
+    const allRatings = await db.select().from(user_ratings).all();
+    const thisSessionRating = allRatings.some(row =>
+      Number(row.session_id) === sessionId &&
+      Number(row.rater_id) === actorId &&
+      Number(row.rated_id) === targetId
+    );
+    if (thisSessionRating) {
       await sendPrompt(chatId, '⭐ په دې اړیکه کې دې مخکې نمره ورکړې ده.', mainKeyboard(actor, await isAdmin(actorId)), actor); return;
+    }
+    const alreadyGiven = allRatings
+      .filter(row => Number(row.rater_id) === actorId && Number(row.rated_id) === targetId)
+      .reduce((sum, row) => sum + Math.max(0, Number(row.rating) || 0), 0);
+    const remaining = Math.max(0, 5 - alreadyGiven);
+    if (remaining < 1 || rating > remaining) {
+      await sendPrompt(chatId, remaining > 0
+        ? '⚠️ دې کارن ته ټولټال یوازې ' + remaining + ' نمرې نورې ورکولای شې.'
+        : '⭐ دې کارن ته دې د ټول عمر ۵ نمرې پوره کړې دي؛ نورې نمرې نه شې ورکولای.',
+        mainKeyboard(actor, await isAdmin(actorId)), actor);
+      return;
     }
     await db.insert(user_ratings).values({ session_id: sessionId, rater_id: actorId, rated_id: targetId, rating, created_at: new Date().toISOString() }).run();
     await db.update(users).set({ points: Number(target.points || 0) + rating }).where(eq(users.telegram_id, targetId)).run();
-    await sendPrompt(chatId, '✅ ' + rating + ' نمرې دې کارن ته ورکړې.', mainKeyboard(actor, await isAdmin(actorId)), actor); return;
+    await sendPrompt(chatId, '✅ ' + rating + ' نمرې دې کارن ته ورکړې. دې کارن ته دې ټولټال ' + (alreadyGiven + rating) + ' له ۵ نمرې ورکړې دي.', mainKeyboard(actor, await isAdmin(actorId)), actor); return;
   }
   if (action === 'profile') {
     const session = await db.select().from(chat_sessions).where(eq(chat_sessions.id, sessionId)).get();
     if (session && session.status === 'connected') await showSessionProfile(session, actorId);
     else await sendPrompt(chatId, await publicProfileText(target, actorId), mainKeyboard(actor, await isAdmin(actorId)), actor);
     return;
-  }
-  if (action === 'report') {
-    await db.insert(reports).values({ reporter_telegram_id: actorId, reported_telegram_id: targetId, reason: 'Random Connect connection report', status: 'pending', created_at: new Date().toISOString() }).run();
-    await sendPrompt(chatId, '🚩 راپور ثبت شو. مننه چې خبر دې راکړ.', mainKeyboard(actor, await isAdmin(actorId)), actor); return;
   }
   if (action === 'delete_recent') {
     const cutoff = Date.now() - 10 * 60000, rows = await db.select().from(chat_messages).all();
