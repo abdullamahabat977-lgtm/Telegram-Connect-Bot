@@ -151,7 +151,7 @@ function actionFor(input) {
       ['channelSet', t.channelSettingsButtons[0]], ['channelRemoveProfile', t.channelSettingsButtons[1]],
       ['favoritesList', t.favoriteSettingsButtons[0]]
     ];
-    const backLabels = [t.settingsButtons[3], t.profileSettingsButtons[8], t.photoSettingsButtons[2],
+    const backLabels = [t.settingsButtons[2], t.profileSettingsButtons[8], t.photoSettingsButtons[2],
       t.channelSettingsButtons[2], t.favoriteSettingsButtons[1], t.settingsButtons[2], t.adminManagementButtons[3]];
     for (const label of backLabels) if (label === input) return 'back';
     for (const pair of pairs) if (pair[1] === input) return pair[0];
