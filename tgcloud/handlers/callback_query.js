@@ -777,6 +777,31 @@ async function startConnectionSearch(userId, type) {
       .where(and(eq(users.telegram_id, Number(userId)), eq(users.state, 'ready')))
       .returning({ telegram_id: users.telegram_id }).run();
     if (!stateClaim || !Array.isArray(stateClaim.rows) || stateClaim.rows.length === 0) {
+      // Record the exact state that blocked the atomic claim. Do not blindly reset it:
+      // another invocation may have claimed the user and not inserted its request yet.
+      try {
+        const [latestUser, latestRequests, latestGames, latestSession] = await Promise.all([
+          getUser(userId),
+          db.select().from(connection_requests).all(),
+          db.select().from(game_sessions).all(),
+          activeSessionFor(userId)
+        ]);
+        reportDiagnostic('callback-handler', 'Connection search state claim rejected', {
+          userId: Number(userId),
+          currentState: latestUser && latestUser.state,
+          activeRequests: latestRequests.filter(row =>
+            ['searching', 'matching', 'pending'].includes(row.status) &&
+            (Number(row.requester_id) === Number(userId) || Number(row.recipient_id) === Number(userId))
+          ).map(row => ({ id: Number(row.id), status: row.status, requesterId: Number(row.requester_id), recipientId: Number(row.recipient_id || 0) })),
+          activeGames: latestGames.filter(row =>
+            ['waiting', 'pending', 'playing', 'settlement_error'].includes(row.status) &&
+            (Number(row.player_id) === Number(userId) || Number(row.opponent_id) === Number(userId))
+          ).map(row => ({ id: Number(row.id), status: row.status })),
+          hasActiveSession: Boolean(latestSession)
+        });
+      } catch (diagnosticError) {
+        reportDiagnostic('callback-handler', 'Could not inspect rejected connection search claim', { userId: Number(userId), diagnosticError });
+      }
       await sendPrompt(userId, '⌛ د لټون غوښتنه لا د پیل په حال کې ده یا د کارن حالت بدل شوی دی. لږ شېبه وروسته بیا هڅه وکړه.',
         mainKeyboard(user, await isAdmin(userId)), user);
       return;
