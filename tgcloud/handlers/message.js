@@ -1,6 +1,6 @@
 import { api, db } from 'sdk';
 import { and, eq } from 'sdk/db';
-import { users, admins, required_chats, app_settings, favorites, chat_sessions, connection_requests, chat_messages, game_sessions, user_blocks, user_likes } from '../schema.js';
+import { users, admins, required_chats, app_settings, favorites, chat_sessions, connection_requests, chat_messages, game_sessions, user_blocks, user_likes, user_ratings } from '../schema.js';
 import { activeSessionFor, ROOT_ADMINS, LANGUAGES, COUNTRIES, AGES, languageKeyboard, countryKeyboard, ensureInlinePromptTracking, requiredChatInfo, listWords, isFollowing, otherSessionUser, getUser, safeDelete, isAdmin, styleKeyboardMarkup, notifyRuntimeError, reportDiagnostic, getSetting as sharedGetSetting } from '../lib/shared.js';
 import { T } from '../lib/message-text.js';
 
@@ -278,7 +278,7 @@ async function showProfile(chatId, user) {
   const l = LANGUAGES.find(item => item.code === user.language) || LANGUAGES[0];
   const genderLabel = user.gender === 'male' ? t.male : (user.gender === 'female' ? t.female : t.notSet);
   const fullName = [user.name || user.first_name || t.notSet, user.surname || ''].filter(Boolean).join(' ');
-  const favCount = await db.$count(favorites, eq(favorites.user_telegram_id, Number(user.telegram_id)));
+  const favCount = await db.$count(favorites, eq(favorites.favorite_telegram_id, Number(user.telegram_id)));
   const text = t.profile + '\n━━━━━━━━━━━━━━\n\n👤 نوم: ' + fullName +
     '\n\n🌍 هېواد: ' + (c ? c.label : t.notSet) + '\n\n⚧ جنسیت: ' + genderLabel + '\n\n🎂 عمر: ' + (user.age || t.notSet) +
     '\n\n🗣️ ژبه: ' + l.label + '\n\n📢 عام چینل: ' + (user.channel_username || t.notSet) +
@@ -438,16 +438,10 @@ function sessionEndedKeyboard(user, admin) {
   return markup;
 }
 function sessionInteractionKeyboard(targetId, sessionId, following, liked) {
-  return { inline_keyboard: [
-    [{ text: following ? '❤️ فالو شوی' : '➕ فالو کول', callback_data: 'session:follow:' + targetId + ':' + sessionId },
-     { text: liked ? '💔 لایک بېرته اخستل' : '❤️ لایک', callback_data: 'session:like:' + targetId + ':' + sessionId }],
-    [{ text: '⭐ 1', callback_data: 'session:rate:' + targetId + ':1:' + sessionId },
-     { text: '⭐ 2', callback_data: 'session:rate:' + targetId + ':2:' + sessionId },
-     { text: '⭐ 3', callback_data: 'session:rate:' + targetId + ':3:' + sessionId },
-     { text: '⭐ 4', callback_data: 'session:rate:' + targetId + ':4:' + sessionId },
-     { text: '⭐ 5', callback_data: 'session:rate:' + targetId + ':5:' + sessionId }],
-    [{ text: '🚩 راپور', callback_data: 'session:report:' + targetId + ':' + sessionId }]
-  ] };
+  return { inline_keyboard: [[
+    { text: following ? '❤️ فالو شوی' : '➕ فالو کول', callback_data: 'session:follow:' + targetId + ':' + sessionId },
+    { text: liked ? '💔 لایک بېرته اخستل' : '❤️ لایک', callback_data: 'session:like:' + targetId + ':' + sessionId }
+  ]] };
 }
 async function sessionProfileText(target, viewerId) {
   const name = [target.name || target.first_name || 'کارن', target.surname || ''].filter(Boolean).join(' ');
@@ -457,7 +451,7 @@ async function sessionProfileText(target, viewerId) {
   }
   const country = COUNTRIES.find(item => item.code === target.country);
   const language = LANGUAGES.find(item => item.code === target.language);
-  const favCount = await db.$count(favorites, eq(favorites.user_telegram_id, Number(target.telegram_id)));
+  const favCount = await db.$count(favorites, eq(favorites.favorite_telegram_id, Number(target.telegram_id)));
   return '👤 نوم: ' + name + '\n\n⚧ جنسیت: ' + gender + '\n\n🌍 هېواد: ' + (country ? country.label : '—') +
     '\n\n🎂 عمر: ' + (target.age || '—') + '\n\n🗣️ ژبه: ' + (language ? language.label : target.language || '—') +
     '\n\n📢 عام چینل: ' + (target.channel_username || '—') + '\n\n📨 ریفرلونه: ' + Number(target.referral_count || 0) +
@@ -529,6 +523,18 @@ async function latestSessionForUser(userId) {
     return bTime - aTime || Number(b.id) - Number(a.id);
   })[0] || null;
 }
+async function availableRatingButtons(raterId, ratedId, sessionId) {
+  const allRatings = await db.select().from(user_ratings).all();
+  const alreadyGiven = allRatings
+    .filter(row => Number(row.rater_id) === Number(raterId) && Number(row.rated_id) === Number(ratedId))
+    .reduce((sum, row) => sum + Math.max(0, Number(row.rating) || 0), 0);
+  const remaining = Math.max(0, 5 - alreadyGiven);
+  const buttons = [];
+  for (let rating = 1; rating <= remaining; rating++) {
+    buttons.push({ text: '⭐ ' + rating, callback_data: 'session:rate:' + ratedId + ':' + rating + ':' + sessionId });
+  }
+  return buttons;
+}
 async function endConnection(session, reason) {
   if (!session || session.status !== 'connected') return;
   const endedAt = new Date().toISOString();
@@ -548,12 +554,13 @@ async function endConnection(session, reason) {
     await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, pair.id)).run();
     const name = partner ? [partner.name || partner.first_name || 'کارن', partner.surname || ''].filter(Boolean).join(' ') : 'کارن';
     const following = await isFollowing(pair.id, pair.partnerId);
+    const ratingButtons = await availableRatingButtons(pair.id, pair.partnerId, session.id);
     const rows = [];
+    if (ratingButtons.length) rows.push(ratingButtons);
     if (!following) rows.push([{ text: '➕ ' + name + ' فالو کول', callback_data: 'session:follow:' + pair.partnerId + ':' + session.id }]);
-    rows.push([{ text: '🚩 راپور کول', callback_data: 'session:report:' + pair.partnerId + ':' + session.id }]);
     rows.push([{ text: '🔙 اصلي مېنو', callback_data: 'settings:main' }]);
     try {
-      await sendPrompt(pair.id, '🛑 اړیکه پای ته ورسېده.\n\n👤 د تېر ملګري نوم: ' + name + '\n\nراپور یا فالو کول انتخاب کړه؛ د پیغامونو حذفولو لپاره د کیبورډ تڼۍ وکاروه.', { inline_keyboard: rows }, user);
+      await sendPrompt(pair.id, '🛑 اړیکه پای ته ورسېده.\n\n👤 د تېر ملګري نوم: ' + name + '\n\nکه غواړې، خپل پاتې نمرې ورکړه یا ملګری فالو کړه. د پیغامونو حذفولو لپاره د کیبورډ تڼۍ وکاروه.', { inline_keyboard: rows }, user);
     } catch (e) {}
     try {
       await api.sendMessage({
