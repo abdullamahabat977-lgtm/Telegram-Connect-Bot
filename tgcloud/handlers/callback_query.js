@@ -779,7 +779,9 @@ async function startConnectionSearch(userId, type) {
     if (!stateClaim || !Array.isArray(stateClaim.rows) || stateClaim.rows.length === 0) {
       // A Serverless invocation can stop after claiming the state but before inserting
       // its request. Give an in-flight invocation a short chance to finish before recovery.
-      await new Promise(resolve => setTimeout(resolve, 1200));
+      // Do not use setTimeout: this Serverless runtime does not expose it.
+      // Re-read state immediately; recovery still requires an empty active-work snapshot.
+      await Promise.resolve();
       let recoverySnapshot = null;
       try {
         const [latestUser, latestRequests, latestGames, latestSession] = await Promise.all([
