@@ -39,7 +39,7 @@ Random Connect د کاروونکي ثبت، اجباري غړیتوب، تصاد
 - د Telegram محدودیت له مخې بوټ د کارن اصلي پیغامونه په شخصي چټ کې نه شي حذفولای؛ د حذف تڼۍ یوازې د ملګري هغه کاپي شوي پیغامونه حذفوي چې بوټ په تېرو ۱۰ دقیقو کې کارن ته لېږلي وي.
 - د غړیتوب د کتلو لپاره بوټ باید په هر اجباري ګروپ یا چینل کې د اړینې اجازې لرونکی وي.
 - GitHub ته د کوډ ثبتول په خپله ژوندی Serverless کوډ نه بدلوي. لومړی کوډ Deploy/Push کړه، بیا د Database د Migration بدلونونه په دقت وګوره او تطبیق یې کړه. هېڅ خطرناک یا د حذف بدلون مه تاییدوه تر څو یې اغېز روښانه نه وي.
-- د prompt tracking لپاره `users.last_prompt_id` هم اړین دی؛ که په موجود جدول کې نه وي، د migration کرښه یې اجرا کړه. د `user_blocks` او `reports` جدولونه هم د `CREATE TABLE IF NOT EXISTS` له لارې جوړېږي او موجود معلومات نه حذفوي. که د دغو جدولونو/فیلډونو له ډلې کوم یو مخکې موجود وي، تکراري ALTER مه اجرا کوه.
+- د prompt tracking لپاره `users.last_prompt_id` هم اړین دی؛ که په موجود جدول کې نه وي، د migration کرښه یې اجرا کړه. د `user_blocks` جدول هم د `CREATE TABLE IF NOT EXISTS` له لارې جوړېږي او موجود معلومات نه حذفوي. که د دغو جدولونو/فیلډونو له ډلې کوم یو مخکې موجود وي، تکراري ALTER مه اجرا کوه.
 
 د users جدول کې نوي فیلډونه: `profile_photo_id`، `channel_username`، `stars`، `points`، `likes`، `last_active_at`، `connection_request_mode`، `welcome_reward_claimed`، `profile_visibility`، `search_gender` او `search_language` دي. د chat_sessions جدول کې `last_activity_at` او `end_reason` هم ورزیات شوي. د نوي کوډ له Deploy مخکې د موجودو معلوماتو له حذف پرته migration تطبیق کړه.
 - لاندې migration کې د پخوانیو او نویو فیلډونو ټول اړین ALTER او CREATE بیانونه راغلي. هر ALTER یوازې هغه وخت اجرا کړه چې فیلډ موجود نه وي؛ که موجود وي، هغه کرښه پرېږده.
@@ -69,16 +69,6 @@ CREATE TABLE IF NOT EXISTS user_blocks (
   created_at TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS reports (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  reporter_telegram_id INTEGER NOT NULL,
-  reported_telegram_id INTEGER NOT NULL,
-  reason TEXT,
-  status TEXT NOT NULL DEFAULT 'pending',
-  reviewed_by INTEGER,
-  reviewed_at TEXT,
-  created_at TEXT NOT NULL
-);
 
 CREATE TABLE IF NOT EXISTS connection_requests (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -137,7 +127,7 @@ CREATE TABLE IF NOT EXISTS game_sessions (
 - `tgcloud/handlers/callback_query.js` — د inline بټنونو callback handler.
 - `tgcloud/lib/shared.js` — د دواړو handlerونو ګډ constants او helper functions.
 - `tgcloud/lib/message-text.js` او `tgcloud/lib/callback-text.js` — د ژبو او متنونو جلا ماډیولونه.
-- `tgcloud/schema.js` — ۱۳ جدولونه: users، admins، required_chats، app_settings، favorites، chat_sessions، user_blocks، reports، connection_requests، chat_messages، user_ratings، user_likes او game_sessions.
+- `tgcloud/schema.js` — ۱۲ جدولونه: users، admins، required_chats، app_settings، favorites، chat_sessions، user_blocks، connection_requests، chat_messages، user_ratings، user_likes او game_sessions.
 
 رسمي اسناد
 https://core.telegram.org/bots/serverless
