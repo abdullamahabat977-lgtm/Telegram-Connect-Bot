@@ -1,6 +1,6 @@
 import { api, db } from 'sdk';
 import { and, eq } from 'sdk/db';
-import { users, admins, required_chats, app_settings, favorites, chat_sessions, connection_requests, chat_messages, game_sessions, user_blocks } from '../schema.js';
+import { users, admins, required_chats, app_settings, favorites, chat_sessions, connection_requests, chat_messages, game_sessions, user_blocks, user_likes } from '../schema.js';
 import { activeSessionFor, ROOT_ADMINS, LANGUAGES, COUNTRIES, AGES, languageKeyboard, countryKeyboard, ensureInlinePromptTracking, requiredChatInfo, listWords, isFollowing, otherSessionUser, getUser, safeDelete, isAdmin, styleKeyboardMarkup, notifyRuntimeError, reportDiagnostic, getSetting as sharedGetSetting } from '../lib/shared.js';
 import { T } from '../lib/message-text.js';
 
@@ -409,13 +409,138 @@ async function completeProfile(chatId, user, extra) {
 }
 
 // ── Chat sessions and connection lifecycle ──
+function sessionControlLabels(user) {
+  const labels = {
+    ps: { profile: '👤 پروفایل لیدل', end: '🛑 اړیکه پای ته رسول', delete: '🗑 د وروستیو ۱۰ دقیقو پیغامونه حذفول' },
+    fa: { profile: '👤 مشاهده پروفایل', end: '🛑 پایان دادن به ارتباط', delete: '🗑 حذف پیام‌های ۱۰ دقیقه اخیر' },
+    en: { profile: '👤 View profile', end: '🛑 End connection', delete: '🗑 Delete last 10 minutes of messages' },
+    ur: { profile: '👤 پروفائل دیکھیں', end: '🛑 رابطہ ختم کریں', delete: '🗑 گزشتہ ۱۰ منٹ کے پیغامات حذف کریں' },
+    ar: { profile: '👤 عرض الملف الشخصي', end: '🛑 إنهاء الاتصال', delete: '🗑 حذف رسائل آخر 10 دقائق' }
+  };
+  return labels[user && labels[user.language] ? user.language : 'ps'];
+}
+function sessionControlAction(input) {
+  for (const lang of ['ps', 'fa', 'en', 'ur', 'ar']) {
+    const labels = sessionControlLabels({ language: lang });
+    if (input === labels.profile) return 'profile';
+    if (input === labels.end) return 'end';
+    if (input === labels.delete) return 'delete_recent';
+  }
+  return null;
+}
+function sessionControlKeyboard(user) {
+  const b = sessionControlLabels(user);
+  return { keyboard: [[{ text: b.profile }, { text: b.end }], [{ text: b.delete }]], resize_keyboard: true };
+}
+function sessionEndedKeyboard(user, admin) {
+  const markup = menuKeyboard(user, admin);
+  markup.keyboard.unshift([{ text: sessionControlLabels(user).delete }]);
+  return markup;
+}
+function sessionInteractionKeyboard(targetId, sessionId, following, liked) {
+  return { inline_keyboard: [
+    [{ text: following ? '❤️ فالو شوی' : '➕ فالو کول', callback_data: 'session:follow:' + targetId + ':' + sessionId },
+     { text: liked ? '💔 لایک بېرته اخستل' : '❤️ لایک', callback_data: 'session:like:' + targetId + ':' + sessionId }],
+    [{ text: '⭐ 1', callback_data: 'session:rate:' + targetId + ':1:' + sessionId },
+     { text: '⭐ 2', callback_data: 'session:rate:' + targetId + ':2:' + sessionId },
+     { text: '⭐ 3', callback_data: 'session:rate:' + targetId + ':3:' + sessionId },
+     { text: '⭐ 4', callback_data: 'session:rate:' + targetId + ':4:' + sessionId },
+     { text: '⭐ 5', callback_data: 'session:rate:' + targetId + ':5:' + sessionId }],
+    [{ text: '🚩 راپور', callback_data: 'session:report:' + targetId + ':' + sessionId }]
+  ] };
+}
+async function sessionProfileText(target, viewerId) {
+  const name = [target.name || target.first_name || 'کارن', target.surname || ''].filter(Boolean).join(' ');
+  const gender = target.gender === 'female' ? 'ښځینه' : target.gender === 'male' ? 'نارینه' : 'نه دی ثبت';
+  if (target.profile_visibility === 'followers' && !(await isFollowing(viewerId, target.telegram_id))) {
+    return '👤 نوم: ' + name + '\n\n⚧ جنسیت: ' + gender + '\n\n🔒 د بشپړ پروفایل لپاره لومړی دا کارن فالو کړه.';
+  }
+  const country = COUNTRIES.find(item => item.code === target.country);
+  const language = LANGUAGES.find(item => item.code === target.language);
+  const favCount = await db.$count(favorites, eq(favorites.user_telegram_id, Number(target.telegram_id)));
+  return '👤 نوم: ' + name + '\n\n⚧ جنسیت: ' + gender + '\n\n🌍 هېواد: ' + (country ? country.label : '—') +
+    '\n\n🎂 عمر: ' + (target.age || '—') + '\n\n🗣️ ژبه: ' + (language ? language.label : target.language || '—') +
+    '\n\n📢 عام چینل: ' + (target.channel_username || '—') + '\n\n📨 ریفرلونه: ' + Number(target.referral_count || 0) +
+    '\n\n👥 پالو ملګري: ' + favCount + '\n\n🏆 نمرې: ' + Number(target.points || 0) + '\n\n❤️ لایکونه: ' + Number(target.likes || 0);
+}
+async function showSessionProfileFromMessage(session, viewerId) {
+  const targetId = otherSessionUser(session, viewerId);
+  const target = await getUser(targetId), viewer = await getUser(viewerId);
+  if (!target || !viewer) return;
+  const following = await isFollowing(viewerId, targetId);
+  const likes = await db.select().from(user_likes).where(eq(user_likes.liker_id, Number(viewerId))).all();
+  const liked = likes.some(row => Number(row.liked_id) === targetId);
+  const fullProfileAllowed = target.profile_visibility !== 'followers' || following;
+  const text = '🤝 اړیکه فعاله ده.\n\n' + await sessionProfileText(target, viewerId);
+  const markup = sessionInteractionKeyboard(targetId, session.id, following, liked);
+  if (fullProfileAllowed && target.profile_photo_id) {
+    try {
+      await ensureInlinePromptTracking();
+      const latest = await db.select({ last_prompt_id: users.last_prompt_id }).from(users)
+        .where(eq(users.telegram_id, Number(viewerId))).get();
+      const previousId = Number(latest && latest.last_prompt_id || 0);
+      if (previousId > 0) await safeDelete(viewerId, previousId);
+      const sent = await api.sendPhoto({
+        chat_id: Number(viewerId), photo: target.profile_photo_id,
+        caption: text.slice(0, 1024), reply_markup: styleKeyboardMarkup(markup)
+      });
+      const sentId = Number(sent && sent.message_id || 0);
+      await db.update(users).set({ last_prompt_id: sentId }).where(eq(users.telegram_id, Number(viewerId))).run();
+      viewer.last_prompt_id = sentId;
+      return;
+    } catch (photoError) {
+      console.warn('Could not send connection partner profile photo; falling back to text', {
+        viewerId: Number(viewerId), targetId, photoError
+      });
+    }
+  }
+  await sendPrompt(viewerId, text, markup, viewer);
+}
+async function deleteRecentPartnerMessages(session, viewerId) {
+  const partnerId = otherSessionUser(session, viewerId);
+  const cutoff = Date.now() - 10 * 60000;
+  const rows = await db.select().from(chat_messages).all();
+  let deleted = 0;
+  for (const row of rows.filter(item =>
+    Number(item.sender_id) === partnerId &&
+    Number(item.recipient_id) === Number(viewerId) &&
+    Number(item.session_id) === Number(session.id) &&
+    Date.parse(item.created_at || '') >= cutoff &&
+    Number(item.recipient_message_id) > 0
+  )) {
+    try {
+      await api.deleteMessage({ chat_id: Number(viewerId), message_id: Number(row.recipient_message_id) });
+      await db.update(chat_messages).set({ recipient_message_id: 0 }).where(eq(chat_messages.id, Number(row.id))).run();
+      deleted++;
+    } catch (error) {
+      // Retain the message ID if Telegram refuses deletion, so retries remain possible.
+    }
+  }
+  return deleted;
+}
+async function latestSessionForUser(userId) {
+  const rows = await db.select().from(chat_sessions).all();
+  return rows.filter(row =>
+    ['connected', 'ended'].includes(String(row.status || '')) &&
+    (Number(row.first_user_telegram_id) === Number(userId) || Number(row.second_user_telegram_id) === Number(userId))
+  ).sort((a, b) => {
+    const aTime = Date.parse(a.ended_at || a.connected_at || a.created_at || '') || 0;
+    const bTime = Date.parse(b.ended_at || b.connected_at || b.created_at || '') || 0;
+    return bTime - aTime || Number(b.id) - Number(a.id);
+  })[0] || null;
+}
 async function endConnection(session, reason) {
   if (!session || session.status !== 'connected') return;
   const endedAt = new Date().toISOString();
   const ended = await db.update(chat_sessions).set({ status: 'ended', ended_at: endedAt, end_reason: reason || 'ended' })
     .where(and(eq(chat_sessions.id, Number(session.id)), eq(chat_sessions.status, 'connected')))
     .returning({ id: chat_sessions.id }).run();
-  if (!ended || !Array.isArray(ended.rows) || ended.rows.length === 0) return;
+  let endVerified = Boolean(ended && Array.isArray(ended.rows) && ended.rows.length > 0);
+  if (!endVerified) {
+    const persisted = await db.select().from(chat_sessions).where(eq(chat_sessions.id, Number(session.id))).get();
+    endVerified = Boolean(persisted && persisted.status === 'ended' && String(persisted.ended_at || '') === endedAt);
+  }
+  if (!endVerified) return;
   const firstId = Number(session.first_user_telegram_id), secondId = Number(session.second_user_telegram_id);
   for (const pair of [{ id: firstId, partnerId: secondId }, { id: secondId, partnerId: firstId }]) {
     const user = await getUser(pair.id), partner = await getUser(pair.partnerId);
@@ -423,14 +548,22 @@ async function endConnection(session, reason) {
     await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, pair.id)).run();
     const name = partner ? [partner.name || partner.first_name || 'کارن', partner.surname || ''].filter(Boolean).join(' ') : 'کارن';
     const following = await isFollowing(pair.id, pair.partnerId);
-    const rows = [
-      [{ text: '🚩 راپور کول', callback_data: 'session:report:' + pair.partnerId + ':' + session.id }],
-      [{ text: '🗑 د وروستیو ۱۰ دقیقو پیغامونه حذفول', callback_data: 'session:delete_recent:' + pair.partnerId + ':' + session.id }]
-    ];
-    if (!following) rows.unshift([{ text: '➕ ' + name + ' فالو کول', callback_data: 'session:follow:' + pair.partnerId + ':' + session.id }]);
+    const rows = [];
+    if (!following) rows.push([{ text: '➕ ' + name + ' فالو کول', callback_data: 'session:follow:' + pair.partnerId + ':' + session.id }]);
+    rows.push([{ text: '🚩 راپور کول', callback_data: 'session:report:' + pair.partnerId + ':' + session.id }]);
     rows.push([{ text: '🔙 اصلي مېنو', callback_data: 'settings:main' }]);
-    try { await sendPrompt(pair.id, '🛑 اړیکه پای ته ورسېده.\n\n👤 د تېر ملګري نوم: ' + name + '\n\nکه اړتیا وي، راپور یې کړه، فالو یې کړه یا د هغه له خوا درلېږل شوي د وروستیو ۱۰ دقیقو پیغامونه حذف کړه.', { inline_keyboard: rows }, user); }
-    catch (e) { try { await api.sendMessage({ chat_id: pair.id, text: '🛑 اړیکه پای ته ورسېده. ملګری: ' + name }); } catch (ignored) {} }
+    try {
+      await sendPrompt(pair.id, '🛑 اړیکه پای ته ورسېده.\n\n👤 د تېر ملګري نوم: ' + name + '\n\nراپور یا فالو کول انتخاب کړه؛ د پیغامونو حذفولو لپاره د کیبورډ تڼۍ وکاروه.', { inline_keyboard: rows }, user);
+    } catch (e) {}
+    try {
+      await api.sendMessage({
+        chat_id: pair.id,
+        text: '⌨️ د اړیکې له پای وروسته هم د وروستیو ۱۰ دقیقو پیغامونه حذفولای شې.',
+        reply_markup: styleKeyboardMarkup(sessionEndedKeyboard(user, await isAdmin(pair.id)))
+      });
+    } catch (keyboardError) {
+      reportDiagnostic('message-handler', 'Could not show post-connection reply keyboard', { sessionId: Number(session.id), userId: pair.id, keyboardError });
+    }
   }
 }
 async function expireUserTimedActions(userId) {
@@ -688,14 +821,37 @@ async function relayConnectionMessage(message, session) {
     return;
   }
   try {
-    const copied = await api.copyMessage({ chat_id: recipientId, from_chat_id: senderId, message_id: Number(message.message_id) });
+    let replyToPartnerMessageId = 0;
+    const repliedMessageId = Number(message.reply_to_message && message.reply_to_message.message_id || 0);
+    if (repliedMessageId > 0) {
+      const mappings = await db.select().from(chat_messages).where(and(
+        eq(chat_messages.session_id, Number(session.id)),
+        eq(chat_messages.recipient_id, senderId),
+        eq(chat_messages.recipient_message_id, repliedMessageId)
+      )).all();
+      const mapping = mappings.find(row =>
+        Number(row.sender_id) === recipientId && Number(row.source_message_id || 0) > 0
+      );
+      if (mapping) replyToPartnerMessageId = Number(mapping.source_message_id);
+    }
+    const copyArgs = { chat_id: recipientId, from_chat_id: senderId, message_id: Number(message.message_id) };
+    if (replyToPartnerMessageId > 0) {
+      copyArgs.reply_parameters = { message_id: replyToPartnerMessageId, allow_sending_without_reply: true };
+    }
+    const copied = await api.copyMessage(copyArgs);
     if (copied && copied.message_id) {
-      await db.insert(chat_messages).values({ session_id: Number(session.id), sender_id: senderId, recipient_id: recipientId,
-        recipient_message_id: Number(copied.message_id), created_at: new Date().toISOString() }).run();
+      await db.insert(chat_messages).values({
+        session_id: Number(session.id), sender_id: senderId, recipient_id: recipientId,
+        recipient_message_id: Number(copied.message_id), source_message_id: Number(message.message_id),
+        created_at: new Date().toISOString()
+      }).run();
     }
     await db.update(chat_sessions).set({ last_activity_at: new Date().toISOString() }).where(eq(chat_sessions.id, Number(session.id))).run();
   } catch (error) {
-    try { await api.sendMessage({ chat_id: senderId, text: '⚠️ دا پیغام بل ملګري ته ونه لېږل شو. بل ډول پیغام واستوه.' }); } catch (e) {}
+    reportDiagnostic('message-handler', 'Could not relay connection message or reply', {
+      sessionId: Number(session.id), senderId, recipientId, error
+    });
+    try { await api.sendMessage({ chat_id: senderId, text: '⚠️ دا پیغام یا د هغه Reply بل ملګري ته ونه لېږل شو. بل ډول پیغام واستوه.' }); } catch (e) {}
   }
 }
 // ── Dice game lifecycle ──
@@ -1731,6 +1887,32 @@ async function processMessage(message) {
     }
     await db.update(users).set({ state: 'admin_menu' }).where(eq(users.telegram_id, id)).run(); user.state = 'admin_menu';
     await sendPrompt(chatId, tx(user).broadcastDone + sent + tx(user).broadcastFailed + failed, adminKeyboard(user), user); return;
+  }
+
+  const controlAction = sessionControlAction(input);
+  if (controlAction) {
+    const activeSession = await activeSessionFor(id);
+    if (controlAction === 'end') {
+      if (activeSession) await endConnection(activeSession, 'user_ended');
+      else await sendPrompt(chatId, '⌛ اوس فعاله اړیکه نشته.', menuKeyboard(user, await isAdmin(id)), user);
+      return;
+    }
+    if (controlAction === 'profile') {
+      if (activeSession) await showSessionProfileFromMessage(activeSession, id);
+      else await sendPrompt(chatId, '⌛ د پروفایل لیدلو لپاره فعاله اړیکه نشته.', menuKeyboard(user, await isAdmin(id)), user);
+      return;
+    }
+    if (controlAction === 'delete_recent') {
+      const session = activeSession || await latestSessionForUser(id);
+      if (!session) {
+        await sendPrompt(chatId, '⌛ د پیغامونو د حذفولو لپاره پخوانۍ اړیکه ونه موندل شوه.', menuKeyboard(user, await isAdmin(id)), user);
+        return;
+      }
+      const deleted = await deleteRecentPartnerMessages(session, id);
+      const keyboard = activeSession ? sessionControlKeyboard(user) : sessionEndedKeyboard(user, await isAdmin(id));
+      await sendPrompt(chatId, '🗑 د ملګري ' + deleted + ' پیغامونه د وروستیو ۱۰ دقیقو له لېست څخه حذف شول. یوازې هغه پیغامونه حذفېږي چې بوټ یې په دې چټ کې کاپي کړي وي.', keyboard, user);
+      return;
+    }
   }
 
   const sessionForRelay = await activeSessionFor(id);
