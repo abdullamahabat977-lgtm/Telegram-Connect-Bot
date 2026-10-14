@@ -769,7 +769,7 @@ async function startConnectionSearch(userId, type) {
     await sendPrompt(userId, '🔎 ستا د ملګري لټون یا د اړیکې غوښتنه لا فعاله ده. لومړی یې پای ته ورسوه، بیا نوی لټون پیل کړه.', { inline_keyboard: [[{ text: '❌ لټون لغوه کول', callback_data: 'conn:cancel_search' }]] }, user);
     return;
   }
-  let search = null, startupStage = 'claim-user-state';
+  let search = null, searchCreatedAt = null, startupStage = 'claim-user-state';
   try {
     // Claim the user's ready state before inserting. Two rapid button presses can
     // both pass the read-only preflight; this compare-and-set lets only one start.
@@ -974,6 +974,7 @@ async function startConnectionSearch(userId, type) {
     user.state = 'searching_connection';
     startupStage = 'insert-search';
     const now = new Date().toISOString();
+    searchCreatedAt = now;
     const inserted = await db.insert(connection_requests).values({
       requester_id: Number(userId), recipient_id: null, status: 'searching', request_type: type,
       gender_filter: type === 'find' ? user.search_gender || 'auto' : 'auto',
@@ -982,7 +983,27 @@ async function startConnectionSearch(userId, type) {
     }).returning().run();
     search = inserted && Array.isArray(inserted.rows) ? inserted.rows[0] : null;
     if (!search || !Number.isSafeInteger(Number(search.id)) || Number(search.id) <= 0) {
-      throw new Error('Connection search insert returned no usable row');
+      // Mirror game acceptance: some Serverless DB adapters persist a write but
+      // return no usable RETURNING row. Re-read and verify this exact insert marker.
+      const persistedRequests = await db.select().from(connection_requests).all();
+      const persistedSearches = persistedRequests.filter(row =>
+        Number(row.requester_id) === Number(userId) &&
+        row.recipient_id == null &&
+        String(row.created_at || '') === now &&
+        row.request_type === type &&
+        ['searching', 'matching'].includes(row.status) &&
+        Number.isSafeInteger(Number(row.id)) && Number(row.id) > 0
+      );
+      if (persistedSearches.length > 0) {
+        persistedSearches.sort((a, b) => Number(b.id) - Number(a.id));
+        search = persistedSearches[0];
+        console.info('Verified connection search insert after empty RETURNING result', {
+          userId: Number(userId), searchId: Number(search.id), status: search.status
+        });
+      }
+    }
+    if (!search || !Number.isSafeInteger(Number(search.id)) || Number(search.id) <= 0) {
+      throw new Error('Connection search insert returned no usable row after persisted-row verification');
     }
 
     startupStage = 'send-search-prompt';
@@ -993,6 +1014,32 @@ async function startConnectionSearch(userId, type) {
       userId: Number(userId), type, stage: startupStage,
       error: error && (error.stack || error.message || String(error))
     });
+    // If the insert persisted but RETURNING was unusable, recover its exact row
+    // marker before cleanup so a failed startup cannot leave an orphaned search.
+    if ((!search || !Number.isSafeInteger(Number(search.id)) || Number(search.id) <= 0) && searchCreatedAt) {
+      try {
+        const persistedRequests = await db.select().from(connection_requests).all();
+        const persistedSearches = persistedRequests.filter(row =>
+          Number(row.requester_id) === Number(userId) &&
+          row.recipient_id == null &&
+          String(row.created_at || '') === searchCreatedAt &&
+          row.request_type === type &&
+          ['searching', 'matching'].includes(row.status) &&
+          Number.isSafeInteger(Number(row.id)) && Number(row.id) > 0
+        );
+        if (persistedSearches.length > 0) {
+          persistedSearches.sort((a, b) => Number(b.id) - Number(a.id));
+          search = persistedSearches[0];
+          console.info('Recovered persisted connection search for startup cleanup', {
+            userId: Number(userId), searchId: Number(search.id), status: search.status
+          });
+        }
+      } catch (recoveryError) {
+        reportDiagnostic('callback-handler', 'Could not recover persisted search row after insert failure', {
+          userId: Number(userId), type, searchCreatedAt, recoveryError
+        });
+      }
+    }
     if (search && Number(search.id) > 0) {
       try {
         // The matcher may have claimed this row while the startup prompt was being sent.
