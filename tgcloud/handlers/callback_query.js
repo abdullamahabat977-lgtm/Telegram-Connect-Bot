@@ -778,9 +778,8 @@ async function startConnectionSearch(userId, type) {
       .returning({ telegram_id: users.telegram_id }).run();
     if (!stateClaim || !Array.isArray(stateClaim.rows) || stateClaim.rows.length === 0) {
       // A Serverless invocation can stop after claiming the state but before inserting
-      // its request. Give an in-flight invocation a short chance to finish before recovery.
-      // Do not use setTimeout: this Serverless runtime does not expose it.
-      // The database reads below provide another async boundary before recovery.
+      // its request. Do not use timers here; this runtime does not expose setTimeout.
+      // Recovery is allowed only after checking current database records.
       let recoverySnapshot = null;
       try {
         const [latestUser, latestRequests, latestGames, latestSession] = await Promise.all([
@@ -798,7 +797,7 @@ async function startConnectionSearch(userId, type) {
           (Number(row.player_id) === Number(userId) || Number(row.opponent_id) === Number(userId))
         );
         recoverySnapshot = { latestUser, activeRequests, activeGames, latestSession };
-        reportDiagnostic('callback-handler', 'Connection search state claim rejected', {
+        console.warn('Connection search state claim rejected; checking for an orphaned state', {
           userId: Number(userId),
           currentState: latestUser && latestUser.state,
           activeRequests: activeRequests.map(row => ({ id: Number(row.id), status: row.status, requesterId: Number(row.requester_id), recipientId: Number(row.recipient_id || 0) })),
