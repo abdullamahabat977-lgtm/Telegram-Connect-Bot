@@ -433,6 +433,25 @@ async function publicProfileText(target, viewerId) {
     '\n\n📢 عام چینل: ' + (target.channel_username || '—') + '\n\n📨 ریفرلونه: ' + Number(target.referral_count || 0) +
     '\n\n👥 پالو ملګري: ' + favCount + '\n\n🏆 نمرې: ' + Number(target.points || 0) + '\n\n❤️ لایکونه: ' + Number(target.likes || 0);
 }
+function sessionControlLabels(user) {
+  const labels = {
+    ps: { profile: '👤 پروفایل لیدل', end: '🛑 اړیکه پای ته رسول', delete: '🗑 د وروستیو ۱۰ دقیقو پیغامونه حذفول' },
+    fa: { profile: '👤 مشاهده پروفایل', end: '🛑 پایان دادن به ارتباط', delete: '🗑 حذف پیام‌های ۱۰ دقیقه اخیر' },
+    en: { profile: '👤 View profile', end: '🛑 End connection', delete: '🗑 Delete last 10 minutes of messages' },
+    ur: { profile: '👤 پروفائل دیکھیں', end: '🛑 رابطہ ختم کریں', delete: '🗑 گزشتہ ۱۰ منٹ کے پیغامات حذف کریں' },
+    ar: { profile: '👤 عرض الملف الشخصي', end: '🛑 إنهاء الاتصال', delete: '🗑 حذف رسائل آخر 10 دقائق' }
+  };
+  return labels[user && labels[user.language] ? user.language : 'ps'];
+}
+function sessionControlKeyboard(user) {
+  const b = sessionControlLabels(user);
+  return { keyboard: [[{ text: b.profile }, { text: b.end }], [{ text: b.delete }]], resize_keyboard: true };
+}
+function sessionEndedKeyboard(user, admin) {
+  const markup = mainKeyboard(user, admin);
+  markup.keyboard.unshift([{ text: sessionControlLabels(user).delete }]);
+  return markup;
+}
 function sessionKeyboard(targetId, sessionId, following, liked) {
   return { inline_keyboard: [
     [{ text: following ? '❤️ فالو شوی' : '➕ فالو کول', callback_data: 'session:follow:' + targetId + ':' + sessionId },
@@ -442,10 +461,7 @@ function sessionKeyboard(targetId, sessionId, following, liked) {
      { text: '⭐ 3', callback_data: 'session:rate:' + targetId + ':3:' + sessionId },
      { text: '⭐ 4', callback_data: 'session:rate:' + targetId + ':4:' + sessionId },
      { text: '⭐ 5', callback_data: 'session:rate:' + targetId + ':5:' + sessionId }],
-    [{ text: '👤 پروفایل لیدل', callback_data: 'session:profile:' + targetId + ':' + sessionId },
-     { text: '🛑 اړیکه پای ته رسول', callback_data: 'session:end:' + sessionId }],
-    [{ text: '🚩 راپور', callback_data: 'session:report:' + targetId + ':' + sessionId },
-     { text: '🗑 د وروستیو ۱۰ دقیقو پیغامونه حذفول', callback_data: 'session:delete_recent:' + targetId + ':' + sessionId }]
+    [{ text: '🚩 راپور', callback_data: 'session:report:' + targetId + ':' + sessionId }]
   ] };
 }
 async function showSessionProfile(session, viewerId) {
@@ -454,14 +470,44 @@ async function showSessionProfile(session, viewerId) {
   const following = await isFollowing(viewerId, targetId);
   const likes = await db.select().from(user_likes).where(eq(user_likes.liker_id, Number(viewerId))).all();
   const liked = likes.some(row => Number(row.liked_id) === targetId);
-  await sendPrompt(viewerId, '🤝 اړیکه فعاله ده.\n\n' + await publicProfileText(target, viewerId), sessionKeyboard(targetId, session.id, following, liked), viewer);
+  const fullProfileAllowed = target.profile_visibility !== 'followers' || following;
+  const text = '🤝 اړیکه فعاله ده.\n\n' + await publicProfileText(target, viewerId);
+  const markup = sessionKeyboard(targetId, session.id, following, liked);
+  if (fullProfileAllowed && target.profile_photo_id) {
+    try {
+      await ensureInlinePromptTracking();
+      const latest = await db.select({ last_prompt_id: users.last_prompt_id }).from(users)
+        .where(eq(users.telegram_id, Number(viewerId))).get();
+      const previousId = Number(latest && latest.last_prompt_id || 0);
+      if (previousId > 0) await safeDelete(viewerId, previousId);
+      const sent = await api.sendPhoto({
+        chat_id: Number(viewerId), photo: target.profile_photo_id,
+        caption: text.slice(0, 1024), reply_markup: styleKeyboardMarkup(markup)
+      });
+      const sentId = Number(sent && sent.message_id || 0);
+      await db.update(users).set({ last_prompt_id: sentId }).where(eq(users.telegram_id, Number(viewerId))).run();
+      viewer.last_prompt_id = sentId;
+      return;
+    } catch (photoError) {
+      console.warn('Could not send connection partner profile photo; falling back to text', {
+        viewerId: Number(viewerId), targetId, photoError
+      });
+    }
+  }
+  await sendPrompt(viewerId, text, markup, viewer);
 }
 async function endConnection(session, reason) {
   if (!session || session.status !== 'connected') return;
-  const ended = await db.update(chat_sessions).set({ status: 'ended', ended_at: new Date().toISOString(), end_reason: reason || 'ended' })
+  const endedAt = new Date().toISOString();
+  const ended = await db.update(chat_sessions).set({ status: 'ended', ended_at: endedAt, end_reason: reason || 'ended' })
     .where(and(eq(chat_sessions.id, Number(session.id)), eq(chat_sessions.status, 'connected')))
     .returning({ id: chat_sessions.id }).run();
-  if (!ended || !Array.isArray(ended.rows) || ended.rows.length === 0) return;
+  let endVerified = Boolean(ended && Array.isArray(ended.rows) && ended.rows.length > 0);
+  if (!endVerified) {
+    const persisted = await db.select().from(chat_sessions).where(eq(chat_sessions.id, Number(session.id))).get();
+    endVerified = Boolean(persisted && persisted.status === 'ended' && String(persisted.ended_at || '') === endedAt);
+  }
+  if (!endVerified) return;
   for (const pair of [{ id: Number(session.first_user_telegram_id), partnerId: Number(session.second_user_telegram_id) },
     { id: Number(session.second_user_telegram_id), partnerId: Number(session.first_user_telegram_id) }]) {
     const user = await getUser(pair.id), partner = await getUser(pair.partnerId);
@@ -472,9 +518,20 @@ async function endConnection(session, reason) {
     const rows = [];
     if (!following) rows.push([{ text: '➕ ' + name + ' فالو کول', callback_data: 'session:follow:' + pair.partnerId + ':' + session.id }]);
     rows.push([{ text: '🚩 راپور کول', callback_data: 'session:report:' + pair.partnerId + ':' + session.id }]);
-    rows.push([{ text: '🗑 د وروستیو ۱۰ دقیقو پیغامونه حذفول', callback_data: 'session:delete_recent:' + pair.partnerId + ':' + session.id }]);
     rows.push([{ text: '🔙 اصلي مېنو', callback_data: 'settings:main' }]);
-    try { await sendPrompt(pair.id, '🛑 اړیکه پای ته ورسېده.\n\n👤 د تېر ملګري نوم: ' + name + '\n\nراپور، فالو یا د هغه له خوا درلېږل شوي د وروستیو ۱۰ دقیقو پیغامونه حذفول انتخاب کړه.', { inline_keyboard: rows }, user); } catch (e) {}
+    try {
+      await sendPrompt(pair.id, '🛑 اړیکه پای ته ورسېده.\n\n👤 د تېر ملګري نوم: ' + name + '\n\nراپور یا فالو کول انتخاب کړه؛ د پیغامونو حذفولو لپاره د کیبورډ تڼۍ وکاروه.', { inline_keyboard: rows }, user);
+    } catch (e) {}
+    try {
+      const keyboard = sessionEndedKeyboard(user, await isAdmin(pair.id));
+      await api.sendMessage({
+        chat_id: pair.id,
+        text: '⌨️ د اړیکې له پای وروسته هم د وروستیو ۱۰ دقیقو پیغامونه حذفولای شې.',
+        reply_markup: styleKeyboardMarkup(keyboard)
+      });
+    } catch (keyboardError) {
+      reportDiagnostic('callback-handler', 'Could not show post-connection reply keyboard', { sessionId: Number(session.id), userId: pair.id, keyboardError });
+    }
   }
 }
 async function expireUserTimedActions(userId, options = {}) {
@@ -1163,6 +1220,19 @@ async function showConnectedPair(session) {
   try { await api.sendMessage({ chat_id: Number(second.telegram_id), text: '✅ غوښتنه ومنل شوه! اړیکه وصل شوه.\n\nاوس کولای شئ یو بل ته پیغامونه واستوئ.' }); } catch (e) {}
   await showSessionProfile(session, Number(first.telegram_id));
   await showSessionProfile(session, Number(second.telegram_id));
+  for (const user of [first, second]) {
+    try {
+      await api.sendMessage({
+        chat_id: Number(user.telegram_id),
+        text: '⌨️ د اړیکې چټک کنټرولونه:',
+        reply_markup: styleKeyboardMarkup(sessionControlKeyboard(user))
+      });
+    } catch (keyboardError) {
+      reportDiagnostic('callback-handler', 'Could not show connection reply keyboard', {
+        sessionId: Number(session.id), userId: Number(user.telegram_id), keyboardError
+      });
+    }
+  }
 }
 async function resolveUserGame(game) {
   // The caller must win the pending -> playing claim before any dice or balance work.
@@ -1435,6 +1505,18 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
     const offer = rows.find(row => Number(row.id) === offerId && Number(row.recipient_id) === actorId && row.status === 'pending');
     if (!offer) {
       const observedOffer = rows.find(row => Number(row.id) === offerId);
+      const terminalStatuses = ['cancelled', 'rejected', 'expired', 'accepted', 'connected'];
+      if (observedOffer && terminalStatuses.includes(String(observedOffer.status || ''))) {
+        const message = observedOffer.status === 'cancelled'
+          ? '⌛ دا غوښتنه مخکې لغوه شوې ده؛ نور اقدام ته اړتیا نشته.'
+          : observedOffer.status === 'rejected'
+            ? '⌛ دا غوښتنه مخکې رد شوې ده.'
+            : observedOffer.status === 'expired'
+              ? '⌛ د دې غوښتنې وخت پای ته رسېدلی دی.'
+              : '⌛ دا غوښتنه مخکې پروسس شوې ده.';
+        await sendPrompt(chatId, message, mainKeyboard(actor, await isAdmin(actorId)), actor);
+        return;
+      }
       reportDiagnostic('callback-handler', 'Connection accept/reject callback did not find a pending offer', {
         offerId, actorId,
         observedStatus: observedOffer && observedOffer.status,
@@ -1783,6 +1865,11 @@ async function adjustUserLikes(targetId, delta) {
       ))
       .returning({ telegram_id: users.telegram_id }).run();
     if (updated && Array.isArray(updated.rows) && updated.rows.length > 0) return true;
+    // A successful write may still return an empty RETURNING result in this runtime.
+    // Read immediately before retrying, or one click could increment/decrement repeatedly.
+    const persisted = await getUser(targetId);
+    if (persisted && Number(persisted.likes || 0) === next) return true;
+    if (!persisted) return false;
   }
   reportDiagnostic('callback-handler', 'Could not update likes counter after concurrent changes', { targetId, delta });
   return false;
