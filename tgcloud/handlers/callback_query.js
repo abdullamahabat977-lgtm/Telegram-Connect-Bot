@@ -1433,13 +1433,36 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
   if (p[1] === 'reject' || p[1] === 'accept') {
     const offerId = Number(p[2]), rows = await db.select().from(connection_requests).all();
     const offer = rows.find(row => Number(row.id) === offerId && Number(row.recipient_id) === actorId && row.status === 'pending');
-    if (!offer) { await sendPrompt(chatId, '⌛ دا غوښتنه نوره فعاله نه ده.', mainKeyboard(actor, await isAdmin(actorId)), actor); return; }
+    if (!offer) {
+      const observedOffer = rows.find(row => Number(row.id) === offerId);
+      reportDiagnostic('callback-handler', 'Connection accept/reject callback did not find a pending offer', {
+        offerId, actorId,
+        observedStatus: observedOffer && observedOffer.status,
+        observedRecipientId: observedOffer && Number(observedOffer.recipient_id),
+        observedRequesterId: observedOffer && Number(observedOffer.requester_id),
+        callbackAction: p[1]
+      });
+      await sendPrompt(chatId, '⌛ دا غوښتنه نوره فعاله نه ده.', mainKeyboard(actor, await isAdmin(actorId)), actor);
+      return;
+    }
     const search = rows.find(row => Number(row.requester_id) === Number(offer.requester_id) && row.status === 'searching' && !row.recipient_id);
     if (p[1] === 'reject') {
-      const rejected = await db.update(connection_requests).set({ status: 'rejected', updated_at: new Date().toISOString() })
+      const rejectedAt = new Date().toISOString();
+      const rejected = await db.update(connection_requests).set({ status: 'rejected', updated_at: rejectedAt })
         .where(and(eq(connection_requests.id, offerId), eq(connection_requests.status, 'pending'), eq(connection_requests.recipient_id, actorId)))
         .returning({ id: connection_requests.id }).run();
-      if (!rejected || !Array.isArray(rejected.rows) || rejected.rows.length === 0) {
+      let rejectionVerified = Boolean(rejected && Array.isArray(rejected.rows) && rejected.rows.length > 0);
+      if (!rejectionVerified) {
+        const persistedOffer = await db.select().from(connection_requests).where(eq(connection_requests.id, offerId)).get();
+        rejectionVerified = Boolean(persistedOffer && persistedOffer.status === 'rejected' &&
+          Number(persistedOffer.recipient_id) === actorId && String(persistedOffer.updated_at || '') === rejectedAt);
+      }
+      if (!rejectionVerified) {
+        const latestOffer = await db.select().from(connection_requests).where(eq(connection_requests.id, offerId)).get();
+        reportDiagnostic('callback-handler', 'Connection offer rejection could not be verified', {
+          offerId, actorId, observedStatus: latestOffer && latestOffer.status,
+          observedUpdatedAt: latestOffer && latestOffer.updated_at, rejectedAt
+        });
         await sendPrompt(chatId, '⌛ دا غوښتنه نور فعاله نه ده.', mainKeyboard(actor, await isAdmin(actorId)), actor);
         return;
       }
@@ -1499,17 +1522,43 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
       await sendPrompt(chatId, notice, mainKeyboard(actor, await isAdmin(actorId)), actor);
       return;
     }
-    const offerClaim = await db.update(connection_requests).set({ status: 'matching', updated_at: new Date().toISOString() })
+    const offerClaimAt = new Date().toISOString();
+    const offerClaim = await db.update(connection_requests).set({ status: 'matching', updated_at: offerClaimAt })
       .where(and(eq(connection_requests.id, offerId), eq(connection_requests.status, 'pending'), eq(connection_requests.recipient_id, actorId)))
       .returning({ id: connection_requests.id }).run();
-    if (!offerClaim || !Array.isArray(offerClaim.rows) || offerClaim.rows.length === 0) {
+    let offerClaimVerified = Boolean(offerClaim && Array.isArray(offerClaim.rows) && offerClaim.rows.length > 0);
+    if (!offerClaimVerified) {
+      const persistedOffer = await db.select().from(connection_requests).where(eq(connection_requests.id, offerId)).get();
+      offerClaimVerified = Boolean(persistedOffer && persistedOffer.status === 'matching' &&
+        Number(persistedOffer.recipient_id) === actorId && String(persistedOffer.updated_at || '') === offerClaimAt);
+    }
+    if (!offerClaimVerified) {
+      const latestOffer = await db.select().from(connection_requests).where(eq(connection_requests.id, offerId)).get();
+      reportDiagnostic('callback-handler', 'Connection offer claim could not be verified', {
+        offerId, actorId, observedStatus: latestOffer && latestOffer.status,
+        observedUpdatedAt: latestOffer && latestOffer.updated_at, offerClaimAt
+      });
       await sendPrompt(chatId, '⌛ دا غوښتنه نور فعاله نه ده.', mainKeyboard(actor, await isAdmin(actorId)), actor);
       return;
     }
-    const searchClaim = await db.update(connection_requests).set({ status: 'connected', updated_at: new Date().toISOString() })
+    const searchClaimAt = new Date().toISOString();
+    const searchClaim = await db.update(connection_requests).set({ status: 'connected', updated_at: searchClaimAt })
       .where(and(eq(connection_requests.id, Number(search.id)), eq(connection_requests.status, 'searching'), eq(connection_requests.requester_id, Number(requester.telegram_id))))
       .returning({ id: connection_requests.id }).run();
-    if (!searchClaim || !Array.isArray(searchClaim.rows) || searchClaim.rows.length === 0) {
+    let searchClaimVerified = Boolean(searchClaim && Array.isArray(searchClaim.rows) && searchClaim.rows.length > 0);
+    if (!searchClaimVerified) {
+      const persistedSearch = await db.select().from(connection_requests).where(eq(connection_requests.id, Number(search.id))).get();
+      searchClaimVerified = Boolean(persistedSearch && persistedSearch.status === 'connected' &&
+        Number(persistedSearch.requester_id) === Number(requester.telegram_id) &&
+        String(persistedSearch.updated_at || '') === searchClaimAt);
+    }
+    if (!searchClaimVerified) {
+      const latestSearch = await db.select().from(connection_requests).where(eq(connection_requests.id, Number(search.id))).get();
+      reportDiagnostic('callback-handler', 'Connection source search claim could not be verified', {
+        offerId, searchId: Number(search.id), actorId,
+        observedStatus: latestSearch && latestSearch.status,
+        observedUpdatedAt: latestSearch && latestSearch.updated_at, searchClaimAt
+      });
       await db.update(connection_requests).set({ status: 'expired', updated_at: new Date().toISOString() })
         .where(and(eq(connection_requests.id, offerId), eq(connection_requests.status, 'matching'))).run();
       await sendPrompt(chatId, '⌛ د غوښتونکي لټون پای ته رسېدلی؛ دا غوښتنه نوره فعاله نه ده.', mainKeyboard(actor, await isAdmin(actorId)), actor);
