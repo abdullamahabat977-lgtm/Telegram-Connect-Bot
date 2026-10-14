@@ -93,20 +93,6 @@ export const user_blocks = table('user_blocks', {
     blockedBlockerIdx: index('idx_user_blocks_blocked_blocker').on(t.blocked_telegram_id, t.blocker_telegram_id),
   }));
 
-export const reports = table('reports', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  reporter_telegram_id: integer('reporter_telegram_id').notNull(),
-  reported_telegram_id: integer('reported_telegram_id').notNull(),
-  reason: text('reason'),
-  status: text('status').notNull().default('pending'),
-  reviewed_by: integer('reviewed_by'),
-  reviewed_at: text('reviewed_at'),
-  created_at: text('created_at').notNull(),
-  }, (t) => ({
-    statusCreatedIdx: index('idx_reports_status_created').on(t.status, t.created_at),
-    reporterIdx: index('idx_reports_reporter').on(t.reporter_telegram_id),
-    reportedIdx: index('idx_reports_reported').on(t.reported_telegram_id),
-  }));
 
 export const connection_requests = table('connection_requests', {
   id: integer('id').primaryKey({ autoIncrement: true }),
