@@ -781,6 +781,7 @@ async function startConnectionSearch(userId, type) {
       // its request. Do not use timers here; this runtime does not expose setTimeout.
       // Recovery is allowed only after checking current database records.
       let recoverySnapshot = null;
+      const resetDiagnostics = { conditionalResetRows: null, stateAfterConditionalReset: null, fallbackResetRows: null, stateAfterFallbackReset: null };
       try {
         const [latestUser, latestRequests, latestGames, latestSession] = await Promise.all([
           getUser(userId),
@@ -820,11 +821,13 @@ async function startConnectionSearch(userId, type) {
         const resetResult = await db.update(users).set({ state: 'ready' })
           .where(and(eq(users.telegram_id, Number(userId)), eq(users.state, 'searching_connection')))
           .returning({ telegram_id: users.telegram_id }).run();
-        const verifiedUser = await getUser(userId);
+        let verifiedUser = await getUser(userId);
+        resetDiagnostics.conditionalResetRows = resetResult && Array.isArray(resetResult.rows) ? resetResult.rows.length : 'unknown-result-shape';
+        resetDiagnostics.stateAfterConditionalReset = verifiedUser && verifiedUser.state;
         console.info('Checked orphaned connection search state recovery', {
           userId: Number(userId),
-          resetRows: resetResult && Array.isArray(resetResult.rows) ? resetResult.rows.length : 'unknown-result-shape',
-          stateAfterReset: verifiedUser && verifiedUser.state
+          resetRows: resetDiagnostics.conditionalResetRows,
+          stateAfterReset: resetDiagnostics.stateAfterConditionalReset
         });
         if ((!resetResult || !Array.isArray(resetResult.rows) || resetResult.rows.length === 0) &&
             verifiedUser && verifiedUser.state === 'searching_connection') {
@@ -847,9 +850,10 @@ async function startConnectionSearch(userId, type) {
             const fallbackReset = await db.update(users).set({ state: 'ready' })
               .where(eq(users.telegram_id, Number(userId)))
               .returning({ telegram_id: users.telegram_id }).run();
+            resetDiagnostics.fallbackResetRows = fallbackReset && Array.isArray(fallbackReset.rows) ? fallbackReset.rows.length : 'unknown-result-shape';
             console.info('Fallback reset for orphaned connection state', {
               userId: Number(userId),
-              resetRows: fallbackReset && Array.isArray(fallbackReset.rows) ? fallbackReset.rows.length : 'unknown-result-shape',
+              resetRows: resetDiagnostics.fallbackResetRows,
               activeRequestAtFallback,
               activeGameAtFallback,
               hasActiveSessionAtFallback: Boolean(sessionAtFallback)
@@ -861,6 +865,17 @@ async function startConnectionSearch(userId, type) {
             });
           }
         }
+        // Match the working game-acceptance pattern: never trust UPDATE/RETURNING alone.
+        // Re-read the persisted user state after both conditional and fallback updates.
+        verifiedUser = await getUser(userId);
+        resetDiagnostics.stateAfterFallbackReset = verifiedUser && verifiedUser.state;
+        console.info('Verified connection state after recovery writes', {
+          userId: Number(userId),
+          stateAfterConditionalReset: resetDiagnostics.stateAfterConditionalReset,
+          stateAfterFallbackReset: resetDiagnostics.stateAfterFallbackReset,
+          conditionalResetRows: resetDiagnostics.conditionalResetRows,
+          fallbackResetRows: resetDiagnostics.fallbackResetRows
+        });
         if (verifiedUser && verifiedUser.state === 'ready') {
           user.state = 'ready';
           // Continue this callback instead of making the user repeat the same action.
@@ -909,7 +924,8 @@ async function startConnectionSearch(userId, type) {
               playerId: Number(row.player_id), opponentId: Number(row.opponent_id || 0)
             })) : 'snapshot-unavailable',
             hasActiveSession: recoverySnapshot ? Boolean(recoverySnapshot.latestSession) : 'snapshot-unavailable',
-            recoveryAction: 'Could not reclaim searching_connection state; see snapshot above'
+            recoveryAction: 'Could not reclaim searching_connection state; see snapshot above',
+            resetDiagnostics: resetDiagnostics || 'reset-not-attempted'
           });
         }
         await sendPrompt(userId, latestUser && latestUser.state === 'searching_connection'
