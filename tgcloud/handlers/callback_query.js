@@ -670,35 +670,79 @@ async function tryOfferSearches() {
     const claim = await db.update(connection_requests).set({ status: 'matching', updated_at: claimAt })
       .where(and(eq(connection_requests.id, Number(search.id)), eq(connection_requests.status, 'searching')))
       .returning({ id: connection_requests.id }).run();
-    if (!claim || !Array.isArray(claim.rows) || claim.rows.length === 0) continue;
+    let claimVerified = Boolean(claim && Array.isArray(claim.rows) && claim.rows.length > 0);
+    if (!claimVerified) {
+      // Like game acceptance, verify the exact persisted state transition when
+      // this Serverless adapter applies UPDATE but omits RETURNING rows.
+      const persistedClaim = await db.select().from(connection_requests).where(eq(connection_requests.id, Number(search.id))).get();
+      claimVerified = Boolean(persistedClaim &&
+        persistedClaim.status === 'matching' &&
+        String(persistedClaim.updated_at || '') === claimAt);
+    }
+    if (!claimVerified) continue;
     let offer;
+    let offerCreatedAt = null;
     try {
       const nowIso = new Date().toISOString();
+      offerCreatedAt = nowIso;
       const inserted = await db.insert(connection_requests).values({
         requester_id: Number(search.requester_id), recipient_id: Number(candidate.telegram_id), status: 'pending',
         request_type: search.request_type, gender_filter: search.gender_filter, language_filter: search.language_filter,
         created_at: nowIso, updated_at: nowIso
       }).returning().run();
       offer = inserted && Array.isArray(inserted.rows) ? inserted.rows[0] : null;
-      if (!offer) throw new Error('Connection offer insert returned no row');
-      const released = await db.update(connection_requests).set({ status: 'searching', updated_at: new Date().toISOString() })
+      if (!offer || !Number.isSafeInteger(Number(offer.id)) || Number(offer.id) <= 0) {
+        const persistedRequests = await db.select().from(connection_requests).all();
+        const matchingOffers = persistedRequests.filter(row =>
+          Number(row.requester_id) === Number(search.requester_id) &&
+          Number(row.recipient_id) === Number(candidate.telegram_id) &&
+          row.status === 'pending' &&
+          row.request_type === search.request_type &&
+          String(row.created_at || '') === nowIso &&
+          Number.isSafeInteger(Number(row.id)) && Number(row.id) > 0
+        );
+        if (matchingOffers.length > 0) {
+          matchingOffers.sort((a, b) => Number(b.id) - Number(a.id));
+          offer = matchingOffers[0];
+          console.info('Verified connection offer insert after empty RETURNING result', {
+            searchId: Number(search.id), offerId: Number(offer.id), candidateId: Number(candidate.telegram_id)
+          });
+        }
+      }
+      if (!offer || !Number.isSafeInteger(Number(offer.id)) || Number(offer.id) <= 0) {
+        throw new Error('Connection offer insert returned no usable row after persisted-row verification');
+      }
+      const releaseAt = new Date().toISOString();
+      const released = await db.update(connection_requests).set({ status: 'searching', updated_at: releaseAt })
         .where(and(eq(connection_requests.id, Number(search.id)), eq(connection_requests.status, 'matching'), eq(connection_requests.updated_at, claimAt)))
         .returning({ id: connection_requests.id }).run();
-      if (!released || !Array.isArray(released.rows) || released.rows.length === 0) {
-        await db.update(connection_requests).set({ status: 'rejected', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, Number(offer.id))).run();
+      let releaseVerified = Boolean(released && Array.isArray(released.rows) && released.rows.length > 0);
+      if (!releaseVerified) {
+        const persistedRelease = await db.select().from(connection_requests).where(eq(connection_requests.id, Number(search.id))).get();
+        releaseVerified = Boolean(persistedRelease &&
+          persistedRelease.status === 'searching' &&
+          String(persistedRelease.updated_at || '') === releaseAt);
+      }
+      if (!releaseVerified) {
+        const latestOffer = await db.select().from(connection_requests).where(eq(connection_requests.id, Number(offer.id))).get();
+        if (latestOffer && latestOffer.status === 'pending') {
+          await db.update(connection_requests).set({ status: 'rejected', updated_at: new Date().toISOString() })
+            .where(and(eq(connection_requests.id, Number(offer.id)), eq(connection_requests.status, 'pending'))).run();
+        }
         reportDiagnostic('callback-handler', 'Could not release claimed connection search', { searchId: search.id, offerId: offer.id });
         continue;
       }
       requests.push(offer);
     } catch (error) {
       try {
-        await db.update(connection_requests).set({ status: 'searching', updated_at: new Date().toISOString() })
+        const releaseAt = new Date().toISOString();
+        await db.update(connection_requests).set({ status: 'searching', updated_at: releaseAt })
           .where(and(eq(connection_requests.id, Number(search.id)), eq(connection_requests.status, 'matching'), eq(connection_requests.updated_at, claimAt)))
           .run();
       } catch (releaseError) {
         reportDiagnostic('callback-handler', 'Failed to release connection search after offer creation error', { searchId: search.id, error: releaseError });
       }
-      reportDiagnostic('callback-handler', 'Failed to create connection offer', { searchId: search.id, requesterId: search.requester_id, candidateId: candidate.telegram_id, error });
+      reportDiagnostic('callback-handler', 'Failed to create connection offer', { searchId: search.id, requesterId: search.requester_id, candidateId: candidate.telegram_id, offerCreatedAt, error });
       continue;
     }
     try { await api.sendMessage({ chat_id: Number(candidate.telegram_id),
@@ -1351,7 +1395,12 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
             : [eq(connection_requests.requester_id, actorId)])
         ))
         .returning({ id: connection_requests.id }).run();
-      if (!cancelled || !Array.isArray(cancelled.rows) || cancelled.rows.length === 0) continue;
+      let cancellationVerified = Boolean(cancelled && Array.isArray(cancelled.rows) && cancelled.rows.length > 0);
+      if (!cancellationVerified) {
+        const persistedCancellation = await db.select().from(connection_requests).where(eq(connection_requests.id, Number(row.id))).get();
+        cancellationVerified = Boolean(persistedCancellation && persistedCancellation.status === 'cancelled');
+      }
+      if (!cancellationVerified) continue;
       cancelledCount++;
       if (row.status === 'pending' && Number(row.requester_id) !== actorId) {
         notifyRequesters.add(Number(row.requester_id));
