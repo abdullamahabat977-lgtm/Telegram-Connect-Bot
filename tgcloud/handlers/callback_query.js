@@ -773,9 +773,27 @@ async function startConnectionSearch(userId, type) {
   try {
     // Claim the user's ready state before inserting. Two rapid button presses can
     // both pass the read-only preflight; this compare-and-set lets only one start.
-    let stateClaim = await db.update(users).set({ state: 'searching_connection' })
+    // Use last_active_at as a per-attempt marker so an empty/malformed RETURNING
+    // result can be verified exactly, like game acceptance verifies updated_at.
+    const initialClaimAt = new Date().toISOString();
+    let stateClaim = await db.update(users).set({
+      state: 'searching_connection',
+      last_active_at: initialClaimAt
+    })
       .where(and(eq(users.telegram_id, Number(userId)), eq(users.state, 'ready')))
       .returning({ telegram_id: users.telegram_id }).run();
+    if (!stateClaim || !Array.isArray(stateClaim.rows) || stateClaim.rows.length === 0) {
+      const persistedClaim = await getUser(userId);
+      const thisClaimWon = persistedClaim &&
+        persistedClaim.state === 'searching_connection' &&
+        String(persistedClaim.last_active_at || '') === initialClaimAt;
+      if (thisClaimWon) {
+        stateClaim = { rows: [{ telegram_id: Number(userId) }] };
+        console.info('Verified connection search claim after empty RETURNING result', {
+          userId: Number(userId), claimStage: 'initial', state: persistedClaim.state
+        });
+      }
+    }
     if (!stateClaim || !Array.isArray(stateClaim.rows) || stateClaim.rows.length === 0) {
       // A Serverless invocation can stop after claiming the state but before inserting
       // its request. Do not use timers here; this runtime does not expose setTimeout.
@@ -894,9 +912,27 @@ async function startConnectionSearch(userId, type) {
             (Number(row.player_id) === Number(userId) || Number(row.opponent_id) === Number(userId))
           );
           if (!hasActiveRequest && !hasActiveGame && !sessionAfterReset) {
-            stateClaim = await db.update(users).set({ state: 'searching_connection' })
+            const retryClaimAt = new Date().toISOString();
+            stateClaim = await db.update(users).set({
+              state: 'searching_connection',
+              last_active_at: retryClaimAt
+            })
               .where(and(eq(users.telegram_id, Number(userId)), eq(users.state, 'ready')))
               .returning({ telegram_id: users.telegram_id }).run();
+            if (!stateClaim || !Array.isArray(stateClaim.rows) || stateClaim.rows.length === 0) {
+              // Game acceptance uses updated_at to prove this exact callback won.
+              // Here last_active_at is the existing user-row marker; no schema change is needed.
+              const persistedRetryClaim = await getUser(userId);
+              const thisRetryWon = persistedRetryClaim &&
+                persistedRetryClaim.state === 'searching_connection' &&
+                String(persistedRetryClaim.last_active_at || '') === retryClaimAt;
+              if (thisRetryWon) {
+                stateClaim = { rows: [{ telegram_id: Number(userId) }] };
+                console.info('Verified recovered connection claim after empty RETURNING result', {
+                  userId: Number(userId), claimStage: 'recovery', state: persistedRetryClaim.state
+                });
+              }
+            }
             if (stateClaim && Array.isArray(stateClaim.rows) && stateClaim.rows.length > 0) {
               user.state = 'searching_connection';
               console.info('Recovered stale connection state and reclaimed search', { userId: Number(userId) });
