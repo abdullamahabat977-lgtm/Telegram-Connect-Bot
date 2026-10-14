@@ -119,11 +119,11 @@ function replyKeyboard(rows, extra) {
 function mainKeyboard(user, admin) {
   const m = tx(user).menu;
   const rows = [
-    [{ text: m[0] }, { text: m[1] }],
+    [{ text: m[0] }, { text: m[4] }],
     [{ text: m[2] }, { text: m[3] }],
-    [{ text: m[4] }, { text: m[5] }],
-    [{ text: m[6] }, { text: m[7] }],
-    [{ text: m[9] }, { text: m[10] }]
+    [{ text: m[6] }, { text: m[5] }],
+    [{ text: m[9] }, { text: m[7] }],
+    [{ text: m[10] }]
   ];
   if (admin) rows.push([{ text: m[8] }]);
   return replyKeyboard(rows);
@@ -217,7 +217,7 @@ async function showFavoriteSettings(chatId, actor, page) {
   for (const item of items) {
     const friend = await getUser(item.favorite_telegram_id); if (!friend) continue;
     const name = [friend.name || friend.first_name || 'User', friend.surname || ''].filter(Boolean).join(' ');
-    text += '👤 ' + name + '\n🆔 ' + friend.telegram_id + '\n🔗 ' + (friend.username ? '@' + friend.username : '—') + '\n\n';
+    text += '👤 ' + name + '\n🆔 ' + friend.telegram_id + '\n\n';
     rows.push([{ text: '❌ ' + w.unfollow + ' ' + name.slice(0, 24), callback_data: 'settings:unfavorite:' + friend.telegram_id + ':' + current }]);
   }
   if (!all.length) text += actor.language === 'en' ? 'Your favorites list is empty.' : 'د پالو ملګرو لېست تش دی.';
@@ -379,9 +379,9 @@ async function handleSettingsCallback(query, actor, data, actorId, chatId) {
   if (p[1] === 'open') {
     actor.state = 'settings_menu'; await db.update(users).set({ state: actor.state }).where(eq(users.telegram_id, actorId)).run();
     const labels = { ps: '⚙️ د تنظیماتو یوه برخه وټاکه:', fa: '⚙️ یکی از بخش‌های تنظیمات را انتخاب کنید:', en: '⚙️ Choose a settings section:', ur: '⚙️ ترتیبات کا حصہ منتخب کریں:', ar: '⚙️ اختر قسم الإعدادات:' };
-    const b = { ps: ['👤 د پروفایل تنظیمات','❤️ د پالو ملګرو تنظیمات','🔔 د اړیکې تنظیمات','🔙 اصلي مېنو'], fa: ['👤 تنظیمات پروفایل','❤️ تنظیمات دوستان محبوب','🔔 تنظیمات ارتباط','🔙 منوی اصلی'], en: ['👤 Profile settings','❤️ Favorite friends settings','🔔 Connection settings','🔙 Main menu'], ur: ['👤 پروفائل کی ترتیبات','❤️ پسندیدہ دوستوں کی ترتیبات','🔔 رابطے کی ترتیبات','🔙 مرکزی مینو'], ar: ['👤 إعدادات الملف الشخصي','❤️ إعدادات الأصدقاء المفضلين','🔔 إعدادات الاتصال','🔙 القائمة الرئيسية'] };
+    const b = { ps: ['👤 د پروفایل تنظیمات','❤️ د پالو ملګرو تنظیمات','🔙 اصلي مېنو'], fa: ['👤 تنظیمات پروفایل','❤️ تنظیمات دوستان محبوب','🔙 منوی اصلی'], en: ['👤 Profile settings','❤️ Favorite friends settings','🔙 Main menu'], ur: ['👤 پروفائل کی ترتیبات','❤️ پسندیدہ دوستوں کی ترتیبات','🔙 مرکزی مینو'], ar: ['👤 إعدادات الملف الشخصي','❤️ إعدادات الأصدقاء المفضلين','🔙 القائمة الرئيسية'] };
     const pair = b[actor.language] || b.ps;
-    await sendPrompt(chatId, labels[actor.language] || labels.ps, { keyboard: [[{text:pair[0]}],[{text:pair[1]}],[{text:pair[2]}],[{text:pair[3]}]], resize_keyboard:true }, actor); return;
+    await sendPrompt(chatId, labels[actor.language] || labels.ps, { keyboard: [[{text:pair[0]},{text:pair[1]}],[{text:pair[2]}]], resize_keyboard:true }, actor); return;
   }
   if (p[1] === 'visibility') {
     const visibility = p[2];
@@ -390,19 +390,7 @@ async function handleSettingsCallback(query, actor, data, actorId, chatId) {
     actor.profile_visibility = visibility; actor.state = 'ready';
     await sendPrompt(chatId, visibility === 'followers' ? '🔒 ستا بشپړ پروفایل به یوازې ستا پالو ملګرو ته ښکاري؛ نورو ته به یوازې نوم او جنسیت ښکاري.' : '🌐 ستا پروفایل ټولو ته ښکاره دی، خو د ستورو بیلانس هېڅکله نورو ته نه ښکاري.', mainKeyboard(actor, await isAdmin(actorId)), actor); return;
   }
-  if (p[1] === 'connection') {
-    const mode = p[2];
-    if (!['all','followed','none'].includes(mode)) return;
-    await db.update(users).set({ connection_request_mode: mode, state: 'settings_menu' }).where(eq(users.telegram_id, actorId)).run();
-    actor.connection_request_mode = mode; actor.state = 'settings_menu';
-    const messages = {
-      all: { ps: '✅ د اړیکې پر مهال د ټولو کسانو غوښتنې انتخاب شوې.', en: '✅ Requests from everyone selected.' },
-      followed: { ps: '✅ د اړیکې پر مهال یوازې د پالو ملګرو غوښتنې انتخاب شوې.', en: '✅ Requests from followed friends only selected.' },
-      none: { ps: '✅ د اړیکې پر مهال ټولې غوښتنې بندې شوې.', en: '✅ All requests while chatting disabled.' }
-    };
-    const lang = actor.language === 'en' ? 'en' : 'ps';
-    await sendPrompt(chatId, messages[mode][lang] + '\n\n' + (lang === 'en' ? 'This preference is active for incoming connection requests.' : 'دا تنظیم د راتلونکو اړیکو په غوښتنو کې عملي کېږي.'), { keyboard: [[{ text: '👤 د پروفایل تنظیمات' }, { text: '❤️ د پالو ملګرو تنظیمات' }], [{ text: '🔔 د اړیکې تنظیمات' }, { text: '🔙 اصلي مېنو' }]], resize_keyboard: true }, actor); return;
-  }
+
   if (p[1] === 'favorites' && p[2] === 'page') { await showFavoriteSettings(chatId, actor, Number(p[3])); return; }
   if (p[1] === 'unfavorite') {
     const targetId = Number(p[2]), page = Number(p[3]) || 0;
@@ -710,13 +698,11 @@ async function tryOfferSearches() {
       if (!Number.isFinite(active) || now - active > 120000 || tried.has(cid)) return false;
       if (blocks.some(row => (Number(row.blocker_telegram_id) === cid && Number(row.blocked_telegram_id) === Number(search.requester_id)) ||
         (Number(row.blocker_telegram_id) === Number(search.requester_id) && Number(row.blocked_telegram_id) === cid))) return false;
-      if (candidate.connection_request_mode === 'none') return false;
       const connected = sessions.some(row => row.status === 'connected' && (Number(row.first_user_telegram_id) === cid || Number(row.second_user_telegram_id) === cid));
       // A recipient who is already connected cannot accept a second session; do not send an unusable offer.
       if (connected) return false;
       if (requests.some(row => ['searching', 'matching', 'pending'].includes(row.status) &&
           (Number(row.requester_id) === cid || Number(row.recipient_id) === cid))) return false;
-      if (candidate.connection_request_mode === 'followed' && !favs.some(row => Number(row.user_telegram_id) === cid && Number(row.favorite_telegram_id) === Number(search.requester_id))) return false;
       if (search.request_type === 'find' && search.gender_filter !== 'auto' && candidate.gender !== search.gender_filter) return false;
       if (search.request_type === 'find' && search.language_filter !== 'auto' && candidate.language !== search.language_filter) return false;
       return true;
