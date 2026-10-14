@@ -773,39 +773,9 @@ async function startConnectionSearch(userId, type) {
   try {
     // Claim the user's ready state before inserting. Two rapid button presses can
     // both pass the read-only preflight; this compare-and-set lets only one start.
-    let stateClaim = await db.update(users).set({ state: 'searching_connection' })
+    const stateClaim = await db.update(users).set({ state: 'searching_connection' })
       .where(and(eq(users.telegram_id, Number(userId)), eq(users.state, 'ready')))
       .returning({ telegram_id: users.telegram_id }).run();
-    if (!stateClaim || !Array.isArray(stateClaim.rows) || stateClaim.rows.length === 0) {
-      // Recover only a stale searching_connection user state. Never reset registration,
-      // admin, profile-edit, game, or other intentional states.
-      const freshUser = await getUser(userId);
-      if (freshUser && freshUser.state === 'searching_connection') {
-        const [freshRequests, freshGames] = await Promise.all([
-          db.select().from(connection_requests).all(),
-          db.select().from(game_sessions).all()
-        ]);
-        const hasActiveRequest = freshRequests.some(row =>
-          ['searching', 'matching', 'pending'].includes(row.status) &&
-          (Number(row.requester_id) === Number(userId) || Number(row.recipient_id) === Number(userId))
-        );
-        const hasActiveGame = freshGames.some(row =>
-          ['waiting', 'pending', 'playing', 'settlement_error'].includes(row.status) &&
-          (Number(row.player_id) === Number(userId) || Number(row.opponent_id) === Number(userId))
-        );
-        const activeSession = await activeSessionFor(userId);
-        if (!hasActiveRequest && !hasActiveGame && !activeSession) {
-          const reset = await db.update(users).set({ state: 'ready' })
-            .where(and(eq(users.telegram_id, Number(userId)), eq(users.state, 'searching_connection')))
-            .returning({ telegram_id: users.telegram_id }).run();
-          if (reset && Array.isArray(reset.rows) && reset.rows.length > 0) {
-            stateClaim = await db.update(users).set({ state: 'searching_connection' })
-              .where(and(eq(users.telegram_id, Number(userId)), eq(users.state, 'ready')))
-              .returning({ telegram_id: users.telegram_id }).run();
-          }
-        }
-      }
-    }
     if (!stateClaim || !Array.isArray(stateClaim.rows) || stateClaim.rows.length === 0) {
       await sendPrompt(userId, '⌛ د لټون غوښتنه لا د پیل په حال کې ده یا د کارن حالت بدل شوی دی. لږ شېبه وروسته بیا هڅه وکړه.',
         mainKeyboard(user, await isAdmin(userId)), user);
