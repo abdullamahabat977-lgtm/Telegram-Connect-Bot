@@ -780,8 +780,7 @@ async function startConnectionSearch(userId, type) {
       // A Serverless invocation can stop after claiming the state but before inserting
       // its request. Give an in-flight invocation a short chance to finish before recovery.
       // Do not use setTimeout: this Serverless runtime does not expose it.
-      // Re-read state immediately; recovery still requires an empty active-work snapshot.
-      await Promise.resolve();
+      // The database reads below provide another async boundary before recovery.
       let recoverySnapshot = null;
       try {
         const [latestUser, latestRequests, latestGames, latestSession] = await Promise.all([
