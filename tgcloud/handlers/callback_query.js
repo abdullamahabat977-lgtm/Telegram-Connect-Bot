@@ -827,9 +827,30 @@ async function startConnectionSearch(userId, type) {
         });
         if (verifiedUser && verifiedUser.state === 'ready') {
           user.state = 'ready';
-          await sendPrompt(userId, '✅ د لټون زوړ حالت پاک شو. اوس د ملګري لټون بیا پیل کړه.',
-            mainKeyboard(user, await isAdmin(userId)), user);
-          return;
+          // Continue this callback instead of making the user repeat the same action.
+          // Re-check durable work after reset, then use CAS again before creating a request.
+          const [requestsAfterReset, gamesAfterReset, sessionAfterReset] = await Promise.all([
+            db.select().from(connection_requests).all(),
+            db.select().from(game_sessions).all(),
+            activeSessionFor(userId)
+          ]);
+          const hasActiveRequest = requestsAfterReset.some(row =>
+            ['searching', 'matching', 'pending'].includes(row.status) &&
+            (Number(row.requester_id) === Number(userId) || Number(row.recipient_id) === Number(userId))
+          );
+          const hasActiveGame = gamesAfterReset.some(row =>
+            ['waiting', 'pending', 'playing', 'settlement_error'].includes(row.status) &&
+            (Number(row.player_id) === Number(userId) || Number(row.opponent_id) === Number(userId))
+          );
+          if (!hasActiveRequest && !hasActiveGame && !sessionAfterReset) {
+            stateClaim = await db.update(users).set({ state: 'searching_connection' })
+              .where(and(eq(users.telegram_id, Number(userId)), eq(users.state, 'ready')))
+              .returning({ telegram_id: users.telegram_id }).run();
+            if (stateClaim && Array.isArray(stateClaim.rows) && stateClaim.rows.length > 0) {
+              user.state = 'searching_connection';
+              console.info('Recovered stale connection state and reclaimed search', { userId: Number(userId) });
+            }
+          }
         }
       }
 
