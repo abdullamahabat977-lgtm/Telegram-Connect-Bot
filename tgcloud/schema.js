@@ -17,7 +17,6 @@ export const users = table('users', {
   points: integer('points').notNull().default(0),
   likes: integer('likes').notNull().default(0),
   last_active_at: text('last_active_at'),
-  connection_request_mode: text('connection_request_mode').notNull().default('all'),
   welcome_reward_claimed: integer('welcome_reward_claimed').notNull().default(0),
   profile_visibility: text('profile_visibility').notNull().default('everyone'),
   search_gender: text('search_gender').notNull().default('auto'),
