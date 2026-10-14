@@ -1,5 +1,4 @@
 import { api, db } from 'sdk';
-import { randomInt } from 'node:crypto';
 import { and, eq } from 'sdk/db';
 import { users, admins, required_chats, app_settings, favorites, chat_sessions, connection_requests, chat_messages, game_sessions, user_blocks } from '../schema.js';
 import { activeSessionFor, ROOT_ADMINS, LANGUAGES, COUNTRIES, AGES, languageKeyboard, countryKeyboard, ensureInlinePromptTracking, requiredChatInfo, listWords, isFollowing, otherSessionUser, getUser, safeDelete, isAdmin, styleKeyboardMarkup, notifyRuntimeError, reportDiagnostic, getSetting as sharedGetSetting } from '../lib/shared.js';
@@ -873,7 +872,7 @@ export async function resolveBotGame(game) {
   }
   const playerRoll = Number(playerDice && playerDice.dice && playerDice.dice.value || 0);
   // Keep the bot's roll internal so the player sees only their own Telegram die.
-  const botRoll = randomInt(1, 7);
+  const botRoll = Math.floor(Math.random() * 6) + 1;
   if (![playerRoll, botRoll].every(value => Number.isInteger(value) && value >= 1 && value <= 6)) {
     await db.update(game_sessions).set({ status: 'settlement_error', updated_at: new Date().toISOString() })
       .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'playing'))).run();
