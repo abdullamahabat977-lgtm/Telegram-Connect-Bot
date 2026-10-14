@@ -1644,27 +1644,73 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
     await db.update(connection_requests).set({ status: 'accepted', updated_at: new Date().toISOString() })
       .where(and(eq(connection_requests.id, offerId), eq(connection_requests.status, 'matching'))).run();
     const now = new Date().toISOString();
+    let sessionPersisted = false;
+    let sessionInsertError = null;
     try {
       const createdSession = await db.insert(chat_sessions).values({
         first_user_telegram_id: Number(requester.telegram_id), second_user_telegram_id: actorId, status: 'connected',
         created_at: now, connected_at: now, last_activity_at: now, ended_at: null, end_reason: null
       }).returning({ id: chat_sessions.id }).run();
-      if (!createdSession || !Array.isArray(createdSession.rows) || createdSession.rows.length === 0) {
-        throw new Error('Connection session insert returned no row');
-      }
-    } catch (sessionError) {
-      reportDiagnostic('callback-handler', 'Could not create connection session after requester debit', { offerId, searchId: search.id, requesterId: requester.telegram_id, actorId, sessionError });
-      // Best-effort compensating refund, guarded so a newer balance is not overwritten.
-      let refunded = false;
+      sessionPersisted = Boolean(createdSession && Array.isArray(createdSession.rows) && createdSession.rows.length > 0);
+    } catch (error) {
+      sessionInsertError = error;
+      reportDiagnostic('callback-handler', 'Connection session insert returned an error; verifying persisted session before refund', {
+        offerId, searchId: search.id, requesterId: requester.telegram_id, actorId, now, error
+      });
+    }
+    // Some serverless DB adapters commit INSERT but return no usable RETURNING row.
+    // Never refund based only on the insert result: verify the exact persisted session.
+    if (!sessionPersisted) {
       try {
-        const refund = await db.update(users).set({ stars: Number(requester.stars || 0), state: 'ready' })
-          .where(and(
-            eq(users.telegram_id, Number(requester.telegram_id)),
-            eq(users.stars, Number(requester.stars || 0) - cost)
-          )).returning({ telegram_id: users.telegram_id }).run();
-        refunded = Boolean(refund && Array.isArray(refund.rows) && refund.rows.length > 0);
+        const persistedSessions = await db.select().from(chat_sessions).all();
+        sessionPersisted = persistedSessions.some(row =>
+          Number(row.first_user_telegram_id) === Number(requester.telegram_id) &&
+          Number(row.second_user_telegram_id) === actorId &&
+          row.status === 'connected' &&
+          String(row.created_at || '') === now &&
+          String(row.connected_at || '') === now &&
+          String(row.last_activity_at || '') === now
+        );
+      } catch (verifyError) {
+        reportDiagnostic('callback-handler', 'Could not verify connection session after insert result', {
+          offerId, searchId: search.id, requesterId: requester.telegram_id, actorId, now,
+          sessionInsertError, verifyError
+        });
+      }
+    }
+    if (!sessionPersisted) {
+      reportDiagnostic('callback-handler', 'Could not create or verify connection session after requester debit', {
+        offerId, searchId: search.id, requesterId: requester.telegram_id, actorId, now, sessionInsertError
+      });
+      // Compensating refund is compare-and-set guarded and independently verified.
+      // The timestamp marker prevents this refund from overwriting a newer user update.
+      let refunded = false;
+      const refundAt = new Date().toISOString();
+      try {
+        await db.update(users).set({
+          stars: Number(requester.stars || 0),
+          state: 'ready',
+          last_active_at: refundAt
+        }).where(and(
+          eq(users.telegram_id, Number(requester.telegram_id)),
+          eq(users.stars, expectedBalanceAfterDebit),
+          eq(users.last_active_at, debitAt)
+        )).returning({ telegram_id: users.telegram_id }).run();
       } catch (refundError) {
-        reportDiagnostic('callback-handler', 'Connection request refund failed', { offerId, requesterId: requester.telegram_id, refundError });
+        reportDiagnostic('callback-handler', 'Connection request refund update returned an error; verifying persisted balance', {
+          offerId, requesterId: requester.telegram_id, refundAt, refundError
+        });
+      }
+      try {
+        const persistedRequester = await getUser(Number(requester.telegram_id));
+        refunded = Boolean(persistedRequester &&
+          Number(persistedRequester.stars) === Number(requester.stars || 0) &&
+          persistedRequester.state === 'ready' &&
+          String(persistedRequester.last_active_at || '') === refundAt);
+      } catch (verifyRefundError) {
+        reportDiagnostic('callback-handler', 'Could not verify connection request refund', {
+          offerId, requesterId: requester.telegram_id, refundAt, verifyRefundError
+        });
       }
       await db.update(connection_requests).set({ status: 'cancelled', updated_at: new Date().toISOString() })
         .where(and(eq(connection_requests.id, Number(search.id)), eq(connection_requests.status, 'connected'))).run();
