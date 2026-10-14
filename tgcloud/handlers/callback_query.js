@@ -477,7 +477,7 @@ async function endConnection(session, reason) {
     try { await sendPrompt(pair.id, '🛑 اړیکه پای ته ورسېده.\n\n👤 د تېر ملګري نوم: ' + name + '\n\nراپور، فالو یا د هغه له خوا درلېږل شوي د وروستیو ۱۰ دقیقو پیغامونه حذفول انتخاب کړه.', { inline_keyboard: rows }, user); } catch (e) {}
   }
 }
-async function expireUserTimedActions(userId) {
+async function expireUserTimedActions(userId, options = {}) {
   const id = Number(userId), user = await getUser(id);
   if (!user) return false;
   const now = Date.now();
@@ -493,6 +493,9 @@ async function expireUserTimedActions(userId) {
       expired = true; notifiedActor = true;
     }
   }
+  // Callback actions such as game buttons must still enforce connection timeouts,
+  // without running game/request cleanup before the game callback's own state claim.
+  if (options && options.connectionOnly) return expired;
   const connectionWait = Math.max(1, Number(await getSetting('connection_search_seconds', 120)) || 120);
   const requests = await db.select().from(connection_requests).all();
   // Recover searches left in the temporary "matching" state if a previous invocation crashed.
@@ -770,9 +773,39 @@ async function startConnectionSearch(userId, type) {
   try {
     // Claim the user's ready state before inserting. Two rapid button presses can
     // both pass the read-only preflight; this compare-and-set lets only one start.
-    const stateClaim = await db.update(users).set({ state: 'searching_connection' })
+    let stateClaim = await db.update(users).set({ state: 'searching_connection' })
       .where(and(eq(users.telegram_id, Number(userId)), eq(users.state, 'ready')))
       .returning({ telegram_id: users.telegram_id }).run();
+    if (!stateClaim || !Array.isArray(stateClaim.rows) || stateClaim.rows.length === 0) {
+      // Recover only a stale searching_connection user state. Never reset registration,
+      // admin, profile-edit, game, or other intentional states.
+      const freshUser = await getUser(userId);
+      if (freshUser && freshUser.state === 'searching_connection') {
+        const [freshRequests, freshGames] = await Promise.all([
+          db.select().from(connection_requests).all(),
+          db.select().from(game_sessions).all()
+        ]);
+        const hasActiveRequest = freshRequests.some(row =>
+          ['searching', 'matching', 'pending'].includes(row.status) &&
+          (Number(row.requester_id) === Number(userId) || Number(row.recipient_id) === Number(userId))
+        );
+        const hasActiveGame = freshGames.some(row =>
+          ['waiting', 'pending', 'playing', 'settlement_error'].includes(row.status) &&
+          (Number(row.player_id) === Number(userId) || Number(row.opponent_id) === Number(userId))
+        );
+        const activeSession = await activeSessionFor(userId);
+        if (!hasActiveRequest && !hasActiveGame && !activeSession) {
+          const reset = await db.update(users).set({ state: 'ready' })
+            .where(and(eq(users.telegram_id, Number(userId)), eq(users.state, 'searching_connection')))
+            .returning({ telegram_id: users.telegram_id }).run();
+          if (reset && Array.isArray(reset.rows) && reset.rows.length > 0) {
+            stateClaim = await db.update(users).set({ state: 'searching_connection' })
+              .where(and(eq(users.telegram_id, Number(userId)), eq(users.state, 'ready')))
+              .returning({ telegram_id: users.telegram_id }).run();
+          }
+        }
+      }
+    }
     if (!stateClaim || !Array.isArray(stateClaim.rows) || stateClaim.rows.length === 0) {
       await sendPrompt(userId, '⌛ د لټون غوښتنه لا د پیل په حال کې ده یا د کارن حالت بدل شوی دی. لږ شېبه وروسته بیا هڅه وکړه.',
         mainKeyboard(user, await isAdmin(userId)), user);
@@ -1685,10 +1718,12 @@ async function handleCallback(query) {
   let user = await getUser(id);
   if (!user || Number(user.is_blocked) === 1) return;
   try { await db.update(users).set({ last_active_at: new Date().toISOString() }).where(eq(users.telegram_id, id)).run(); } catch (e) {}
-  // Process every game callback against the exact game state first. Running the
-  // global matcher before accept/reject can expire or reassign the offer between
-  // the user's click and the atomic game-state claim.
+  // Every user action must enforce active-connection timeouts. For game callbacks,
+  // check only connection sessions here; full game/request cleanup remains after the
+  // game callback's own state claim to avoid racing an accept/reject action.
   if (data.startsWith('game:')) {
+    try { await expireUserTimedActions(id, { connectionOnly: true }); }
+    catch (error) { await notifyRuntimeError('callback:connection-timeout', error, { userId: id, callbackData: data }); }
     await handleGameCallback(query, user, data, id, chatId);
     return;
   }
