@@ -21,11 +21,11 @@ function keyboard(rows, extra) {
 function menuKeyboard(user, admin) {
   const m = tx(user).menu;
   const rows = [
-    [{ text: m[0] }, { text: m[1] }],
+    [{ text: m[0] }, { text: m[4] }],
     [{ text: m[2] }, { text: m[3] }],
-    [{ text: m[4] }, { text: m[5] }],
-    [{ text: m[6] }, { text: m[7] }],
-    [{ text: m[9] }, { text: m[10] }]
+    [{ text: m[6] }, { text: m[5] }],
+    [{ text: m[9] }, { text: m[7] }],
+    [{ text: m[10] }]
   ];
   if (admin) rows.push([{ text: m[8] }]);
   return keyboard(rows);
@@ -47,7 +47,7 @@ function genderKeyboard(user) {
 }
 function settingsKeyboard(user) {
   const b = tx(user).settingsButtons;
-  return keyboard([[{ text: b[0] }, { text: b[1] }], [{ text: b[2] }, { text: b[3] }]]);
+  return keyboard([[{ text: b[0] }, { text: b[1] }], [{ text: b[2] }]]);
 }
 function profileSettingsKeyboard(user) {
   const b = tx(user).profileSettingsButtons;
@@ -136,13 +136,13 @@ function actionFor(input) {
   for (const lang of Object.keys(T)) {
     const t = T[lang], m = t.menu;
     const pairs = [
-      ['find', m[0]], ['favorites', m[1]], ['random', m[2]], ['invite', m[3]], ['profile', m[4]],
+      ['find', m[0]], ['random', m[2]], ['invite', m[3]], ['profile', m[4]],
       ['language', m[5]], ['settings', m[6]], ['stats', m[7]], ['admin', m[8]], ['game', m[9]], ['leaderboards', m[10]], ['joined', t.joined],
       ['country', t.profileSettingsButtons[0]], ['gender', t.profileSettingsButtons[1]], ['age', t.profileSettingsButtons[2]],
       ['name', t.profileSettingsButtons[3]], ['surname', t.profileSettingsButtons[4]],
       ['photoSettings', t.profileSettingsButtons[5]], ['channelSettings', t.profileSettingsButtons[6]], ['profileVisibility', t.profileSettingsButtons[7]],
       ['profileSettings', t.settingsButtons[0]], ['favoriteSettings', t.settingsButtons[1]],
-      ['connectionSettings', t.settingsButtons[2]], ['rewardSettings', t.adminButtons[6]],
+      ['rewardSettings', t.adminButtons[6]],
       ['adminManagement', t.adminButtons[0]], ['channels', t.adminButtons[1]], ['broadcast', t.adminButtons[2]],
       ['userSettings', t.adminButtons[3]], ['usersList', t.adminButtons[4]], ['rewardSettings', t.adminButtons[6]], ['connectionAdminSettings', t.adminButtons[7]], ['gameAdminSettings', t.adminButtons[8]], ['leaderboards', t.adminButtons[9]],
       ['adminAdd', t.adminManagementButtons[0]], ['adminRemove', t.adminManagementButtons[1]],
@@ -152,7 +152,7 @@ function actionFor(input) {
       ['favoritesList', t.favoriteSettingsButtons[0]]
     ];
     const backLabels = [t.settingsButtons[3], t.profileSettingsButtons[8], t.photoSettingsButtons[2],
-      t.channelSettingsButtons[2], t.favoriteSettingsButtons[1], t.adminManagementButtons[3]];
+      t.channelSettingsButtons[2], t.favoriteSettingsButtons[1], t.settingsButtons[2], t.adminManagementButtons[3]];
     for (const label of backLabels) if (label === input) return 'back';
     for (const pair of pairs) if (pair[1] === input) return pair[0];
   }
@@ -280,11 +280,13 @@ async function showProfile(chatId, user) {
   const fullName = [user.name || user.first_name || t.notSet, user.surname || ''].filter(Boolean).join(' ');
   const favCount = await db.$count(favorites, eq(favorites.favorite_telegram_id, Number(user.telegram_id)));
   const text = t.profile + '\n━━━━━━━━━━━━━━\n\n👤 نوم: ' + fullName +
+    '\n\n🆔 Telegram ID: ' + Number(user.telegram_id) +
     '\n\n🌍 هېواد: ' + (c ? c.label : t.notSet) + '\n\n⚧ جنسیت: ' + genderLabel + '\n\n🎂 عمر: ' + (user.age || t.notSet) +
     '\n\n🗣️ ژبه: ' + l.label + '\n\n📢 عام چینل: ' + (user.channel_username || t.notSet) +
     '\n\n📨 ریفرلونه: ' + Number(user.referral_count || 0) + '\n\n👥 پالو ملګري: ' + favCount +
     '\n\n⭐ ستوري: ' + Number(user.stars || 0) + '\n\n🏆 نمرې: ' + Number(user.points || 0) + '\n\n❤️ لایکونه: ' + Number(user.likes || 0);
-  const markup = menuKeyboard(user, await isAdmin(user.telegram_id));
+  const copyLabel = user.language === 'en' ? '📋 Copy Telegram ID' : user.language === 'fa' ? '📋 کپی شناسه' : user.language === 'ur' ? '📋 ID کاپی کریں' : user.language === 'ar' ? '📋 نسخ المعرّف' : '📋 ID کاپي';
+  const markup = { inline_keyboard: [[{ text: copyLabel, copy_text: { text: String(user.telegram_id) } }]] };
   if (!user.profile_photo_id) {
     await sendPrompt(chatId, text, markup, user);
     return;
@@ -294,28 +296,15 @@ async function showProfile(chatId, user) {
   const previousId = Number(latest && latest.last_prompt_id || 0);
   if (previousId > 0) await safeDelete(chatId, previousId);
   try {
-    await api.sendPhoto({ chat_id: chatId, photo: user.profile_photo_id, caption: text, reply_markup: styleKeyboardMarkup(markup) });
-    await db.update(users).set({ last_prompt_id: 0 }).where(eq(users.telegram_id, Number(user.telegram_id))).run();
-    user.last_prompt_id = 0;
+    const sent = await api.sendPhoto({ chat_id: chatId, photo: user.profile_photo_id, caption: text, reply_markup: styleKeyboardMarkup(markup) });
+    const sentId = Number(sent && sent.message_id || 0);
+    await db.update(users).set({ last_prompt_id: sentId }).where(eq(users.telegram_id, Number(user.telegram_id))).run();
+    user.last_prompt_id = sentId;
   } catch (e) {
     await sendPrompt(chatId, text, markup, user);
   }
 }
-async function showFavorites(chatId, user) {
-  const t = tx(user);
-  const list = await db.select().from(favorites).where(eq(favorites.user_telegram_id, Number(user.telegram_id))).all();
-  if (!list.length) {
-    await sendPrompt(chatId, t.noFavorites, menuKeyboard(user, await isAdmin(user.telegram_id)), user);
-    return;
-  }
-  let text = '❤️ ' + t.favorites + '\n\n';
-  for (const item of list) {
-    const friend = await getUser(item.favorite_telegram_id);
-    if (friend) text += '• ' + [friend.name || friend.first_name || 'User', friend.surname || ''].filter(Boolean).join(' ') +
-      (friend.username ? ' (@' + friend.username + ')' : '') + '\n';
-  }
-  await sendPrompt(chatId, text, menuKeyboard(user, await isAdmin(user.telegram_id)), user);
-}
+
 async function showFavoriteSettings(chatId, user, page) {
   const w = listWords(user), all = await db.select().from(favorites).where(eq(favorites.user_telegram_id, Number(user.telegram_id))).all();
   const size = 8, pages = Math.max(1, Math.ceil(all.length / size)), current = Math.min(Math.max(0, Number(page) || 0), pages - 1);
@@ -324,7 +313,7 @@ async function showFavoriteSettings(chatId, user, page) {
   for (const item of items) {
     const friend = await getUser(item.favorite_telegram_id); if (!friend) continue;
     const name = [friend.name || friend.first_name || 'User', friend.surname || ''].filter(Boolean).join(' ');
-    text += '👤 ' + name + '\n🆔 ' + friend.telegram_id + '\n🔗 ' + (friend.username ? '@' + friend.username : '—') + '\n\n';
+    text += '👤 ' + name + '\n🆔 ' + friend.telegram_id + '\n\n';
     rows.push([{ text: '❌ ' + w.unfollow + ' ' + name.slice(0, 24), callback_data: 'settings:unfavorite:' + friend.telegram_id + ':' + current }]);
   }
   if (!all.length) text += tx(user).noFavorites;
@@ -344,32 +333,33 @@ function rankingName(row) {
 async function topReferralText(allUsers) {
   const top = allUsers.slice().sort((a, b) => Number(b.referral_count || 0) - Number(a.referral_count || 0)).filter(row => Number(row.referral_count || 0) > 0).slice(0, 5);
   if (!top.length) return 'تر اوسه ریفرل نه شته.';
-  return top.map((row, i) => (i + 1) + '. ' + escapeHtml(rankingName(row)) + ' — ریفرلونه: ' + Number(row.referral_count || 0) + ' — ID: <code>' + Number(row.telegram_id) + '</code>').join('\n');
+  return top.map((row, i) => (i + 1) + '. ' + escapeHtml(rankingName(row)) +
+    '\n🆔 ID: <code>' + Number(row.telegram_id) + '</code>' +
+    '\n📨 ریفرلونه: ' + Number(row.referral_count || 0)).join('\n\n\n');
 }
 async function showStats(chatId, user) {
   const t = tx(user), allUsers = await db.select().from(users).all();
   const cutoff = Date.now() - 15 * 60 * 1000;
   const onlineUsers = allUsers.filter(row => row.last_active_at && Date.parse(row.last_active_at) >= cutoff);
-  const favCount = await db.$count(favorites, eq(favorites.user_telegram_id, Number(user.telegram_id)));
   const topRefs = await topReferralText(allUsers);
-  if (await isAdmin(user.telegram_id)) {
-    const text = '📊 د بوټ احصائیې\n━━━━━━━━━━━━━━\n\n👥 ټول کاروونکي: ' + allUsers.length +
-      '\n\n🟢 آنلاین کاروونکي: ' + onlineUsers.length + '\n\n🏆 تر ټولو ډېر ریفرل لرونکي ۵ کسان:\n\n' + topRefs;
-    await sendPrompt(chatId, text, menuKeyboard(user, true), user, 'HTML');
-  } else {
-    const text = t.stats + '\n━━━━━━━━━━━━━━\n\n📨 ستا ریفرلونه: ' + Number(user.referral_count || 0) +
-      '\n\n❤️ پالو ملګري: ' + favCount + '\n\n⭐ ستوري: ' + Number(user.stars || 0) +
-      '\n\n🏆 نمرې: ' + Number(user.points || 0) + '\n\n❤️ لایکونه: ' + Number(user.likes || 0) +
-      '\n\n🏆 د بوټ تر ټولو ډېر ریفرل لرونکي ۵ کسان:\n\n' + topRefs;
-    await sendPrompt(chatId, text, menuKeyboard(user, false), user, 'HTML');
-  }
+  const text = '📊 د بوټ احصائیې\n━━━━━━━━━━━━━━\n\n👥 ټول کاروونکي: ' + allUsers.length +
+    '\n\n🟢 آنلاین کاروونکي: ' + onlineUsers.length + '\n\n🏆 تر ټولو ډېر ریفرل لرونکي ۵ کسان:\n\n' + topRefs;
+  await sendPrompt(chatId, text, menuKeyboard(user, await isAdmin(user.telegram_id)), user, 'HTML');
 }
 async function showReferral(chatId, user) {
   const t = tx(user);
   const me = await api.getMe();
   const link = 'https://t.me/' + me.username + '?start=' + String(user.telegram_id);
   const rewardStars = await getSetting('referral_reward_stars', 15), rewardPoints = await getSetting('referral_reward_points', 5), rewardLikes = await getSetting('referral_reward_likes', 2);
-  const rewardLine = user.language === 'en' ? '\n\n🎁 Reward per successful invite: ⭐ ' + rewardStars + ' stars, 🏆 ' + rewardPoints + ' points, ❤️ ' + rewardLikes + ' likes.' : user.language === 'fa' ? '\n\n🎁 پاداش هر دعوت موفق: ⭐ ' + rewardStars + ' ستاره، 🏆 ' + rewardPoints + ' امتیاز، ❤️ ' + rewardLikes + ' لایک.' : user.language === 'ur' ? '\n\n🎁 ہر کامیاب دعوت کا انعام: ⭐ ' + rewardStars + ' ستارے، 🏆 ' + rewardPoints + ' پوائنٹس، ❤️ ' + rewardLikes + ' لائکس۔' : user.language === 'ar' ? '\n\n🎁 مكافأة كل دعوة ناجحة: ⭐ ' + rewardStars + ' نجوم، 🏆 ' + rewardPoints + ' نقاط، ❤️ ' + rewardLikes + ' إعجابات.' : '\n\n🎁 د هر بریالي دعوت جایزه: ⭐ ' + rewardStars + ' ستوري، 🏆 ' + rewardPoints + ' نمرې، ❤️ ' + rewardLikes + ' لایکونه.';
+  const rewardLine = user.language === 'en'
+    ? '\n\n🎁 Reward for each successful invite:\n⭐ Stars: ' + rewardStars + '\n🏆 Points: ' + rewardPoints + '\n❤️ Likes: ' + rewardLikes
+    : user.language === 'fa'
+      ? '\n\n🎁 پاداش هر دعوت موفق:\n⭐ ستاره: ' + rewardStars + '\n🏆 امتیاز: ' + rewardPoints + '\n❤️ لایک: ' + rewardLikes
+      : user.language === 'ur'
+        ? '\n\n🎁 ہر کامیاب دعوت کا انعام:\n⭐ ستارے: ' + rewardStars + '\n🏆 پوائنٹس: ' + rewardPoints + '\n❤️ لائکس: ' + rewardLikes
+        : user.language === 'ar'
+          ? '\n\n🎁 مكافأة كل دعوة ناجحة:\n⭐ النجوم: ' + rewardStars + '\n🏆 النقاط: ' + rewardPoints + '\n❤️ الإعجابات: ' + rewardLikes
+          : '\n\n🎁 د هر بریالي دعوت جایزه:\n⭐ ستوري: ' + rewardStars + '\n🏆 نمرې: ' + rewardPoints + '\n❤️ لایکونه: ' + rewardLikes;
   const shareText = t.referralText + rewardLine + '\n\n🔗 ' + link;
   const share = 'https://t.me/share/url?text=' + encodeURIComponent(shareText);
   await sendPrompt(chatId, t.referralTitle + '\n\n' + t.referralText + rewardLine + '\n\n🔗 ' + link,
@@ -749,7 +739,6 @@ async function tryOfferSearches() {
       if (alreadyTried.has(candidateId)) return false;
       if (allBlocks.some(row => (Number(row.blocker_telegram_id) === candidateId && Number(row.blocked_telegram_id) === Number(search.requester_id)) ||
         (Number(row.blocker_telegram_id) === Number(search.requester_id) && Number(row.blocked_telegram_id) === candidateId))) return false;
-      if (candidate.connection_request_mode === 'none') return false;
       const connected = allSessions.some(row => row.status === 'connected' &&
         (Number(row.first_user_telegram_id) === candidateId || Number(row.second_user_telegram_id) === candidateId));
       // Do not offer a connection to someone already connected; acceptance rejects a second session.
@@ -758,8 +747,6 @@ async function tryOfferSearches() {
         ['searching', 'matching', 'pending'].includes(row.status) &&
         (Number(row.requester_id) === candidateId || Number(row.recipient_id) === candidateId));
       if (candidateHasActiveRequest) return false;
-      if (candidate.connection_request_mode === 'followed' &&
-        !allFavorites.some(row => Number(row.user_telegram_id) === candidateId && Number(row.favorite_telegram_id) === Number(search.requester_id))) return false;
       if (search.request_type === 'find' && search.gender_filter !== 'auto' && candidate.gender !== search.gender_filter) return false;
       if (search.request_type === 'find' && search.language_filter !== 'auto' && candidate.language !== search.language_filter) return false;
       return true;
@@ -1495,7 +1482,7 @@ async function processMessage(message) {
       language: 'ps', country: null, gender: null, age: null, name: null, surname: null,
       profile_photo_id: null, channel_username: null, stars: 0, points: 0, likes: 0,
       state: 'choose_language', is_blocked: 0, referrer_id: referrer, referral_count: 0,
-      last_prompt_id: 0, last_active_at: new Date().toISOString(), connection_request_mode: 'all', created_at: new Date().toISOString()
+      last_prompt_id: 0, last_active_at: new Date().toISOString(), created_at: new Date().toISOString()
     }).run();
     user = await getUser(id);
     if (referrer) {
@@ -1930,7 +1917,6 @@ async function processMessage(message) {
     if (action === 'photoSettings') { user.state = 'settings_photo_menu'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, (user.profile_photo_id ? '✅ ' : '➖ ') + (user.language === 'en' ? 'Profile photo settings:' : user.language === 'fa' ? 'تنظیمات عکس پروفایل:' : user.language === 'ur' ? 'پروفائل تصویر کی ترتیبات:' : user.language === 'ar' ? 'إعدادات صورة الملف الشخصي:' : 'د پروفایل عکس تنظیمات:'), photoSettingsKeyboard(user), user); return; }
     if (action === 'channelSettings') { user.state = 'settings_channel_menu'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, (user.channel_username ? user.channel_username + '\n' : '➖ ') + (user.language === 'en' ? 'Public channel settings:' : user.language === 'fa' ? 'تنظیمات کانال عمومی:' : user.language === 'ur' ? 'عوامی چینل کی ترتیبات:' : user.language === 'ar' ? 'إعدادات القناة العامة:' : 'د عام چینل تنظیمات:'), channelSettingsKeyboard(user), user); return; }
     if (action === 'favoriteSettings') { user.state = 'settings_favorites_menu'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, user.language === 'en' ? '❤️ Manage favorite friends:' : user.language === 'fa' ? '❤️ مدیریت دوستان محبوب:' : user.language === 'ur' ? '❤️ پسندیدہ دوستوں کا انتظام:' : user.language === 'ar' ? '❤️ إدارة الأصدقاء المفضلين:' : '❤️ د پالو ملګرو تنظیمات:', favoriteSettingsKeyboard(user), user); return; }
-    if (action === 'connectionSettings') { await sendPrompt(chatId, '🔔 د اړیکې پر مهال د نوو غوښتنو ډول وټاکه:', { inline_keyboard: [[{ text: '🌐 د ټولو کسانو غوښتنې', callback_data: 'settings:connection:all' }], [{ text: '❤️ یوازې د پالو ملګرو غوښتنې', callback_data: 'settings:connection:followed' }], [{ text: '🔕 هېڅ غوښتنه نه', callback_data: 'settings:connection:none' }], [{ text: '🔙 تنظیمات', callback_data: 'settings:open' }]] }, user); return; }
     await showMain(chatId, user); return;
   }
   if (user.state === 'profile_settings_menu') {
@@ -2031,17 +2017,15 @@ async function processMessage(message) {
   if (user.state === 'ready') {
     const session = await activeSessionFor(id);
     const quickAction = actionFor(input);
-    const allowedDuringChat = ['find','favorites','random','invite','profile','language','settings','stats','admin','game','leaderboards'];
+    const allowedDuringChat = ['find','random','invite','profile','language','settings','stats','admin','game','leaderboards'];
     if (session && !allowedDuringChat.includes(quickAction) && !start) { await relayConnectionMessage(message, session); return; }
   }
   if (!['ready','searching_connection'].includes(user.state)) { await showLanguage(chatId, user); return; }
   if (user.state === 'searching_connection' && !['/start'].includes(input)) {
     const quickAction = actionFor(input);
-    if (!['settings','profile','stats','invite','favorites','language','admin','game','leaderboards','find','random'].includes(quickAction)) return;
+    if (!['settings','profile','stats','invite','language','admin','game','leaderboards','find','random'].includes(quickAction)) return;
   }
-  const m = tx(user).menu;
-  const i = m.indexOf(input);
-  const field = i >= 0 ? ['find', 'favorites', 'random', 'invite', 'profile', 'language', 'settings', 'stats', 'admin', 'game', 'leaderboards'][i] : action;
+  const field = action;
   if (field === 'find') await sendPrompt(chatId, '🔎 کوم ډول ملګری غواړې؟', { inline_keyboard: [[{ text: '👨 نارینه', callback_data: 'find:gender:male' }, { text: '👩 ښځینه', callback_data: 'find:gender:female' }], [{ text: '🌐 اتومات', callback_data: 'find:gender:auto' }], [{ text: '❌ لغوه', callback_data: 'find:cancel' }]] }, user);
   else if (field === 'random') {
     const cost = Number(await getSetting('connection_cost_stars', 1));
@@ -2050,7 +2034,6 @@ async function processMessage(message) {
   }
   else if (field === 'game') await startDiceGame(chatId, user);
   else if (field === 'leaderboards') await sendPrompt(chatId, '🏆 لوړ رتبه کسان\n\nلاندې درجه‌بندي وټاکه:', { inline_keyboard: [[{ text: '🏆 تر ټولو ډېرې نمرې', callback_data: 'admin:rank:points' }], [{ text: '📨 تر ټولو ډېر ریفرلونه', callback_data: 'admin:rank:referrals' }], [{ text: '👥 تر ټولو ډېر فالو', callback_data: 'admin:rank:follows' }], [{ text: '❤️ تر ټولو ډېر لایکونه', callback_data: 'admin:rank:likes' }], [{ text: '🔙 اصلي مېنو', callback_data: 'admin:main' }]] }, user);
-  else if (field === 'favorites') await showFavorites(chatId, user);
   else if (field === 'invite') await showReferral(chatId, user);
   else if (field === 'profile') await showProfile(chatId, user);
   else if (field === 'language') {
