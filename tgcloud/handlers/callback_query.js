@@ -822,7 +822,7 @@ async function startConnectionSearch(userId, type) {
           .where(and(eq(users.telegram_id, Number(userId)), eq(users.state, 'searching_connection')))
           .run();
         const verifiedUser = await getUser(userId);
-        reportDiagnostic('callback-handler', 'Checked orphaned connection search state recovery', {
+        console.info('Checked orphaned connection search state recovery', {
           userId: Number(userId),
           stateAfterReset: verifiedUser && verifiedUser.state
         });
