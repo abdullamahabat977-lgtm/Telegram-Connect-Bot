@@ -817,14 +817,50 @@ async function startConnectionSearch(userId, type) {
           recoverySnapshot.activeRequests.length === 0 &&
           recoverySnapshot.activeGames.length === 0 &&
           !recoverySnapshot.latestSession) {
-        await db.update(users).set({ state: 'ready' })
+        const resetResult = await db.update(users).set({ state: 'ready' })
           .where(and(eq(users.telegram_id, Number(userId)), eq(users.state, 'searching_connection')))
-          .run();
+          .returning({ telegram_id: users.telegram_id }).run();
         const verifiedUser = await getUser(userId);
         console.info('Checked orphaned connection search state recovery', {
           userId: Number(userId),
+          resetRows: resetResult && Array.isArray(resetResult.rows) ? resetResult.rows.length : 'unknown-result-shape',
           stateAfterReset: verifiedUser && verifiedUser.state
         });
+        if ((!resetResult || !Array.isArray(resetResult.rows) || resetResult.rows.length === 0) &&
+            verifiedUser && verifiedUser.state === 'searching_connection') {
+          // If the conditional reset matched no row, refresh all durable work once more
+          // before deciding whether a plain state reset is safe.
+          const [requestsAtFallback, gamesAtFallback, sessionAtFallback] = await Promise.all([
+            db.select().from(connection_requests).all(),
+            db.select().from(game_sessions).all(),
+            activeSessionFor(userId)
+          ]);
+          const activeRequestAtFallback = requestsAtFallback.some(row =>
+            ['searching', 'matching', 'pending'].includes(row.status) &&
+            (Number(row.requester_id) === Number(userId) || Number(row.recipient_id) === Number(userId))
+          );
+          const activeGameAtFallback = gamesAtFallback.some(row =>
+            ['waiting', 'pending', 'playing', 'settlement_error'].includes(row.status) &&
+            (Number(row.player_id) === Number(userId) || Number(row.opponent_id) === Number(userId))
+          );
+          if (!activeRequestAtFallback && !activeGameAtFallback && !sessionAtFallback) {
+            const fallbackReset = await db.update(users).set({ state: 'ready' })
+              .where(eq(users.telegram_id, Number(userId)))
+              .returning({ telegram_id: users.telegram_id }).run();
+            console.info('Fallback reset for orphaned connection state', {
+              userId: Number(userId),
+              resetRows: fallbackReset && Array.isArray(fallbackReset.rows) ? fallbackReset.rows.length : 'unknown-result-shape',
+              activeRequestAtFallback,
+              activeGameAtFallback,
+              hasActiveSessionAtFallback: Boolean(sessionAtFallback)
+            });
+          } else {
+            console.warn('Skipped fallback reset because durable work appeared', {
+              userId: Number(userId), activeRequestAtFallback, activeGameAtFallback,
+              hasActiveSessionAtFallback: Boolean(sessionAtFallback)
+            });
+          }
+        }
         if (verifiedUser && verifiedUser.state === 'ready') {
           user.state = 'ready';
           // Continue this callback instead of making the user repeat the same action.
