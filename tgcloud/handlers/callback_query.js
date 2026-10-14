@@ -773,12 +773,14 @@ async function startConnectionSearch(userId, type) {
   try {
     // Claim the user's ready state before inserting. Two rapid button presses can
     // both pass the read-only preflight; this compare-and-set lets only one start.
-    const stateClaim = await db.update(users).set({ state: 'searching_connection' })
+    let stateClaim = await db.update(users).set({ state: 'searching_connection' })
       .where(and(eq(users.telegram_id, Number(userId)), eq(users.state, 'ready')))
       .returning({ telegram_id: users.telegram_id }).run();
     if (!stateClaim || !Array.isArray(stateClaim.rows) || stateClaim.rows.length === 0) {
-      // Record the exact state that blocked the atomic claim. Do not blindly reset it:
-      // another invocation may have claimed the user and not inserted its request yet.
+      // A Serverless invocation can stop after claiming the state but before inserting
+      // its request. Give an in-flight invocation a short chance to finish before recovery.
+      await new Promise(resolve => setTimeout(resolve, 1200));
+      let recoverySnapshot = null;
       try {
         const [latestUser, latestRequests, latestGames, latestSession] = await Promise.all([
           getUser(userId),
@@ -786,25 +788,53 @@ async function startConnectionSearch(userId, type) {
           db.select().from(game_sessions).all(),
           activeSessionFor(userId)
         ]);
+        const activeRequests = latestRequests.filter(row =>
+          ['searching', 'matching', 'pending'].includes(row.status) &&
+          (Number(row.requester_id) === Number(userId) || Number(row.recipient_id) === Number(userId))
+        );
+        const activeGames = latestGames.filter(row =>
+          ['waiting', 'pending', 'playing', 'settlement_error'].includes(row.status) &&
+          (Number(row.player_id) === Number(userId) || Number(row.opponent_id) === Number(userId))
+        );
+        recoverySnapshot = { latestUser, activeRequests, activeGames, latestSession };
         reportDiagnostic('callback-handler', 'Connection search state claim rejected', {
           userId: Number(userId),
           currentState: latestUser && latestUser.state,
-          activeRequests: latestRequests.filter(row =>
-            ['searching', 'matching', 'pending'].includes(row.status) &&
-            (Number(row.requester_id) === Number(userId) || Number(row.recipient_id) === Number(userId))
-          ).map(row => ({ id: Number(row.id), status: row.status, requesterId: Number(row.requester_id), recipientId: Number(row.recipient_id || 0) })),
-          activeGames: latestGames.filter(row =>
-            ['waiting', 'pending', 'playing', 'settlement_error'].includes(row.status) &&
-            (Number(row.player_id) === Number(userId) || Number(row.opponent_id) === Number(userId))
-          ).map(row => ({ id: Number(row.id), status: row.status })),
+          activeRequests: activeRequests.map(row => ({ id: Number(row.id), status: row.status, requesterId: Number(row.requester_id), recipientId: Number(row.recipient_id || 0) })),
+          activeGames: activeGames.map(row => ({ id: Number(row.id), status: row.status })),
           hasActiveSession: Boolean(latestSession)
         });
       } catch (diagnosticError) {
         reportDiagnostic('callback-handler', 'Could not inspect rejected connection search claim', { userId: Number(userId), diagnosticError });
       }
-      await sendPrompt(userId, '⌛ د لټون غوښتنه لا د پیل په حال کې ده یا د کارن حالت بدل شوی دی. لږ شېبه وروسته بیا هڅه وکړه.',
-        mainKeyboard(user, await isAdmin(userId)), user);
-      return;
+
+      // Recover only a demonstrably orphaned state: after the grace period the user
+      // must still be searching_connection and have no active request, game, or session.
+      // Both updates are compare-and-set operations, so a concurrent state change wins.
+      if (recoverySnapshot &&
+          recoverySnapshot.latestUser && recoverySnapshot.latestUser.state === 'searching_connection' &&
+          recoverySnapshot.activeRequests.length === 0 &&
+          recoverySnapshot.activeGames.length === 0 &&
+          !recoverySnapshot.latestSession) {
+        const reset = await db.update(users).set({ state: 'ready' })
+          .where(and(eq(users.telegram_id, Number(userId)), eq(users.state, 'searching_connection')))
+          .returning({ telegram_id: users.telegram_id }).run();
+        if (reset && Array.isArray(reset.rows) && reset.rows.length > 0) {
+          user.state = 'ready';
+          stateClaim = await db.update(users).set({ state: 'searching_connection' })
+            .where(and(eq(users.telegram_id, Number(userId)), eq(users.state, 'ready')))
+            .returning({ telegram_id: users.telegram_id }).run();
+          if (stateClaim && Array.isArray(stateClaim.rows) && stateClaim.rows.length > 0) {
+            reportDiagnostic('callback-handler', 'Recovered orphaned connection search state', { userId: Number(userId) });
+          }
+        }
+      }
+
+      if (!stateClaim || !Array.isArray(stateClaim.rows) || stateClaim.rows.length === 0) {
+        await sendPrompt(userId, '⌛ د لټون حالت زوړ پاتې شوی و یا لا فعاله غوښتنه شته. حالت وکتل شو؛ لږ شېبه وروسته بیا هڅه وکړه.',
+          mainKeyboard(user, await isAdmin(userId)), user);
+        return;
+      }
     }
     user.state = 'searching_connection';
     startupStage = 'insert-search';
