@@ -130,6 +130,7 @@ export const chat_messages = table('chat_messages', {
   sender_id: integer('sender_id').notNull(),
   recipient_id: integer('recipient_id').notNull(),
   recipient_message_id: integer('recipient_message_id').notNull(),
+  source_message_id: integer('source_message_id'),
   created_at: text('created_at').notNull(),
   }, (t) => ({
     sessionCreatedIdx: index('idx_chat_messages_session_created').on(t.session_id, t.created_at),
