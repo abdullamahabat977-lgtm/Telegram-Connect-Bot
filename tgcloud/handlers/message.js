@@ -1571,8 +1571,6 @@ async function processMessage(message) {
     try { await api.sendMessage({ chat_id: chatId, text: welcomeText }); } catch (e) { reportDiagnostic('message-handler', 'Welcome reward notification failed', e); }
     }
   }
-  try { await tryOfferSearches(); } catch (error) { await notifyRuntimeError('message:connection-matching', error, { userId: id }); }
-  try { await tryMatchGames(); } catch (error) { await notifyRuntimeError('message:game-matching', error, { userId: id }); }
   // Keep user messages visible; only replace the bot's previous prompt.
   const protectedStates = ['admin_menu', 'admin_management_menu', 'admin_channels_menu', 'waiting_admin_id', 'waiting_remove_admin_id', 'waiting_channel_details', 'waiting_remove_channel_id', 'waiting_broadcast', 'waiting_user_settings_id'];
   const adminEditState = /^(admin_edit_user_photo|admin_send_user_message):\d+$/.test(String(user.state || '')) || /^admin_adjust_balance:(stars|points|likes):(add|sub):\d+$/.test(String(user.state || '')) || /^admin_edit_user_(name|surname):\d+$/.test(String(user.state || ''));
@@ -2073,5 +2071,10 @@ export default async function (message) {
         });
       } catch (sendError) {}
     }
+  } finally {
+    // Match only after the command response/state transition has completed.
+    const userId = message && message.from && message.from.id;
+    try { await tryOfferSearches(); } catch (error) { await notifyRuntimeError('message:connection-matching', error, { userId }); }
+    try { await tryMatchGames(); } catch (error) { await notifyRuntimeError('message:game-matching', error, { userId }); }
   }
 }
