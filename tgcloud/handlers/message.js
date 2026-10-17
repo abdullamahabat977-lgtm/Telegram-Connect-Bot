@@ -130,7 +130,7 @@ async function showUserList(chatId, user, page) {
 }
 function channelKeyboard(user) {
   const b = tx(user).channelButtons;
-  return keyboard([[{ text: b[0] }, { text: b[1] }], [{ text: b[2] }, { text: b[3] }]]);
+  return keyboard([[{ text: b[0] }], [{ text: b[1] }, { text: b[2] }]]);
 }
 function actionFor(input) {
   for (const lang of Object.keys(T)) {
@@ -384,13 +384,16 @@ async function showAdminList(chatId, user, page) {
   rows.push([{ text: w.main, callback_data: 'admin:main' }]);
   await sendPrompt(chatId, text, { inline_keyboard: rows }, user);
 }
-async function showChannelList(chatId, user) {
+async function showChannelList(chatId, user, notice) {
   const t = tx(user);
   const list = await getRequiredChats();
-  let text = t.channelButtons[2] + '\n\n';
-  if (!list.length) text += t.channelEmpty;
-  else for (const row of list) { const info = requiredChatInfo(row); text += (info.type === 'channel' ? '📢 ' : '👥 ') + info.title + '\nID: ' + row.chat_id + '\n' + row.invite_link + '\n\n'; }
-  await sendPrompt(chatId, text, channelKeyboard(user), user);
+  const rows = list.map(row => {
+    const info = requiredChatInfo(row);
+    return [{ text: (info.type === 'channel' ? '📢 ' : '👥 ') + String(info.title || row.chat_id).slice(0, 48), callback_data: 'admin:channels:item:' + encodeURIComponent(String(row.chat_id)) }];
+  });
+  rows.push([{ text: '🔙 بېرته', callback_data: 'admin:channels:back' }]);
+  const heading = (notice ? notice + '\n\n' : '') + t.channelButtons[1] + '\n\n' + (list.length ? 'د ګروپ یا چینل د تنظیماتو لپاره یې نوم وټاکه:' : t.channelEmpty);
+  await sendPrompt(chatId, heading, { inline_keyboard: rows }, user);
 }
 async function completeProfile(chatId, user, extra) {
   await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, Number(user.telegram_id))).run();
@@ -1572,9 +1575,9 @@ async function processMessage(message) {
     }
   }
   // Keep user messages visible; only replace the bot's previous prompt.
-  const protectedStates = ['admin_menu', 'admin_management_menu', 'admin_channels_menu', 'waiting_admin_id', 'waiting_remove_admin_id', 'waiting_channel_details', 'waiting_remove_channel_id', 'waiting_broadcast', 'waiting_user_settings_id'];
+  const protectedStates = ['admin_menu', 'admin_management_menu', 'admin_channels_menu', 'waiting_admin_id', 'waiting_remove_admin_id', 'waiting_channel_details', 'waiting_broadcast', 'waiting_user_settings_id'];
   const adminEditState = /^(admin_edit_user_photo|admin_send_user_message):\d+$/.test(String(user.state || '')) || /^admin_adjust_balance:(stars|points|likes):(add|sub):\d+$/.test(String(user.state || '')) || /^admin_edit_user_(name|surname):\d+$/.test(String(user.state || ''));
-  if ((protectedStates.includes(user.state) || adminEditState) && !(await isAdmin(id))) {
+  if ((protectedStates.includes(user.state) || /^waiting_edit_channel_id:-?\d+$/.test(String(user.state || '')) || adminEditState) && !(await isAdmin(id))) {
     await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, id)).run();
     user.state = 'ready';
     await sendPrompt(chatId, tx(user).noAccess, menuKeyboard(user, false), user);
@@ -1837,12 +1840,14 @@ async function processMessage(message) {
     await showAdminUserSettings(chatId, user, updatedTarget);
     return;
   }
-  if (user.state === 'waiting_channel_details') {
+  if (user.state === 'waiting_channel_details' || /^waiting_edit_channel_id:-?\d+$/.test(String(user.state || ''))) {
+    const editing = /^waiting_edit_channel_id:-?\d+$/.test(String(user.state || ''));
+    const originalId = editing ? String(user.state).slice('waiting_edit_channel_id:'.length) : '';
     const requestedId = input.trim();
     const backToChannels = async (message) => { user.state = 'admin_channels_menu'; await db.update(users).set({ state: 'admin_channels_menu' }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, message, channelKeyboard(user), user); };
-    if (!requestedId || !Number.isSafeInteger(Number(requestedId))) { await backToChannels(tx(user).channelFormat); return; }
+    if (!requestedId || !/^-?\d+$/.test(requestedId) || !Number.isSafeInteger(Number(requestedId))) { await backToChannels(tx(user).channelFormat); return; }
     const existing = await db.select().from(required_chats).where(eq(required_chats.chat_id, requestedId)).get();
-    if (existing) { await backToChannels(tx(user).channelExists); return; }
+    if (existing && (!editing || String(existing.chat_id) !== originalId)) { await backToChannels(tx(user).channelExists); return; }
     let chat;
     try { chat = await api.getChat({ chat_id: requestedId }); } catch (e) { await backToChannels(channelError(user, 'invalid')); return; }
     if (!chat || !['group', 'supergroup', 'channel'].includes(chat.type)) { await backToChannels(channelError(user, 'invalid')); return; }
@@ -1858,17 +1863,15 @@ async function processMessage(message) {
     if (!inviteLink.startsWith('https://t.me/')) { await backToChannels(channelError(user, 'link')); return; }
     const chatType = chat.type === 'channel' ? 'channel' : 'group';
     const title = String(chat.title || chat.first_name || chat.username || requestedId).replace(/^(channel|group)::/, '');
+    if (editing) {
+      await db.update(required_chats).set({ chat_id: requestedId, invite_link: inviteLink, title: chatType + '::' + title, is_active: 1 })
+        .where(eq(required_chats.chat_id, originalId)).run();
+      const verified = await db.select().from(required_chats).where(eq(required_chats.chat_id, requestedId)).get();
+      if (!verified) { await backToChannels('⚠️ بدلون تایید نه شو؛ بیا هڅه وکړه.'); return; }
+      await backToChannels('✅ ګروپ یا چینل بدل شو.'); return;
+    }
     await db.insert(required_chats).values({ chat_id: requestedId, invite_link: inviteLink, title: chatType + '::' + title, is_active: 1, created_at: new Date().toISOString() }).run();
     await backToChannels(tx(user).channelAdded); return;
-  }
-  if (user.state === 'waiting_remove_channel_id') {
-    const requestedId = input.trim(); user.state = 'admin_channels_menu';
-    await db.update(users).set({ state: 'admin_channels_menu' }).where(eq(users.telegram_id, id)).run();
-    if (!requestedId || !Number.isSafeInteger(Number(requestedId))) { await sendPrompt(chatId, tx(user).channelFormat, channelKeyboard(user), user); return; }
-    const existing = await db.select().from(required_chats).where(eq(required_chats.chat_id, requestedId)).get();
-    if (!existing) { await sendPrompt(chatId, tx(user).channelMissing, channelKeyboard(user), user); return; }
-    await db.delete(required_chats).where(eq(required_chats.chat_id, requestedId)).run();
-    await sendPrompt(chatId, tx(user).channelRemoved, channelKeyboard(user), user); return;
   }
   if (user.state === 'waiting_broadcast') {
     if (action === 'cancel') { await db.update(users).set({ state: 'admin_menu' }).where(eq(users.telegram_id, id)).run(); user.state = 'admin_menu'; await sendPrompt(chatId, tx(user).cancel, adminKeyboard(user), user); return; }
@@ -1993,15 +1996,11 @@ async function processMessage(message) {
       return;
     }
     const i = tx(user).channelButtons.indexOf(input);
-    const field = i >= 0 ? ['channelAdd', 'channelRemove', 'channelList', 'back'][i] : action;
+    const field = i >= 0 ? ['channelAdd', 'channelList', 'back'][i] : action;
     if (field === 'channelAdd') {
       user.state = 'waiting_channel_details';
       await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run();
       await sendPrompt(chatId, tx(user).askChannel, { force_reply: true }, user);
-    } else if (field === 'channelRemove') {
-      user.state = 'waiting_remove_channel_id';
-      await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run();
-      await sendPrompt(chatId, tx(user).askRemoveChannel, { force_reply: true }, user);
     } else if (field === 'channelList') await showChannelList(chatId, user);
     else {
       user.state = 'admin_menu';
