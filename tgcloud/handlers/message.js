@@ -67,7 +67,7 @@ function favoriteSettingsKeyboard(user) {
 }
 function adminKeyboard(user) {
   const b = tx(user).adminButtons;
-  return keyboard([[{ text: b[0] }], [{ text: b[1] }, { text: b[2] }], [{ text: b[3] }, { text: b[4] }], [{ text: b[5] }], [{ text: b[6] }], [{ text: b[7] }, { text: b[8] }], [{ text: b[9] }]]);
+  return keyboard([[{ text: b[0] }], [{ text: b[1] }, { text: b[2] }], [{ text: b[3] }, { text: b[4] }], [{ text: b[6] }], [{ text: b[7] }, { text: b[8] }], [{ text: b[5] }]]);
 }
 function adminManagementKeyboard(user) {
   const b = tx(user).adminManagementButtons;
@@ -144,7 +144,7 @@ function actionFor(input) {
       ['profileSettings', t.settingsButtons[0]], ['favoriteSettings', t.settingsButtons[1]],
       ['rewardSettings', t.adminButtons[6]],
       ['adminManagement', t.adminButtons[0]], ['channels', t.adminButtons[1]], ['broadcast', t.adminButtons[2]],
-      ['userSettings', t.adminButtons[3]], ['usersList', t.adminButtons[4]], ['rewardSettings', t.adminButtons[6]], ['connectionAdminSettings', t.adminButtons[7]], ['gameAdminSettings', t.adminButtons[8]], ['leaderboards', t.adminButtons[9]],
+      ['userSettings', t.adminButtons[3]], ['usersList', t.adminButtons[4]], ['rewardSettings', t.adminButtons[6]], ['connectionAdminSettings', t.adminButtons[7]], ['gameAdminSettings', t.adminButtons[8]],
       ['adminAdd', t.adminManagementButtons[0]], ['adminRemove', t.adminManagementButtons[1]],
       ['adminsList', t.adminManagementButtons[2]], ['cancel', t.cancel], ['skip', t.skip],
       ['photoSet', t.photoSettingsButtons[0]], ['photoRemove', t.photoSettingsButtons[1]],
@@ -1949,11 +1949,10 @@ async function processMessage(message) {
   if (user.state === 'admin_menu') {
     if (!(await isAdmin(id))) { user.state = 'ready'; await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, tx(user).noAccess, menuKeyboard(user, false), user); return; }
     const i = tx(user).adminButtons.indexOf(input);
-    const field = i >= 0 ? ['adminManagement','channels','broadcast','userSettings','usersList','back','rewardSettings','connectionAdminSettings','gameAdminSettings','leaderboards'][i] : action;
+    const field = i >= 0 ? ['adminManagement','channels','broadcast','userSettings','usersList','back','rewardSettings','connectionAdminSettings','gameAdminSettings'][i] : action;
     if (field === 'rewardSettings') { await renderAdminRewardSettings(chatId, user); return; }
     if (field === 'connectionAdminSettings') { await renderAdminConnectionSettings(chatId, user); return; }
     if (field === 'gameAdminSettings') { await renderAdminGameSettings(chatId, user); return; }
-    if (field === 'leaderboards') { await sendPrompt(chatId, '🏆 لوړ رتبه کسان\n\nلاندې درجه‌بندي وټاکه:', { inline_keyboard: [[{ text: '🏆 تر ټولو ډېرې نمرې', callback_data: 'admin:rank:points' }], [{ text: '📨 تر ټولو ډېر ریفرلونه', callback_data: 'admin:rank:referrals' }], [{ text: '👥 تر ټولو ډېر فالو', callback_data: 'admin:rank:follows' }], [{ text: '❤️ تر ټولو ډېر لایکونه', callback_data: 'admin:rank:likes' }], [{ text: '🔙 اډمین پینل', callback_data: 'admin:panel' }]] }, user); return; }
     if (field === 'adminManagement') {
       user.state = 'admin_management_menu'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run();
       await sendPrompt(chatId, tx(user).adminManagementIntro, adminManagementKeyboard(user), user);
