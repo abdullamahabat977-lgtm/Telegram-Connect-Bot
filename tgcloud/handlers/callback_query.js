@@ -243,6 +243,53 @@ async function showGender(chatId, user) {
 async function showAge(chatId, user) {
   await sendPrompt(chatId, tx(user).age, ageKeyboard(), user);
 }
+async function requiredChannelAdminKeyboard(actor) {
+  const labels = {
+    ps: ['➕ ګروپ یا چینل زیاتول', '📋 د ګروپونو لېست', '🔙 اډمین پینل'],
+    fa: ['➕ افزودن گروه یا کانال', '📋 فهرست گروه‌ها', '🔙 پنل مدیریت'],
+    en: ['➕ Add group/channel', '📋 List groups', '🔙 Admin panel'],
+    ur: ['➕ گروپ یا چینل شامل کریں', '📋 گروپس کی فہرست', '🔙 ایڈمن پینل'],
+    ar: ['➕ إضافة مجموعة أو قناة', '📋 قائمة المجموعات', '🔙 لوحة الإدارة']
+  };
+  const b = labels[actor.language] || labels.ps;
+  return replyKeyboard([[{ text: b[0] }], [{ text: b[1] }], [{ text: b[2] }]]);
+}
+async function showRequiredChannelList(chatId, actor, notice) {
+  const chats = await db.select().from(required_chats).where(eq(required_chats.is_active, 1)).all();
+  const rows = chats.map(row => {
+    const info = requiredChatInfo(row);
+    return [{ text: (info.type === 'channel' ? '📢 ' : '👥 ') + String(info.title || row.chat_id).slice(0, 48),
+      callback_data: 'admin:channels:item:' + encodeURIComponent(String(row.chat_id)) }];
+  });
+  rows.push([{ text: '🔙 بېرته', callback_data: 'admin:channels:back' }]);
+  const title = actor.language === 'en' ? '📢 Required groups and channels' :
+    actor.language === 'fa' ? '📢 گروه‌ها و کانال‌های عضویت اجباری' :
+    actor.language === 'ur' ? '📢 لازمی گروپس اور چینلز' :
+    actor.language === 'ar' ? '📢 مجموعات وقنوات العضوية الإلزامية' : '📢 د غړیتوب ګروپونه او چینلونه';
+  const hint = chats.length
+    ? (actor.language === 'en' ? 'Choose a group/channel to edit or delete it.' : 'د بدلولو یا حذفولو لپاره د ګروپ یا چینل نوم وټاکه.')
+    : (actor.language === 'en' ? 'No groups/channels are configured.' : 'تر اوسه هېڅ ګروپ یا چینل نشته.');
+  await sendPrompt(chatId, (notice ? notice + '\n\n' : '') + title + '\n\n' + hint, { inline_keyboard: rows }, actor);
+}
+async function showRequiredChannelDetail(chatId, actor, chatIdValue, notice) {
+  const row = await db.select().from(required_chats).where(eq(required_chats.chat_id, String(chatIdValue))).get();
+  if (!row) { await showRequiredChannelList(chatId, actor, actor.language === 'en' ? 'This group/channel no longer exists.' : 'دا ګروپ یا چینل نور شتون نه لري.'); return; }
+  const info = requiredChatInfo(row);
+  const labels = {
+    ps: ['✏️ بدلول', '🗑 حذفول', '🔙 لېست ته بېرته', '📢 ګروپ/چینل', '🔗 لینک'],
+    fa: ['✏️ ویرایش', '🗑 حذف', '🔙 بازگشت به فهرست', '📢 گروه/کانال', '🔗 پیوند'],
+    en: ['✏️ Edit', '🗑 Delete', '🔙 Back to list', '📢 Group/channel', '🔗 Link'],
+    ur: ['✏️ تبدیل کریں', '🗑 حذف کریں', '🔙 فہرست پر واپس', '📢 گروپ/چینل', '🔗 لنک'],
+    ar: ['✏️ تعديل', '🗑 حذف', '🔙 العودة للقائمة', '📢 المجموعة/القناة', '🔗 الرابط']
+  };
+  const b = labels[actor.language] || labels.ps;
+  const text = (notice ? notice + '\n\n' : '') + b[3] + ': ' + info.title + '\n🆔 ID: ' + row.chat_id + '\n' + b[4] + ': ' + (row.invite_link || '—');
+  await sendPrompt(chatId, text, { inline_keyboard: [
+    [{ text: b[0], callback_data: 'admin:channels:edit:' + encodeURIComponent(String(row.chat_id)) },
+     { text: b[1], callback_data: 'admin:channels:delete:' + encodeURIComponent(String(row.chat_id)) }],
+    [{ text: b[2], callback_data: 'admin:channels:list' }]
+  ] }, actor);
+}
 async function handleAdminCallback(query, actor, data, actorId, chatId) {
   const requestedAction = String(data).split(':')[1];
   if (!(await isAdmin(actorId)) && !['main', 'rank', 'rank_menu'].includes(requestedAction)) {
@@ -258,6 +305,48 @@ async function handleAdminCallback(query, actor, data, actorId, chatId) {
   if (p[1] === 'manage_admins') {
     actor.state = 'admin_management_menu'; await db.update(users).set({ state: actor.state }).where(eq(users.telegram_id, actorId)).run();
     await sendPrompt(chatId, ui.managementIntro, adminManagementKeyboard(actor), actor); return;
+  }
+  if (p[1] === 'channels') {
+    const action = p[2] || '';
+    let selectedId = '';
+    try { selectedId = decodeURIComponent(p.slice(3).join(':')); } catch (e) { selectedId = ''; }
+    if (action === 'list') { await showRequiredChannelList(chatId, actor); return; }
+    if (action === 'back') {
+      actor.state = 'admin_channels_menu';
+      await db.update(users).set({ state: actor.state }).where(eq(users.telegram_id, actorId)).run();
+      const intro = actor.language === 'en' ? '📢 Required membership management:' : '📢 د اجباري غړیتوب اداره:';
+      await sendPrompt(chatId, intro, await requiredChannelAdminKeyboard(actor), actor);
+      return;
+    }
+    if (!selectedId || !/^-?\d+$/.test(selectedId)) return;
+    if (action === 'item') { await showRequiredChannelDetail(chatId, actor, selectedId); return; }
+    if (action === 'edit') {
+      const prompt = actor.language === 'en' ? 'Send the new numeric ID of the group/channel:' : 'د دې ګروپ یا چینل نوی عددي ID راولېږه:';
+      actor.state = 'waiting_edit_channel_id:' + selectedId;
+      await db.update(users).set({ state: actor.state }).where(eq(users.telegram_id, actorId)).run();
+      await sendPrompt(chatId, prompt, { force_reply: true }, actor);
+      return;
+    }
+    if (action === 'delete') {
+      const question = actor.language === 'en' ? 'Are you sure you want to delete this group/channel?' : 'ایا ډاډه یې چې دا ګروپ یا چینل حذف کړې؟';
+      const yes = actor.language === 'en' ? '✅ Yes, delete' : '✅ هو، حذف یې کړه';
+      const no = actor.language === 'en' ? '❌ Cancel' : '❌ لغوه';
+      await sendPrompt(chatId, question, { inline_keyboard: [
+        [{ text: yes, callback_data: 'admin:channels:delete_confirm:' + encodeURIComponent(selectedId) }],
+        [{ text: no, callback_data: 'admin:channels:item:' + encodeURIComponent(selectedId) }]
+      ] }, actor);
+      return;
+    }
+    if (action === 'delete_confirm') {
+      const existing = await db.select().from(required_chats).where(eq(required_chats.chat_id, selectedId)).get();
+      if (!existing) { await showRequiredChannelList(chatId, actor, actor.language === 'en' ? 'This group/channel was already deleted.' : 'دا ګروپ یا چینل مخکې حذف شوی دی.'); return; }
+      await db.delete(required_chats).where(eq(required_chats.chat_id, selectedId)).run();
+      const remaining = await db.select().from(required_chats).where(eq(required_chats.chat_id, selectedId)).get();
+      if (remaining) { await showRequiredChannelDetail(chatId, actor, selectedId, actor.language === 'en' ? 'Deletion could not be verified; please retry.' : 'حذف تایید نه شو؛ بیا هڅه وکړه.'); return; }
+      await showRequiredChannelList(chatId, actor, actor.language === 'en' ? '✅ Group/channel deleted.' : '✅ ګروپ یا چینل حذف شو.');
+      return;
+    }
+    return;
   }
   if (p[1] === 'setting') {
     const key = p[2];
