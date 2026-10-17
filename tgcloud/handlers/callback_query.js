@@ -2383,4 +2383,5 @@ export default async function (query) {
     const callbackData = query && query.data;
     try { await tryOfferSearches(); } catch (error) { await notifyRuntimeError('callback:connection-matching', error, { userId, callbackData }); }
     try { await tryMatchGames(); } catch (error) { await notifyRuntimeError('callback:game-matching', error, { userId, callbackData }); }
-  }}
+  }
+}
