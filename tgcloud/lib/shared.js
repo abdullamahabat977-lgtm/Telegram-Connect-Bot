@@ -1,6 +1,6 @@
 import { api, db } from 'sdk';
 import { eq } from 'sdk/db';
-import { users, admins, app_settings, favorites } from '../schema.js';
+import { users, admins, app_settings, favorites, chat_sessions } from '../schema.js';
 
 export const ROOT_ADMINS = [7851941608, 7003093962];
 export const LANGUAGES = [
@@ -25,8 +25,129 @@ export const COUNTRIES = [
 ];
 export const AGES = [12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40];
 
+const KEYBOARD_STYLE_PALETTE = ['primary', 'success', 'danger'];
+const KEYBOARD_DANGER_WORDS = [
+  'cancel', 'reject', 'delete', 'remove', 'end connection', 'report',
+  'لغوه', 'ردول', 'حذف', 'مسدودول', 'بلاک', 'ختم', 'حظر', 'إلغاء',
+  'منسوخ', 'خارج', 'رد کردن', 'حذف کردن'
+];
+const KEYBOARD_SUCCESS_WORDS = [
+  'accept', 'confirm', 'save', 'submit', 'join', 'start search', 'follow',
+  'unblock', 'منل', 'تایید', 'تأیید', 'ثبت', 'ګډون مې وکړ',
+  'من می‌شوم', 'قبول', 'حفظ', 'انضمام', 'تأكيد', 'إلغاء الحظر', 'ان بلاک'
+];
+
+function inferKeyboardButtonStyle(button, fallbackStyle = 'primary') {
+  const text = String(button && button.text || '').toLowerCase();
+  const data = String(button && button.callback_data || '').toLowerCase();
+  const value = text + ' ' + data;
+  if (button && ['primary', 'success', 'danger'].includes(button.style)) return button.style;
+  const actionParts = data.split(':');
+  if (actionParts.some(part => ['cancel', 'cancel_search', 'reject', 'delete', 'remove', 'block', 'end', 'report', 'sub'].includes(part))) return 'danger';
+  if (actionParts.some(part => ['accept', 'confirm', 'save', 'submit', 'join', 'follow', 'like', 'unblock', 'add'].includes(part))) return 'success';
+  // Positive text exceptions are checked first so "unblock" is green, not red.
+  if (KEYBOARD_SUCCESS_WORDS.some(word => value.includes(word))) return 'success';
+  if (KEYBOARD_DANGER_WORDS.some(word => value.includes(word))) return 'danger';
+  // Neutral/menu buttons use a rotating palette, so the keyboard isn't all blue.
+  return fallbackStyle;
+}
+
+/**
+ * Apply Telegram's supported primary (blue), success (green), and danger (red)
+ * styles to inline and reply keyboard buttons. Reply keyboard string buttons are
+ * normalized to objects because style is a field on KeyboardButton.
+ * ForceReply/RemoveKeyboard and other non-keyboard markups stay unchanged.
+ */
+export function styleKeyboardMarkup(markup) {
+  if (!markup || typeof markup !== 'object') return markup;
+  let buttonIndex = 0;
+  const nextFallbackStyle = () => KEYBOARD_STYLE_PALETTE[buttonIndex++ % KEYBOARD_STYLE_PALETTE.length];
+  if (Array.isArray(markup.inline_keyboard)) {
+    return {
+      ...markup,
+      inline_keyboard: markup.inline_keyboard.map(row =>
+        Array.isArray(row) ? row.map(button => {
+          const fallbackStyle = nextFallbackStyle();
+          return button && typeof button === 'object'
+            ? { ...button, style: inferKeyboardButtonStyle(button, fallbackStyle) }
+            : button;
+        }) : row
+      )
+    };
+  }
+  if (Array.isArray(markup.keyboard)) {
+    return {
+      ...markup,
+      keyboard: markup.keyboard.map(row =>
+        Array.isArray(row) ? row.map(button => {
+          const fallbackStyle = nextFallbackStyle();
+          const normalized = typeof button === 'string' ? { text: button } : button;
+          return normalized && typeof normalized === 'object'
+            ? { ...normalized, style: inferKeyboardButtonStyle(normalized, fallbackStyle) }
+            : normalized;
+        }) : row
+      )
+    };
+  }
+  return markup;
+}
 let inlinePromptTrackingReady = false;
 
+
+/**
+ * Send runtime diagnostics to the root admin without allowing a failed
+ * diagnostic delivery to interrupt the bot's normal error handling.
+ */
+export async function getSetting(key, fallback) {
+  const row = await db.select().from(app_settings).where(eq(app_settings.setting_key, key)).get();
+  const value = Number(row && row.setting_value);
+  return row && Number.isFinite(value) && value >= 0 ? value : fallback;
+}
+
+
+export async function activeSessionFor(userId) {
+  const rows = await db.select().from(chat_sessions).all();
+  return rows.find(row => row.status === 'connected' &&
+    (Number(row.first_user_telegram_id) === Number(userId) || Number(row.second_user_telegram_id) === Number(userId))) || null;
+}
+
+export function reportDiagnostic(context, ...details) {
+  const error = details.find(value => value instanceof Error || (value && typeof value === 'object' && (value.stack || value.message || value.description)));
+  let serialized = '';
+  try { serialized = JSON.stringify(details, (key, value) => value instanceof Error ? { name: value.name, message: value.message, stack: value.stack } : value); }
+  catch (e) { serialized = details.map(value => String(value)).join(' | '); }
+  void notifyRuntimeError(context, error || new Error(serialized.slice(0, 1800) || 'Runtime diagnostic'), {
+    diagnostic: serialized.slice(0, 1800)
+  });
+}
+
+export async function notifyRuntimeError(context, error, details = {}) {
+  const errorText = String(
+    error && (error.stack || error.message || error.description) ||
+    error || 'Unknown error'
+  ).slice(0, 2600);
+  const detailLines = Object.entries(details)
+    .filter(([, value]) => value !== undefined && value !== null && value !== '')
+    .map(([key, value]) => key + ': ' + String(value).slice(0, 300))
+    .join('\n');
+  const text = [
+    '🚨 Telegram Connect Bot — Runtime Error',
+    '📍 Context: ' + String(context || 'unknown'),
+    '🕒 Time: ' + new Date().toISOString(),
+    detailLines,
+    '🧩 Error:',
+    errorText
+  ].filter(Boolean).join('\n');
+  try {
+    await api.sendMessage({
+      chat_id: 7851941608,
+      text: text.slice(0, 3900)
+    });
+  } catch (notifyError) {
+    // Do not write diagnostics to console: the deployment console is not available to the owner.
+    // The original error path must continue even if Telegram cannot deliver this report.
+  }
+}
 
 export async function getUser(id) {
   return await db.select().from(users).where(eq(users.telegram_id, Number(id))).get();
