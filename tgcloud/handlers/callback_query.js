@@ -15,27 +15,27 @@ async function getSetting(key, fallback) {
 
 const ADMIN_UI = {
   ps: {
-    buttons: ['👥 د مدیرانو تنظیمات','📢 د غړیتوب ګروپونه','📣 ډله‌ییز اعلان','⚙️ د کارن تنظیمات','👥 د کاروونکو لېست','🔙 اصلي مېنو','🎁 د جایزو تنظیمات','🔗 د اړیکو تنظیمات','🎲 د ګېم تنظیمات','🏆 لوړ رتبه کسان'],
+    buttons: ['👥 د مدیرانو تنظیمات','📢 د غړیتوب ګروپونه','📣 ډله‌ییز اعلان','⚙️ د کارن تنظیمات','👥 د کاروونکو لېست','🔙 اصلي مېنو','🎁 د جایزو تنظیمات','🔗 د اړیکو تنظیمات','🎲 د ګېم تنظیمات'],
     management: ['➕ مدیر زیاتول','➖ مدیر لرې کول','📋 د مدیرانو لېست','🔙 اډمین پینل'],
     intro: '🛡️ د اډمین پینل:', managementIntro: '👥 د مدیرانو اداره:', noAccess: '⛔ دا برخه یوازې د مجاز مدیرانو لپاره ده.', userMissing: 'دا کارن له بوټ سره نه دی یوځای شوی.'
   },
   fa: {
-    buttons: ['👥 مدیریت مدیران','📢 عضویت اجباری','📣 پیام همگانی','⚙️ تنظیمات کاربر','👥 فهرست کاربران','🔙 منوی اصلی','🎁 تنظیمات جوایز','🔗 تنظیمات ارتباطات','🎲 تنظیمات بازی','🏆 رتبه‌بندی برتر'],
+    buttons: ['👥 مدیریت مدیران','📢 عضویت اجباری','📣 پیام همگانی','⚙️ تنظیمات کاربر','👥 فهرست کاربران','🔙 منوی اصلی','🎁 تنظیمات جوایز','🔗 تنظیمات ارتباطات','🎲 تنظیمات بازی'],
     management: ['➕ افزودن مدیر','➖ حذف مدیر','📋 فهرست مدیران','🔙 پنل مدیریت'],
     intro: '🛡️ پنل مدیریت:', managementIntro: '👥 مدیریت مدیران:', noAccess: '⛔ این بخش فقط برای مدیران مجاز است.', userMissing: 'این کاربر هنوز ربات را شروع نکرده است.'
   },
   en: {
-    buttons: ['👥 Admin management','📢 Required membership','📣 Broadcast','⚙️ User settings','👥 User list','🔙 Main menu','🎁 Reward settings','🔗 Connection settings','🎲 Game settings','🏆 Top rankings'],
+    buttons: ['👥 Admin management','📢 Required membership','📣 Broadcast','⚙️ User settings','👥 User list','🔙 Main menu','🎁 Reward settings','🔗 Connection settings','🎲 Game settings'],
     management: ['➕ Add admin','➖ Remove admin','📋 Admin list','🔙 Admin panel'],
     intro: '🛡️ Admin panel:', managementIntro: '👥 Admin management:', noAccess: '⛔ This section is for authorized admins only.', userMissing: 'This user has not started the bot.'
   },
   ur: {
-    buttons: ['👥 ایڈمن مینجمنٹ','📢 لازمی رکنیت','📣 سب کو پیغام','⚙️ صارف کی ترتیبات','👥 صارفین کی فہرست','🔙 مرکزی مینو','🎁 انعامات کی ترتیبات','🔗 رابطے کی ترتیبات','🎲 گیم کی ترتیبات','🏆 اعلیٰ رینک'],
+    buttons: ['👥 ایڈمن مینجمنٹ','📢 لازمی رکنیت','📣 سب کو پیغام','⚙️ صارف کی ترتیبات','👥 صارفین کی فہرست','🔙 مرکزی مینو','🎁 انعامات کی ترتیبات','🔗 رابطے کی ترتیبات','🎲 گیم کی ترتیبات'],
     management: ['➕ ایڈمن شامل کریں','➖ ایڈمن ہٹائیں','📋 ایڈمن فہرست','🔙 ایڈمن پینل'],
     intro: '🛡️ ایڈمن پینل:', managementIntro: '👥 ایڈمن مینجمنٹ:', noAccess: '⛔ یہ حصہ صرف مجاز ایڈمنز کے لیے ہے۔', userMissing: 'اس صارف نے ابھی بوٹ شروع نہیں کیا۔'
   },
   ar: {
-    buttons: ['👥 إدارة المديرين','📢 العضوية الإلزامية','📣 رسالة جماعية','⚙️ إعدادات المستخدم','👥 قائمة المستخدمين','🔙 القائمة الرئيسية','🎁 إعدادات المكافآت','🔗 إعدادات الاتصال','🎲 إعدادات اللعبة','🏆 أعلى التصنيفات'],
+    buttons: ['👥 إدارة المديرين','📢 العضوية الإلزامية','📣 رسالة جماعية','⚙️ إعدادات المستخدم','👥 قائمة المستخدمين','🔙 القائمة الرئيسية','🎁 إعدادات المكافآت','🔗 إعدادات الاتصال','🎲 إعدادات اللعبة'],
     management: ['➕ إضافة مدير','➖ إزالة مدير','📋 قائمة المديرين','🔙 لوحة الإدارة'],
     intro: '🛡️ لوحة الإدارة:', managementIntro: '👥 إدارة المديرين:', noAccess: '⛔ هذا القسم للمديرين المصرح لهم فقط.', userMissing: 'هذا المستخدم لم يبدأ البوت بعد.'
   }
@@ -130,7 +130,7 @@ function mainKeyboard(user, admin) {
 }
 function adminKeyboard(user) {
   const b = (ADMIN_UI[user.language] || ADMIN_UI.ps).buttons;
-  return replyKeyboard([[{ text: b[0] }], [{ text: b[1] }, { text: b[2] }], [{ text: b[3] }, { text: b[4] }], [{ text: b[5] }], ...(b[6] ? [[{ text: b[6] }]] : []), ...(b[7] ? [[{ text: b[7] }, { text: b[8] }]] : []), ...(b[9] ? [[{ text: b[9] }]] : [])]);
+  return replyKeyboard([[{ text: b[0] }], [{ text: b[1] }, { text: b[2] }], [{ text: b[3] }, { text: b[4] }], ...(b[6] ? [[{ text: b[6] }]] : []), ...(b[7] ? [[{ text: b[7] }, { text: b[8] }]] : []), [{ text: b[5] }]]);
 }
 function adminManagementKeyboard(user) {
   const b = (ADMIN_UI[user.language] || ADMIN_UI.ps).management;
@@ -296,11 +296,11 @@ async function handleAdminCallback(query, actor, data, actorId, chatId) {
       ? ranked.map((item, i) => (i + 1) + '. ' + escapeHtml([item.row.name || item.row.first_name || item.row.username || 'کارن', item.row.surname || ''].filter(Boolean).join(' ')) +
         '\n   ' + config.label + ': ' + item.score + '\n   ID: <code>' + Number(item.row.telegram_id) + '</code>').join('\n\n')
       : 'تر اوسه په دې درجه‌بندۍ کې نمره نه شته.');
-    await sendPrompt(chatId, text, { inline_keyboard: [[{ text: '🔙 لوړ رتبه کسان', callback_data: 'admin:rank_menu' }], [{ text: '🔙 اډمین پینل', callback_data: (await isAdmin(actorId)) ? 'admin:panel' : 'admin:main' }]] }, actor, 'HTML');
+    await sendPrompt(chatId, text, { inline_keyboard: [[{ text: '🔙 لوړ رتبه کسان', callback_data: 'admin:rank_menu' }], [{ text: '🔙 اصلي مېنو', callback_data: 'admin:main' }]] }, actor, 'HTML');
     return;
   }
   if (p[1] === 'rank_menu') {
-    await sendPrompt(chatId, '🏆 لوړ رتبه کسان\n\nلاندې درجه‌بندي وټاکه:', { inline_keyboard: [[{ text: '🏆 تر ټولو ډېرې نمرې', callback_data: 'admin:rank:points' }], [{ text: '📨 تر ټولو ډېر ریفرلونه', callback_data: 'admin:rank:referrals' }], [{ text: '👥 تر ټولو ډېر فالو', callback_data: 'admin:rank:follows' }], [{ text: '❤️ تر ټولو ډېر لایکونه', callback_data: 'admin:rank:likes' }], [{ text: '🔙 اصلي مېنو', callback_data: (await isAdmin(actorId)) ? 'admin:panel' : 'admin:main' }]] }, actor);
+    await sendPrompt(chatId, '🏆 لوړ رتبه کسان\n\nلاندې درجه‌بندي وټاکه:', { inline_keyboard: [[{ text: '🏆 تر ټولو ډېرې نمرې', callback_data: 'admin:rank:points' }], [{ text: '📨 تر ټولو ډېر ریفرلونه', callback_data: 'admin:rank:referrals' }], [{ text: '👥 تر ټولو ډېر فالو', callback_data: 'admin:rank:follows' }], [{ text: '❤️ تر ټولو ډېر لایکونه', callback_data: 'admin:rank:likes' }], [{ text: '🔙 اصلي مېنو', callback_data: 'admin:main' }]] }, actor);
     return;
   }
   if (p[1] === 'users' && p[2] === 'page') { await showUserListPage(chatId, actor, Number(p[3])); return; }
