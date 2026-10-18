@@ -1474,7 +1474,7 @@ async function renderAdminRewardSettings(chatId, user) {
     text += label + ': ' + await getSetting(key, fallback) + '\n\n';
     rows.push([{ text: label, callback_data: 'admin:setting:' + key }]);
   }
-  rows.push([{ text: t.mainMenuButton, callback_data: 'admin:panel' }]);
+  rows.push([{ text: t.adminPanelButton || t.mainMenuButton, callback_data: 'admin:panel' }]);
   await sendPrompt(chatId, text, { inline_keyboard: rows }, user);
 }
 async function renderAdminConnectionSettings(chatId, user) {
