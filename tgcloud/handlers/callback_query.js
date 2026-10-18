@@ -891,9 +891,16 @@ async function tryOfferSearches() {
       reportDiagnostic('callback-handler', 'Failed to create connection offer', { searchId: search.id, requesterId: search.requester_id, candidateId: candidate.telegram_id, offerCreatedAt, error });
       continue;
     }
-    try { await api.sendMessage({ chat_id: Number(candidate.telegram_id),
-      text: sessionTx(user).sessionText.offer,
-        reply_markup: styleKeyboardMarkup({ inline_keyboard: [[{ text: sessionTx(user).sessionText.accept, callback_data: 'conn:accept:' + offer.id }, { text: sessionTx(user).sessionText.reject, callback_data: 'conn:reject:' + offer.id }]] }) });
+    try {
+      await api.sendMessage({
+        chat_id: Number(candidate.telegram_id),
+        text: sessionTx(candidate).sessionText.offer,
+        reply_markup: styleKeyboardMarkup({ inline_keyboard: [[
+          { text: sessionTx(candidate).sessionText.accept, callback_data: 'conn:accept:' + offer.id },
+          { text: sessionTx(candidate).sessionText.reject, callback_data: 'conn:reject:' + offer.id }
+        ]] })
+      });
+    }
     catch (error) {
       reportDiagnostic('callback-handler', 'Failed to send connection offer to candidate', { searchId: search.id, offerId: offer.id, candidateId: candidate.telegram_id, error });
       await db.update(connection_requests).set({ status: 'rejected', updated_at: new Date().toISOString() }).where(and(eq(connection_requests.id, Number(offer.id)), eq(connection_requests.status, 'pending'))).run();
