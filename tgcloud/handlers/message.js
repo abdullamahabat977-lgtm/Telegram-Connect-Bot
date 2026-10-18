@@ -2186,8 +2186,8 @@ async function processMessage(message) {
   if (field === 'find') await sendPrompt(chatId, '🔎 کوم ډول ملګری غواړې؟', { inline_keyboard: [[{ text: '👨 نارینه', callback_data: 'find:gender:male' }, { text: '👩 ښځینه', callback_data: 'find:gender:female' }], [{ text: '🌐 اتومات', callback_data: 'find:gender:auto' }], [{ text: '❌ لغوه', callback_data: 'find:cancel' }]] }, user);
   else if (field === 'random') {
     const cost = Number(await getSetting('connection_cost_stars', 1));
-    if (Number(user.stars || 0) < cost) await sendPrompt(chatId, '⭐ د ناڅاپي اړیکې لپاره لږ تر لږه ' + cost + ' ستوري پکار دي. ستا بیلانس: ' + Number(user.stars || 0), menuKeyboard(user, await isAdmin(id)), user);
-    else await sendPrompt(chatId, '🎲 ناڅاپي اړیکه پیل کړو؟\n\nد غوښتنې د منلو پر مهال به ' + cost + ' ستوری کم شي.\n\nغواړې غوښتنه واستوې؟', { inline_keyboard: [[{ text: '✅ تایید او غوښتنه واستوه', callback_data: 'conn:confirm:random' }, { text: '❌ لغوه', callback_data: 'conn:cancel' }]] }, user);
+    if (Number(user.stars || 0) < cost) await sendPrompt(chatId, tx(user).sessionText.connectionCostPrefix + cost + tx(user).sessionText.connectionCostSuffix + Number(user.stars || 0), menuKeyboard(user, await isAdmin(id)), user);
+    else await sendPrompt(chatId, tx(user).sessionText.connectionRandomPrompt + cost + tx(user).sessionText.connectionRandomPromptMiddle, { inline_keyboard: [[{ text: tx(user).sessionText.connectionConfirmButton, callback_data: 'conn:confirm:random' }, { text: tx(user).sessionText.connectionCancelButton, callback_data: 'conn:cancel' }]] }, user);
   }
   else if (field === 'game') await startDiceGame(chatId, user);
   else if (field === 'leaderboards') await sendPrompt(chatId, '🏆 لوړ رتبه کسان\n\nلاندې درجه‌بندي وټاکه:', { inline_keyboard: [[{ text: '🏆 تر ټولو ډېرې نمرې', callback_data: 'admin:rank:points' }], [{ text: '📨 تر ټولو ډېر ریفرلونه', callback_data: 'admin:rank:referrals' }], [{ text: '👥 تر ټولو ډېر فالو', callback_data: 'admin:rank:follows' }], [{ text: '❤️ تر ټولو ډېر لایکونه', callback_data: 'admin:rank:likes' }], [{ text: '🔙 اصلي مېنو', callback_data: 'admin:main' }]] }, user);
