@@ -894,7 +894,7 @@ async function relayConnectionMessage(message, session) {
     reportDiagnostic('message-handler', 'Could not relay connection message or reply', {
       sessionId: Number(session.id), senderId, recipientId, error
     });
-    try { await api.sendMessage({ chat_id: senderId, text: tx(user).sessionText.relayError }); } catch (e) {}
+    try { const sender = await getUser(senderId); await api.sendMessage({ chat_id: senderId, text: tx(sender).sessionText.relayError }); } catch (e) {}
   }
 }
 // ── Dice game lifecycle ──
