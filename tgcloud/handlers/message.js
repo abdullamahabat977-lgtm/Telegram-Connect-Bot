@@ -2185,10 +2185,18 @@ async function processMessage(message) {
   }
   if (field === 'find') await sendPrompt(chatId, tx(user).findFriendType, { inline_keyboard: [[{ text: '👨 ' + tx(user).male, callback_data: 'find:gender:male' }, { text: '👩 ' + tx(user).female, callback_data: 'find:gender:female' }], [{ text: '🌐 ' + tx(user).findAuto, callback_data: 'find:gender:auto' }], [{ text: tx(user).findCancelButton, callback_data: 'find:cancel' }]] }, user);
   else if (field === 'random') {
-    const t = tx(user).sessionText;
     const cost = Number(await getSetting('connection_cost_stars', 1));
-    if (Number(user.stars || 0) < cost) await sendPrompt(chatId, t.connectionCostPrefix + cost + t.connectionCostSuffix + Number(user.stars || 0), menuKeyboard(user, await isAdmin(id)), user);
-    else await sendPrompt(chatId, t.connectionRandomPrompt + cost + t.connectionRandomPromptMiddle, { inline_keyboard: [[{ text: t.connectionConfirmButton, callback_data: 'conn:confirm:random' }, { text: t.connectionCancelButton, callback_data: 'conn:cancel' }]] }, user);
+    const t = tx(user).sessionText;
+    if (Number(user.stars || 0) < cost) {
+      await sendPrompt(chatId, t.connectionCostPrefix + cost + t.connectionCostSuffix + Number(user.stars || 0), menuKeyboard(user, await isAdmin(id)), user);
+    } else {
+      await sendPrompt(chatId, t.connectionRandomPrompt + cost + t.connectionRandomPromptMiddle, {
+        inline_keyboard: [[
+          { text: t.connectionConfirmButton, callback_data: 'conn:confirm:random' },
+          { text: t.connectionCancelButton, callback_data: 'conn:cancel' }
+        ]]
+      }, user);
+    }
   }
   else if (field === 'game') await startDiceGame(chatId, user);
   else if (field === 'leaderboards') await sendPrompt(chatId, '🏆 لوړ رتبه کسان\n\nلاندې درجه‌بندي وټاکه:', { inline_keyboard: [[{ text: '🏆 تر ټولو ډېرې نمرې', callback_data: 'admin:rank:points' }], [{ text: '📨 تر ټولو ډېر ریفرلونه', callback_data: 'admin:rank:referrals' }], [{ text: '👥 تر ټولو ډېر فالو', callback_data: 'admin:rank:follows' }], [{ text: '❤️ تر ټولو ډېر لایکونه', callback_data: 'admin:rank:likes' }], [{ text: '🔙 اصلي مېنو', callback_data: 'admin:main' }]] }, user);
