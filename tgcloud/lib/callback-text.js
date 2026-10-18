@@ -1,5 +1,12 @@
 export const TEXT = {
   ps: {
+    adminPhotoPrompt: "🖼 د دې کارن نوی پروفایل عکس راولېږه.",
+    adminBalanceAddVerb: "زیاتول",
+    adminBalanceSubVerb: "کمول",
+    adminBalancePromptPrefix: "لپاره مثبت صحیح عدد راولېږه:",
+    adminBlockAdminDenied: "⛔ د بوټ مدیران د دې پینل له لارې نه شي مسدودېدای.",
+    accountUnrestricted: "✅ ستا د حساب محدودیت لرې شو.",
+    adminSendMessagePrompt: "کارن ته هر ډول پیغام، عکس، ویډیو، فایل، سټیکر، غږ یا نور ټیلیګرام مواد راولېږه.",
     requestStatusCancelled: "⌛ دا غوښتنه مخکې لغوه شوې ده؛ نور اقدام ته اړتیا نشته.",
     requestStatusRejected: "⌛ دا غوښتنه مخکې رد شوې ده.",
     requestStatusExpired: "⌛ د دې غوښتنې وخت پای ته رسېدلی دی.",
@@ -54,6 +61,13 @@ export const TEXT = {
     ready: '🎉 ستا پروفایل جوړ شو!', main: 'اصلي مېنو:', cancelled: "❌ لغوه شو.", findLanguage: "🌐 د کومې ژبې ملګری غواړې؟", auto: "اتومات", costInsufficient: "⭐ د ملګري لټون لپاره ", costSuffix: " ستوري پکار دي. ستا بیلانس: ", confirmFind: "🔎 د ملګري لټون تایید کړه.", gender: "جنسیت", language: "ژبه", deductOnAccept: "⭐ د اړیکې پر منلو به ", deductSuffix: " ستوری کم شي.", confirmButton: "✅ تایید او لټون پیلول", cancelButton: "❌ لغوه", selfAction: "⚠️ دا عمل پر خپل پروفایل نه شي ترسره کېدای.", followedNotice: "❤️ کارن فالو شو.", connectionRefunded: "⚠️ اړیکه د تخنیکي ستونزې له امله جوړه نه شوه؛ ستوري بېرته ستانه شول. بیا هڅه وکړه.", connectionRefundFailed: "⚠️ اړیکه جوړه نه شوه او د ستورو د بېرته ستنولو حالت تایید نه شو. مهرباني وکړه له اډمین سره اړیکه ونیسه.", requestCancelled: "⌛ دا د اړیکې غوښتنه لغوه شوه، ځکه یو ګډونوال له بل کس سره وصل شو.", saved: '✅ بدلون ثبت شو.'
   },
   fa: {
+    adminPhotoPrompt: "🖼 عکس جدید پروفایل این کاربر را بفرستید.",
+    adminBalanceAddVerb: "افزودن به",
+    adminBalanceSubVerb: "کسر از",
+    adminBalancePromptPrefix: "مقدار عدد صحیح مثبت را وارد کنید:",
+    adminBlockAdminDenied: "⛔ مدیران ربات را نمی‌توان از این پنل مسدود کرد.",
+    accountUnrestricted: "✅ محدودیت حساب شما برداشته شد.",
+    adminSendMessagePrompt: "هر نوع پیام، عکس، ویدیو، فایل، استیکر یا محتوای تلگرام را برای این کاربر بفرستید.",
     requestStatusCancelled: "⌛ این درخواست قبلاً لغو شده است؛ اقدام دیگری لازم نیست.",
     requestStatusRejected: "⌛ این درخواست قبلاً رد شده است.",
     requestStatusExpired: "⌛ مهلت این درخواست به پایان رسیده است.",
@@ -108,6 +122,13 @@ export const TEXT = {
     ready: '🎉 پروفایل شما آماده شد!', main: 'منوی اصلی:', cancelled: "❌ لغو شد.", findLanguage: "🌐 دوست را به چه زبانی می‌خواهید؟", auto: "خودکار", costInsufficient: "⭐ برای جستجوی دوست ", costSuffix: " ستاره لازم است. موجودی شما: ", confirmFind: "🔎 جستجوی دوست را تأیید کنید.", gender: "جنسیت", language: "زبان", deductOnAccept: "⭐ با پذیرش ارتباط، ", deductSuffix: " ستاره کسر می‌شود.", confirmButton: "✅ تأیید و شروع جستجو", cancelButton: "❌ لغو", selfAction: "⚠️ این عمل روی پروفایل خودتان امکان‌پذیر نیست.", followedNotice: "❤️ کاربر به دوستان محبوب اضافه شد.", connectionRefunded: "⚠️ به دلیل مشکل فنی ارتباط برقرار نشد؛ ستاره‌ها بازگردانده شدند. دوباره تلاش کنید.", connectionRefundFailed: "⚠️ ارتباط برقرار نشد و بازگشت ستاره‌ها تأیید نشد. لطفاً با مدیر تماس بگیرید.", requestCancelled: "⌛ این درخواست ارتباط لغو شد، زیرا یکی از کاربران به فرد دیگری متصل شد.", saved: '✅ تغییرات ذخیره شد.'
   },
   en: {
+    adminPhotoPrompt: "🖼 Send the new profile photo for this user.",
+    adminBalanceAddVerb: "add to",
+    adminBalanceSubVerb: "subtract from",
+    adminBalancePromptPrefix: "Send a positive whole-number amount:",
+    adminBlockAdminDenied: "⛔ Administrators cannot be blocked from this panel.",
+    accountUnrestricted: "✅ Your account restriction has been removed.",
+    adminSendMessagePrompt: "Send any message, photo, video, document, sticker, voice or other Telegram content for this user.",
     requestStatusCancelled: "⌛ This request was already cancelled; no further action is needed.",
     requestStatusRejected: "⌛ This request was already rejected.",
     requestStatusExpired: "⌛ This request has expired.",
@@ -162,6 +183,13 @@ export const TEXT = {
     ready: '🎉 Your profile is ready!', main: 'Main menu:', cancelled: "❌ Cancelled.", findLanguage: "🌐 Which language should your friend speak?", auto: "Automatic", costInsufficient: "⭐ Friend search costs ", costSuffix: " stars. Your balance: ", confirmFind: "🔎 Confirm friend search.", gender: "Gender", language: "Language", deductOnAccept: "⭐ When the connection is accepted, ", deductSuffix: " stars will be deducted.", confirmButton: "✅ Confirm and start search", cancelButton: "❌ Cancel", selfAction: "⚠️ You cannot perform this action on your own profile.", followedNotice: "❤️ User added to favorites.", connectionRefunded: "⚠️ The connection could not be created due to a technical issue; your stars were refunded. Please try again.", connectionRefundFailed: "⚠️ The connection could not be created and the star refund could not be verified. Please contact an administrator.", requestCancelled: "⌛ This connection request was cancelled because one participant connected with someone else.", saved: '✅ Changes saved.'
   },
   ur: {
+    adminPhotoPrompt: "🖼 اس صارف کی نئی پروفائل تصویر بھیجیں۔",
+    adminBalanceAddVerb: "میں شامل کرنے کے لیے",
+    adminBalanceSubVerb: "میں سے کم کرنے کے لیے",
+    adminBalancePromptPrefix: "مثبت مکمل عدد بھیجیں:",
+    adminBlockAdminDenied: "⛔ اس پینل سے بوٹ ایڈمنز کو بلاک نہیں کیا جا سکتا۔",
+    accountUnrestricted: "✅ آپ کے اکاؤنٹ کی پابندی ہٹا دی گئی ہے۔",
+    adminSendMessagePrompt: "اس صارف کے لیے کوئی بھی پیغام، تصویر، ویڈیو، دستاویز، اسٹیکر، وائس یا دیگر ٹیلیگرام مواد بھیجیں۔",
     requestStatusCancelled: "⌛ یہ درخواست پہلے ہی منسوخ ہو چکی ہے؛ مزید کارروائی کی ضرورت نہیں۔",
     requestStatusRejected: "⌛ یہ درخواست پہلے ہی مسترد ہو چکی ہے۔",
     requestStatusExpired: "⌛ اس درخواست کی مدت ختم ہو گئی ہے۔",
@@ -216,6 +244,13 @@ export const TEXT = {
     ready: '🎉 آپ کا پروفائل تیار ہے!', main: 'مرکزی مینو:', cancelled: "❌ منسوخ ہوگیا۔", findLanguage: "🌐 آپ کس زبان بولنے والا دوست چاہتے ہیں؟", auto: "خودکار", costInsufficient: "⭐ دوست تلاش کرنے کے لیے ", costSuffix: " اسٹارز درکار ہیں۔ آپ کا بیلنس: ", confirmFind: "🔎 دوست کی تلاش کی تصدیق کریں۔", gender: "جنس", language: "زبان", deductOnAccept: "⭐ رابطہ قبول ہونے پر ", deductSuffix: " اسٹارز کٹ جائیں گے۔", confirmButton: "✅ تصدیق کریں اور تلاش شروع کریں", cancelButton: "❌ منسوخ", selfAction: "⚠️ یہ عمل اپنے پروفائل پر نہیں کیا جا سکتا۔", followedNotice: "❤️ صارف پسندیدہ دوستوں میں شامل ہوگیا۔", connectionRefunded: "⚠️ تکنیکی مسئلے کی وجہ سے رابطہ قائم نہیں ہو سکا؛ اسٹارز واپس کر دیے گئے ہیں۔ دوبارہ کوشش کریں۔", connectionRefundFailed: "⚠️ رابطہ قائم نہیں ہوا اور اسٹارز کی واپسی کی تصدیق نہیں ہو سکی۔ ایڈمن سے رابطہ کریں۔", requestCancelled: "⌛ رابطے کی درخواست منسوخ ہوگئی کیونکہ ایک صارف کسی اور سے رابطے میں آگیا۔", saved: '✅ تبدیلی محفوظ ہوگئی۔'
   },
   ar: {
+    adminPhotoPrompt: "🖼 أرسل صورة الملف الشخصي الجديدة لهذا المستخدم.",
+    adminBalanceAddVerb: "إضافة إلى",
+    adminBalanceSubVerb: "خصم من",
+    adminBalancePromptPrefix: "أرسل مبلغاً صحيحاً موجباً:",
+    adminBlockAdminDenied: "⛔ لا يمكن حظر مديري البوت من هذه اللوحة.",
+    accountUnrestricted: "✅ تمت إزالة القيود عن حسابك.",
+    adminSendMessagePrompt: "أرسل أي رسالة أو صورة أو فيديو أو مستند أو ملصق أو رسالة صوتية أو محتوى تيليجرام آخر لهذا المستخدم.",
     requestStatusCancelled: "⌛ تم إلغاء هذا الطلب مسبقاً؛ لا يلزم أي إجراء آخر.",
     requestStatusRejected: "⌛ تم رفض هذا الطلب مسبقاً.",
     requestStatusExpired: "⌛ انتهت صلاحية هذا الطلب.",
