@@ -952,7 +952,7 @@ async function startConnectionSearch(userId, type) {
   const requests = await db.select().from(connection_requests).all();
   if (requests.some(row => ['searching', 'matching', 'pending'].includes(row.status) &&
       (Number(row.requester_id) === Number(userId) || Number(row.recipient_id) === Number(userId)))) {
-    await sendPrompt(userId, tx(user).sessionText.connectionSearchActive, { inline_keyboard: [[{ text: tx(user).sessionText.searchCancelButton || '❌ لټون لغوه کول', callback_data: 'conn:cancel_search' }]] }, user);
+    await sendPrompt(userId, tx(user).sessionText.connectionSearchActive, { inline_keyboard: [[{ text: tx(user).sessionText.searchCancelButton || tx(user).sessionText.searchCancelButton, callback_data: 'conn:cancel_search' }]] }, user);
     return;
   }
   let search = null, searchCreatedAt = null, startupStage = 'claim-user-state';
@@ -1194,7 +1194,7 @@ async function startConnectionSearch(userId, type) {
 
     startupStage = 'send-search-prompt';
     await sendPrompt(userId, tx(user).sessionText.connectionSearchStarted + cost + tx(user).sessionText.connectionSearchCostSuffix,
-      { inline_keyboard: [[{ text: '❌ لټون لغوه کول', callback_data: 'conn:cancel_search:' + Number(search.id) }]] }, user);
+      { inline_keyboard: [[{ text: tx(user).sessionText.searchCancelButton, callback_data: 'conn:cancel_search:' + Number(search.id) }]] }, user);
   } catch (error) {
     reportDiagnostic('callback-handler', 'Failed to start connection search', {
       userId: Number(userId), type, stage: startupStage,
