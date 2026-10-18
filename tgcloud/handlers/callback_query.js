@@ -164,14 +164,15 @@ async function showAdminUserSettings(chatId, actor, target) {
   const country = COUNTRIES.find(item => item.code === target.country), w = listWords(actor), rt = sessionTx(actor).sessionText.adminText;
   const favCount = await db.$count(favorites, eq(favorites.user_telegram_id, Number(target.telegram_id)));
   const title = actor.language === 'en' ? '👤 USER SETTINGS' : actor.language === 'fa' ? '👤 تنظیمات کاربر' : actor.language === 'ur' ? '👤 صارف کی ترتیبات' : actor.language === 'ar' ? '👤 إعدادات المستخدم' : '👤 د کارن تنظیمات';
+  const gender = target.gender === 'male' ? sessionTx(actor).male : target.gender === 'female' ? sessionTx(actor).female : '—';
   const text = title + '\n━━━━━━━━━━━━━━\n👤 ' + [target.name || target.first_name || '—', target.surname || ''].filter(Boolean).join(' ') +
-    '\n🆔 ' + target.telegram_id + '\n🔗 ' + (target.username ? '@' + target.username : '—') +
-    '\n🌍 ' + (country ? country.label : '—') + '\n⚧ ' + (target.gender || '—') + '  🎂 ' + (target.age || '—') +
+    '\n' + rt.idLabel + ': ' + target.telegram_id + '\n' + rt.usernameLabel + ': ' + (target.username ? '@' + target.username : '—') +
+    '\n🌍 ' + (country ? country.label : '—') + '\n⚧ ' + gender + '  🎂 ' + (target.age || '—') +
     '\n📢 ' + (target.channel_username || '—') + '\n📨 ' + w.ref + ': ' + Number(target.referral_count || 0) +
     '\n👥 ' + w.fav + ': ' + favCount + '\n⭐ ' + w.stars + ': ' + Number(target.stars || 0) +
     '\n🏆 ' + w.points + ': ' + Number(target.points || 0) + '\n❤️ ' + w.likes + ': ' + Number(target.likes || 0) +
-    '\n🖼 ' + (actor.language === 'en' ? 'Photo' : actor.language === 'fa' ? 'عکس' : actor.language === 'ur' ? 'تصویر' : actor.language === 'ar' ? 'الصورة' : 'عکس') + ': ' + (target.profile_photo_id ? '✓' : '—') +
-    '\n🚦 ' + (actor.language === 'en' ? 'Status' : actor.language === 'fa' ? 'وضعیت' : actor.language === 'ur' ? 'حالت' : actor.language === 'ar' ? 'الحالة' : 'حالت') + ': ' + (Number(target.is_blocked) === 1 ? (actor.language === 'en' ? 'Blocked' : 'مسدود') : (actor.language === 'en' ? 'Active' : 'فعال'));
+    '\n🖼 ' + rt.photoLabel + ': ' + (target.profile_photo_id ? '✓' : '—') +
+    '\n🚦 ' + rt.statusLabel + ': ' + (Number(target.is_blocked) === 1 ? rt.blockedStatus : rt.activeStatus);
   await sendPrompt(chatId, text, adminSettingsKeyboard(actor, target.telegram_id, target.is_blocked), actor);
 }
 async function showAdminListPage(chatId, actor, page) {
