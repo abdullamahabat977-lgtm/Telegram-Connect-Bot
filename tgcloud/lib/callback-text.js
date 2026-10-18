@@ -1,5 +1,7 @@
 export const TEXT = {
   ps: {
+    profileFollowersOnly: "🔒 ستا بشپړ پروفایل به یوازې ستا پالو ملګرو ته ښکاري؛ نورو ته به یوازې نوم او جنسیت ښکاري.",
+    profilePublic: "🌐 ستا پروفایل ټولو ته ښکاره دی، خو د ستورو بیلانس هېڅکله نورو ته نه ښکاري.",
     findDeductionPrefix: "⭐ د اړیکې پر منلو به ",
     findDeductionSuffix: " ستوری کم شي.",
     findCancel: "❌ لغوه شو.",
@@ -23,6 +25,8 @@ export const TEXT = {
     ready: '🎉 ستا پروفایل جوړ شو!', main: 'اصلي مېنو:', saved: '✅ بدلون ثبت شو.'
   },
   fa: {
+    profileFollowersOnly: "🔒 پروفایل کامل شما فقط برای دنبال‌کنندگان‌تان نمایش داده می‌شود؛ دیگران فقط نام و جنسیت را می‌بینند.",
+    profilePublic: "🌐 پروفایل شما برای همه قابل مشاهده است، اما موجودی ستاره‌ها هرگز به دیگران نشان داده نمی‌شود.",
     findDeductionPrefix: "⭐ با پذیرفتن ارتباط، ",
     findDeductionSuffix: " ستاره کسر می‌شود.",
     findCancel: "❌ لغو شد.",
@@ -46,6 +50,8 @@ export const TEXT = {
     ready: '🎉 پروفایل شما آماده شد!', main: 'منوی اصلی:', saved: '✅ تغییرات ذخیره شد.'
   },
   en: {
+    profileFollowersOnly: "🔒 Your full profile is visible only to your followers; others can see only your name and gender.",
+    profilePublic: "🌐 Your profile is visible to everyone, but your star balance is never shown to others.",
     findDeductionPrefix: "⭐ Accepting the connection will deduct ",
     findDeductionSuffix: " stars.",
     findCancel: "❌ Cancelled.",
@@ -69,6 +75,8 @@ export const TEXT = {
     ready: '🎉 Your profile is ready!', main: 'Main menu:', saved: '✅ Changes saved.'
   },
   ur: {
+    profileFollowersOnly: "🔒 آپ کا مکمل پروفائل صرف آپ کے فالوورز دیکھ سکتے ہیں؛ دوسرے صرف نام اور جنس دیکھیں گے۔",
+    profilePublic: "🌐 آپ کا پروفائل سب کے لیے نظر آتا ہے، لیکن اسٹارز کا بیلنس کسی کو نہیں دکھایا جاتا۔",
     findDeductionPrefix: "⭐ رابطہ قبول کرنے پر ",
     findDeductionSuffix: " اسٹارز کٹیں گے۔",
     findCancel: "❌ منسوخ ہو گیا۔",
@@ -92,6 +100,8 @@ export const TEXT = {
     ready: '🎉 آپ کا پروفائل تیار ہے!', main: 'مرکزی مینو:', saved: '✅ تبدیلی محفوظ ہوگئی۔'
   },
   ar: {
+    profileFollowersOnly: "🔒 يظهر ملفك الكامل لمتابعيك فقط؛ أما الآخرون فيرون الاسم والجنس فقط.",
+    profilePublic: "🌐 ملفك الشخصي ظاهر للجميع، لكن رصيد النجوم لا يظهر للآخرين أبداً.",
     findDeductionPrefix: "⭐ عند قبول الاتصال سيتم خصم ",
     findDeductionSuffix: " نجوم.",
     findCancel: "❌ تم الإلغاء.",
