@@ -2018,7 +2018,7 @@ async function handleSessionCallback(query, actor, data, actorId, chatId) {
       : [];
     if (!ratingSession || ratingSession.status !== 'ended' ||
         !sessionParticipants.includes(actorId) || !sessionParticipants.includes(targetId) || targetId === actorId) {
-      await sendPrompt(chatId, '⚠️ د نمرو ورکولو لپاره باید همدا ستا له تېر ملګري سره پای ته رسېدلې اړیکه وي.', mainKeyboard(actor, await isAdmin(actorId)), actor);
+      await sendPrompt(chatId, tx(actor).sessionText.rateWrongSession, mainKeyboard(actor, await isAdmin(actorId)), actor);
       return;
     }
     const allRatings = await db.select().from(user_ratings).all();
@@ -2028,7 +2028,7 @@ async function handleSessionCallback(query, actor, data, actorId, chatId) {
       Number(row.rated_id) === targetId
     );
     if (thisSessionRating) {
-      await sendPrompt(chatId, '⭐ په دې اړیکه کې دې مخکې نمره ورکړې ده.', mainKeyboard(actor, await isAdmin(actorId)), actor); return;
+      await sendPrompt(chatId, tx(actor).sessionText.rateAlready, mainKeyboard(actor, await isAdmin(actorId)), actor); return;
     }
     const alreadyGiven = allRatings
       .filter(row => Number(row.rater_id) === actorId && Number(row.rated_id) === targetId)
@@ -2036,14 +2036,14 @@ async function handleSessionCallback(query, actor, data, actorId, chatId) {
     const remaining = Math.max(0, 5 - alreadyGiven);
     if (remaining < 1 || rating > remaining) {
       await sendPrompt(chatId, remaining > 0
-        ? '⚠️ دې کارن ته ټولټال یوازې ' + remaining + ' نمرې نورې ورکولای شې.'
-        : '⭐ دې کارن ته دې د ټول عمر ۵ نمرې پوره کړې دي؛ نورې نمرې نه شې ورکولای.',
+        ? tx(actor).sessionText.rateRemainingPrefix + remaining + tx(actor).sessionText.rateRemainingSuffix
+        : tx(actor).sessionText.rateMaxReached,
         mainKeyboard(actor, await isAdmin(actorId)), actor);
       return;
     }
     await db.insert(user_ratings).values({ session_id: sessionId, rater_id: actorId, rated_id: targetId, rating, created_at: new Date().toISOString() }).run();
     await db.update(users).set({ points: Number(target.points || 0) + rating }).where(eq(users.telegram_id, targetId)).run();
-    await sendPrompt(chatId, '✅ ' + rating + ' نمرې دې کارن ته ورکړې. دې کارن ته دې ټولټال ' + (alreadyGiven + rating) + ' له ۵ نمرې ورکړې دي.', mainKeyboard(actor, await isAdmin(actorId)), actor); return;
+    await sendPrompt(chatId, tx(actor).sessionText.rateSuccessPrefix + rating + tx(actor).sessionText.rateSuccessMiddle + (alreadyGiven + rating) + tx(actor).sessionText.rateSuccessSuffix, mainKeyboard(actor, await isAdmin(actorId)), actor); return;
   }
   if (action === 'profile') {
     const session = await db.select().from(chat_sessions).where(eq(chat_sessions.id, sessionId)).get();
