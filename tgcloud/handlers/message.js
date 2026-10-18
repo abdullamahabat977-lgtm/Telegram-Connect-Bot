@@ -1464,17 +1464,17 @@ export async function tryMatchGames() {
 }
 // ── Admin settings and admin workflows ──
 async function renderAdminRewardSettings(chatId, user) {
-  const keys = [
-    ['welcome_reward_stars','⭐ د ښه راغلاست ستوري',10], ['welcome_reward_points','🏆 د ښه راغلاست نمرې',3], ['welcome_reward_likes','❤️ د ښه راغلاست لایکونه',2],
-    ['referral_reward_stars','⭐ د ریفرل ستوري',15], ['referral_reward_points','🏆 د ریفرل نمرې',5], ['referral_reward_likes','❤️ د ریفرل لایکونه',2]
-  ];
-  let text = '🎁 د جایزو تنظیمات\n\nهره جایزه جلا بدله کړه:\n\n';
+  const t = tx(user).sessionText.adminText;
+  const keys = ['welcome_reward_stars','welcome_reward_points','welcome_reward_likes','referral_reward_stars','referral_reward_points','referral_reward_likes'];
+  let text = t.rewardSettingsTitle + '\n\n' + t.rewardSettingsIntro + '\n\n';
   const rows = [];
-  for (const item of keys) {
-    text += item[1] + ': ' + await getSetting(item[0], item[2]) + '\n\n';
-    rows.push([{ text: item[1], callback_data: 'admin:setting:' + item[0] }]);
+  for (const key of keys) {
+    const label = t.settingLabels[key];
+    const fallback = key === 'welcome_reward_stars' ? 10 : key === 'welcome_reward_points' ? 3 : key === 'welcome_reward_likes' ? 2 : key === 'referral_reward_stars' ? 15 : key === 'referral_reward_points' ? 5 : 2;
+    text += label + ': ' + await getSetting(key, fallback) + '\n\n';
+    rows.push([{ text: label, callback_data: 'admin:setting:' + key }]);
   }
-  rows.push([{ text: '🔙 اډمین پینل', callback_data: 'admin:panel' }]);
+  rows.push([{ text: t.mainMenuButton, callback_data: 'admin:panel' }]);
   await sendPrompt(chatId, text, { inline_keyboard: rows }, user);
 }
 async function renderAdminConnectionSettings(chatId, user) {
