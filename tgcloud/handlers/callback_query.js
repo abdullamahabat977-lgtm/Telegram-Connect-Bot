@@ -224,7 +224,7 @@ async function showFavoriteSettings(chatId, actor, page) {
   let text = '❤️ ' + w.fav + '\n' + (current + 1) + '/' + pages + '\n\n';
   for (const item of items) {
     const friend = await getUser(item.favorite_telegram_id); if (!friend) continue;
-    const name = [friend.name || friend.first_name || 'User', friend.surname || ''].filter(Boolean).join(' ');
+    const name = [friend.name || friend.first_name || mt(actor).sessionText.fallbackName, friend.surname || ''].filter(Boolean).join(' ');
     text += '👤 ' + name + '\n🆔 ' + friend.telegram_id + '\n\n';
     rows.push([{ text: '❌ ' + w.unfollow + ' ' + name.slice(0, 24), callback_data: 'settings:unfavorite:' + friend.telegram_id + ':' + current }]);
   }
