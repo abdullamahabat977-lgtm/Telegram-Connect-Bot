@@ -1941,7 +1941,7 @@ async function handleFindCallback(query, actor, data, actorId, chatId) {
     if (Number(actor.stars || 0) < cost) { await sendPrompt(chatId, tx(actor).findCostPrefix + cost + tx(actor).findCostSuffix + Number(actor.stars || 0), mainKeyboard(actor, await isAdmin(actorId)), actor); return; }
     const gender = actor.search_gender === 'male' ? tx(actor).male : actor.search_gender === 'female' ? tx(actor).female : tx(actor).auto;
     const language = p[2] === 'auto' ? tx(actor).auto : (LANGUAGES.find(item => item.code === p[2]) || {}).label || p[2];
-    await sendPrompt(chatId, '🔎 د ملګري لټون تایید کړه.\n\n👤 جنسیت: ' + gender + '\n\n🌐 ژبه: ' + language + '\n\n⭐ د اړیکې پر منلو به ' + cost + ' ستوری کم شي.', { inline_keyboard: [[{ text: tx(actor).findConfirmButton, callback_data: 'conn:confirm:find' }, { text: tx(actor).findCancelButton, callback_data: 'conn:cancel' }]] }, actor); return;
+    await sendPrompt(chatId, tx(actor).findConfirmTitle + '\n\n👤 ' + tx(actor).genderLabel + ': ' + gender + '\n\n🌐 ' + tx(actor).languageLabel + ': ' + language + '\n\n' + tx(actor).findDeductionPrefix + cost + tx(actor).findDeductionSuffix, { inline_keyboard: [[{ text: tx(actor).findConfirmButton, callback_data: 'conn:confirm:find' }, { text: tx(actor).findCancelButton, callback_data: 'conn:cancel' }]] }, actor); return;
   }
 }
 async function adjustUserLikes(targetId, delta) {
