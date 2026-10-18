@@ -320,8 +320,8 @@ async function showFavoriteSettings(chatId, user, page) {
   let text = '❤️ ' + w.fav + '\n' + (current + 1) + '/' + pages + '\n\n';
   for (const item of items) {
     const friend = await getUser(item.favorite_telegram_id); if (!friend) continue;
-    const name = [friend.name || friend.first_name || 'User', friend.surname || ''].filter(Boolean).join(' ');
-    text += '👤 ' + name + '\n🆔 ' + friend.telegram_id + '\n\n';
+    const name = [friend.name || friend.first_name || tx(user).sessionText.fallbackName, friend.surname || ''].filter(Boolean).join(' ');
+    text += '👤 ' + name + '\n' + tx(user).telegramIdLabel + ' <code>' + Number(friend.telegram_id) + '</code>\n\n';
     rows.push([{ text: '❌ ' + w.unfollow + ' ' + name.slice(0, 24), callback_data: 'settings:unfavorite:' + friend.telegram_id + ':' + current }]);
   }
   if (!all.length) text += tx(user).noFavorites;
@@ -335,15 +335,15 @@ async function showFavoriteSettings(chatId, user, page) {
 function escapeHtml(value) {
   return String(value == null ? '' : value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
-function rankingName(row) {
-  return [row.name || row.first_name || row.username || 'کارن', row.surname || ''].filter(Boolean).join(' ');
+function rankingName(row, user) {
+  return [row.name || row.first_name || row.username || tx(user).sessionText.fallbackName, row.surname || ''].filter(Boolean).join(' ');
 }
 async function topReferralText(allUsers, user) {
   const top = allUsers.slice().sort((a, b) => Number(b.referral_count || 0) - Number(a.referral_count || 0)).filter(row => Number(row.referral_count || 0) > 0).slice(0, 5);
   if (!top.length) return tx(user).noReferrals;
-  return top.map((row, i) => (i + 1) + '. ' + escapeHtml(rankingName(row)) +
-    '\n🆔 ID: <code>' + Number(row.telegram_id) + '</code>' +
-    '\n📨 ریفرلونه: ' + Number(row.referral_count || 0)).join('\n\n\n');
+  return top.map((row, i) => (i + 1) + '. ' + escapeHtml(rankingName(row, user)) +
+    '\n' + tx(user).telegramIdLabel + ' <code>' + Number(row.telegram_id) + '</code>' +
+    '\n📨 ' + tx(user).sessionText.referrals + ': ' + Number(row.referral_count || 0)).join('\n\n\n');
 }
 async function showStats(chatId, user) {
   const t = tx(user), allUsers = await db.select().from(users).all();
