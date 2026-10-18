@@ -557,7 +557,7 @@ async function endConnection(session, reason) {
     if (!following) rows.push([{ text: p.follow + ' · ' + name, callback_data: 'session:follow:' + pair.partnerId + ':' + session.id }]);
     rows.push([{ text: p.mainMenu, callback_data: 'settings:main' }]);
     try {
-      await sendPrompt(pair.id, '🛑 اړیکه پای ته ورسېده.\n\n👤 د تېر ملګري نوم: ' + name + '\n\nکه غواړې، خپل پاتې نمرې ورکړه یا ملګری فالو کړه. د پیغامونو حذفولو لپاره د کیبورډ تڼۍ وکاروه.', { inline_keyboard: rows }, user);
+      await sendPrompt(pair.id, p.ended + '\n\n' + p.partnerName + name + '\n\n' + p.afterEnd, { inline_keyboard: rows }, user);
     } catch (e) {}
     try {
       await api.sendMessage({
