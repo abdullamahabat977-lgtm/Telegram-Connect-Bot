@@ -621,7 +621,7 @@ async function expireUserTimedActions(userId) {
     for (const offer of requests.filter(row => Number(row.requester_id) === id && row.status === 'pending')) {
       await db.update(connection_requests).set({ status: 'expired', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, Number(offer.id))).run();
       offer.status = 'expired';
-      if (Number(offer.recipient_id) > 0) try { await api.sendMessage({ chat_id: Number(offer.recipient_id), text: '⌛ د اړیکې غوښتنه د وخت د تېرېدو له امله لغوه شوه.' }); } catch (e) {}
+      if (Number(offer.recipient_id) > 0) try { await api.sendMessage({ chat_id: Number(offer.recipient_id), text: tx(user).sessionText.connectionTimeoutSearch }); } catch (e) {}
     }
     if (user.state === 'searching_connection') await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, id)).run();
     expired = true;
@@ -638,12 +638,12 @@ async function expireUserTimedActions(userId) {
       const requester = await getUser(sourceSearch.requester_id);
       if (requester) {
         if (requester.state === 'searching_connection') await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, Number(requester.telegram_id))).run();
-        try { await api.sendMessage({ chat_id: Number(requester.telegram_id), text: '⌛ د ملګري لټون وخت پای ته ورسېد؛ غوښتنه لغوه شوه. بیا هڅه وکړه.' }); } catch (e) {}
+        try { await api.sendMessage({ chat_id: Number(requester.telegram_id), text: tx(user).sessionText.searchTimeout }); } catch (e) {}
       }
       for (const otherOffer of requests.filter(row => Number(row.requester_id) === Number(sourceSearch.requester_id) && row.status === 'pending')) {
         await db.update(connection_requests).set({ status: 'expired', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, Number(otherOffer.id))).run();
         otherOffer.status = 'expired';
-        if (Number(otherOffer.recipient_id) > 0 && Number(otherOffer.recipient_id) !== id) try { await api.sendMessage({ chat_id: Number(otherOffer.recipient_id), text: '⌛ د اړیکې غوښتنه د وخت د تېرېدو له امله لغوه شوه.' }); } catch (e) {}
+        if (Number(otherOffer.recipient_id) > 0 && Number(otherOffer.recipient_id) !== id) try { await api.sendMessage({ chat_id: Number(otherOffer.recipient_id), text: tx(user).sessionText.connectionTimeoutSearch }); } catch (e) {}
       }
     }
     expired = true;
@@ -674,8 +674,8 @@ async function expireUserTimedActions(userId) {
     expired = true;
   }
   if (expired && !notifiedActor) {
-    try { await sendPrompt(id, '⌛ ستا پخوانی عمل د وخت د تېرېدو له امله لغوه شو. دا پیغام یوازې د لغوه کولو لپاره و؛ اوس بیا هڅه کولای شې.', menuKeyboard(user, await isAdmin(id)), user); }
-    catch (e) { try { await api.sendMessage({ chat_id: id, text: '⌛ ستا پخوانی عمل د وخت د تېرېدو له امله لغوه شو. بیا هڅه وکړه.' }); } catch (ignored) {} }
+    try { await sendPrompt(id, tx(user).sessionText.actionExpiredCancel, menuKeyboard(user, await isAdmin(id)), user); }
+    catch (e) { try { await api.sendMessage({ chat_id: id, text: tx(user).sessionText.actionExpired }); } catch (ignored) {} }
   }
   return expired;
 }
@@ -718,10 +718,10 @@ async function tryOfferSearches() {
         .returning({ id: connection_requests.id }).run();
       if (expiredOffer && Array.isArray(expiredOffer.rows) && expiredOffer.rows.length > 0) {
         staleOffer.status = 'expired';
-        if (Number(staleOffer.recipient_id) > 0) try { await api.sendMessage({ chat_id: Number(staleOffer.recipient_id), text: '⌛ د اړیکې غوښتنه د وخت د تېرېدو له امله لغوه شوه.' }); } catch (e) {}
+        if (Number(staleOffer.recipient_id) > 0) try { await api.sendMessage({ chat_id: Number(staleOffer.recipient_id), text: tx(user).sessionText.connectionTimeoutSearch }); } catch (e) {}
       }
     }
-    try { await api.sendMessage({ chat_id: Number(staleSearch.requester_id), text: '⌛ د ملګري لټون وخت پای ته ورسېد؛ غوښتنه لغوه شوه. بیا هڅه وکړه.' }); } catch (e) {}
+    try { await api.sendMessage({ chat_id: Number(staleSearch.requester_id), text: tx(user).sessionText.searchTimeout }); } catch (e) {}
   }
   for (const search of searches.filter(row => row.status === 'searching')) {
     const age = now - Date.parse(search.created_at || '');
@@ -842,7 +842,7 @@ async function tryOfferSearches() {
     try {
       await api.sendMessage({ chat_id: Number(candidate.telegram_id),
         text: '🎲 یو ناڅاپي کس غواړي له تا سره اړیکه پیل کړي.\n\nته د غوښتونکي نوم، عکس، جنسیت او نور معلومات نه وینې. که غوښتنه ومنې، اړیکه به وصل شي؛ که رد یې کړې، بل کس ته به غوښتنه واستول شي.',
-        reply_markup: styleKeyboardMarkup({ inline_keyboard: [[{ text: '✅ غوښتنه منل', callback_data: 'conn:accept:' + offer.id }, { text: '❌ ردول', callback_data: 'conn:reject:' + offer.id }]] })
+        reply_markup: styleKeyboardMarkup({ inline_keyboard: [[{ text: tx(candidate).sessionText.accept, callback_data: 'conn:accept:' + offer.id }, { text: tx(candidate).sessionText.reject, callback_data: 'conn:reject:' + offer.id }]] })
       });
     } catch (error) {
       reportDiagnostic('message-handler', 'Failed to send connection offer to candidate', { searchId: search.id, offerId: offer.id, candidateId: candidate.telegram_id, error });
@@ -891,7 +891,7 @@ async function relayConnectionMessage(message, session) {
     reportDiagnostic('message-handler', 'Could not relay connection message or reply', {
       sessionId: Number(session.id), senderId, recipientId, error
     });
-    try { await api.sendMessage({ chat_id: senderId, text: '⚠️ دا پیغام یا د هغه Reply بل ملګري ته ونه لېږل شو. بل ډول پیغام واستوه.' }); } catch (e) {}
+    try { await api.sendMessage({ chat_id: senderId, text: tx(user).sessionText.relayError }); } catch (e) {}
   }
 }
 // ── Dice game lifecycle ──
@@ -1303,7 +1303,7 @@ export async function tryMatchGames() {
           text: '🎲 یو فعال کارن غواړي له تا سره د ګېم لوبه وکړي.\n\nد لوبې لپاره لږ تر لږه ' + requiredBalance + ' ستوري پکار دي. د ګټلو جایزه ' + minStars + ' ده او فیس ' + fee + ' له جایزې کمېږي. د منلو یا ردولو انتخاب وکړه.',
           reply_markup: styleKeyboardMarkup({ inline_keyboard: [[
             { text: '✅ ګېم منل', callback_data: 'game:accept:' + game.id },
-            { text: '❌ ردول', callback_data: 'game:reject:' + game.id }
+            { text: tx(candidate).sessionText.reject, callback_data: 'game:reject:' + game.id }
           ]] })
         });
         offerDelivered = true;
@@ -1336,7 +1336,7 @@ export async function tryMatchGames() {
               text: '🎲 یو فعال کارن غواړي له تا سره د ګېم لوبه وکړي.\n\nد لوبې لپاره لږ تر لږه ' + requiredBalance + ' ستوري پکار دي. د ګټلو جایزه ' + minStars + ' ده او فیس ' + fee + ' له جایزې کمېږي. د منلو یا ردولو انتخاب وکړه.',
               reply_markup: { inline_keyboard: [[
                 { text: '✅ ګېم منل', callback_data: 'game:accept:' + game.id },
-                { text: '❌ ردول', callback_data: 'game:reject:' + game.id }
+                { text: tx(candidate).sessionText.reject, callback_data: 'game:reject:' + game.id }
               ]] }
             });
             offerDelivered = true;
