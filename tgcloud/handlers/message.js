@@ -1017,7 +1017,7 @@ async function startDiceGame(chatId, user) {
     try {
       await api.sendMessage({
         chat_id: Number(chatId),
-        text: tx(user).sessionText.connectionMatchFailed
+        text: tx(user).sessionText.gameText.gameMatchFailed
       });
     } catch (notifyError) {
       reportDiagnostic('message-handler', 'Could not notify player about matchmaking failure', {
