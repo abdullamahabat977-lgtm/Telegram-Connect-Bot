@@ -1926,22 +1926,22 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
 }
 async function handleFindCallback(query, actor, data, actorId, chatId) {
   const p = data.split(':');
-  if (p[1] === 'cancel') { await showMain(chatId, actor, '❌ لغوه شو.'); return; }
+  if (p[1] === 'cancel') { await showMain(chatId, actor, tx(actor).findCancel); return; }
   if (p[1] === 'gender') {
     if (!['male','female','auto'].includes(p[2])) return;
     await db.update(users).set({ search_gender: p[2], state: 'find_choose_language' }).where(eq(users.telegram_id, actorId)).run();
     actor.search_gender = p[2]; actor.state = 'find_choose_language';
-    await sendPrompt(chatId, '🌐 د کومې ژبې ملګری غواړې؟', { inline_keyboard: [[{ text: 'پښتو', callback_data: 'find:language:ps' }, { text: 'دري', callback_data: 'find:language:fa' }], [{ text: 'English', callback_data: 'find:language:en' }, { text: 'اردو', callback_data: 'find:language:ur' }], [{ text: 'العربية', callback_data: 'find:language:ar' }], [{ text: '🌐 اتومات', callback_data: 'find:language:auto' }], [{ text: '❌ لغوه', callback_data: 'find:cancel' }]] }, actor); return;
+    await sendPrompt(chatId, tx(actor).findChooseLanguage, { inline_keyboard: [[{ text: 'پښتو', callback_data: 'find:language:ps' }, { text: 'دري', callback_data: 'find:language:fa' }], [{ text: 'English', callback_data: 'find:language:en' }, { text: 'اردو', callback_data: 'find:language:ur' }], [{ text: 'العربية', callback_data: 'find:language:ar' }], [{ text: '🌐 ' + tx(actor).auto, callback_data: 'find:language:auto' }], [{ text: '❌ لغوه', callback_data: 'find:cancel' }]] }, actor); return;
   }
   if (p[1] === 'language') {
     if (!['ps','fa','en','ur','ar','auto'].includes(p[2])) return;
     await db.update(users).set({ search_language: p[2], state: 'ready' }).where(eq(users.telegram_id, actorId)).run();
     actor.search_language = p[2]; actor.state = 'ready';
     const cost = Number(await getSetting('connection_cost_stars', 1));
-    if (Number(actor.stars || 0) < cost) { await sendPrompt(chatId, '⭐ د ملګري لټون لپاره ' + cost + ' ستوري پکار دي. ستا بیلانس: ' + Number(actor.stars || 0), mainKeyboard(actor, await isAdmin(actorId)), actor); return; }
-    const gender = actor.search_gender === 'male' ? 'نارینه' : actor.search_gender === 'female' ? 'ښځینه' : 'اتومات';
-    const language = p[2] === 'auto' ? 'اتومات' : (LANGUAGES.find(item => item.code === p[2]) || {}).label || p[2];
-    await sendPrompt(chatId, '🔎 د ملګري لټون تایید کړه.\n\n👤 جنسیت: ' + gender + '\n\n🌐 ژبه: ' + language + '\n\n⭐ د اړیکې پر منلو به ' + cost + ' ستوری کم شي.', { inline_keyboard: [[{ text: '✅ تایید او لټون پیلول', callback_data: 'conn:confirm:find' }, { text: '❌ لغوه', callback_data: 'conn:cancel' }]] }, actor); return;
+    if (Number(actor.stars || 0) < cost) { await sendPrompt(chatId, tx(actor).findCostPrefix + cost + tx(actor).findCostSuffix + Number(actor.stars || 0), mainKeyboard(actor, await isAdmin(actorId)), actor); return; }
+    const gender = actor.search_gender === 'male' ? tx(actor).male : actor.search_gender === 'female' ? tx(actor).female : tx(actor).auto;
+    const language = p[2] === 'auto' ? tx(actor).auto : (LANGUAGES.find(item => item.code === p[2]) || {}).label || p[2];
+    await sendPrompt(chatId, '🔎 د ملګري لټون تایید کړه.\n\n👤 جنسیت: ' + gender + '\n\n🌐 ژبه: ' + language + '\n\n⭐ د اړیکې پر منلو به ' + cost + ' ستوری کم شي.', { inline_keyboard: [[{ text: tx(actor).findConfirmButton, callback_data: 'conn:confirm:find' }, { text: tx(actor).findCancelButton, callback_data: 'conn:cancel' }]] }, actor); return;
   }
 }
 async function adjustUserLikes(targetId, delta) {
