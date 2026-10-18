@@ -945,7 +945,7 @@ async function startConnectionSearch(userId, type) {
         ? Number(gameRow.opponent_id || 0)
         : Number(gameRow.player_id || 0);
       if (gameRow.status === 'pending' && otherId > 0 && otherId !== Number(userId)) {
-        try { await api.sendMessage({ chat_id: otherId, text: '⌛ د ګېم غوښتنې وخت پای ته رسېدلی؛ دا ګېم نور فعال نه دی.' }); }
+        try { await api.sendMessage({ chat_id: otherId, text: tx(user).gameRequestExpired }); }
         catch (notifyError) {
           console.warn('Could not notify other player about expired game request', { gameId: Number(gameRow.id), otherId, notifyError });
         }
@@ -956,7 +956,7 @@ async function startConnectionSearch(userId, type) {
   const activeGames = await db.select().from(game_sessions).all();
   if (activeGames.some(row => ['waiting', 'pending', 'playing', 'settlement_error'].includes(row.status) &&
       (Number(row.player_id) === Number(userId) || Number(row.opponent_id) === Number(userId)))) {
-    await sendPrompt(userId, '⚠️ ته لا د ګېم په بهیر کې یې. که ګېم لا د انتظار په حالت کې وي، د انتظار وخت پای ته رسېدو وروسته بیا هڅه وکړه؛ که د تصفیې ستونزه وي، له اډمین سره اړیکه ونیسه.', mainKeyboard(user, await isAdmin(userId)), user);
+    await sendPrompt(userId, tx(user).gameBusy, mainKeyboard(user, await isAdmin(userId)), user);
     return;
   }
   stage = 'load-active-requests';
@@ -1260,7 +1260,7 @@ async function startConnectionSearch(userId, type) {
             .returning({ id: connection_requests.id }).run();
           if (cancelledOffer && Array.isArray(cancelledOffer.rows) && cancelledOffer.rows.length > 0) {
             try {
-              await api.sendMessage({ chat_id: Number(offer.recipient_id), text: '⌛ د اړیکې غوښتنه د تخنیکي ستونزې له امله لغوه شوه.' });
+              await api.sendMessage({ chat_id: Number(offer.recipient_id), text: tx(actor).connectionRequestCancelledError });
             } catch (notifyError) {
               console.warn('Could not notify recipient about cleaned-up connection offer', {
                 searchId: Number(search.id), offerId: Number(offer.id), recipientId: Number(offer.recipient_id), notifyError
@@ -1357,7 +1357,7 @@ async function resolveUserGame(game) {
     await db.update(game_sessions).set({ status: 'cancelled', updated_at: new Date().toISOString() })
       .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'playing'))).run();
     try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: sessionTx(player).sessionText.gameInsufficientBalance }); } catch (e) {}
-    try { await api.sendMessage({ chat_id: Number(opponent.telegram_id), text: '⚠️ د لوبې لپاره د یوه لوبغاړي بیلانس کافي نه دی.' }); } catch (e) {}
+    try { await api.sendMessage({ chat_id: Number(opponent.telegram_id), text: tx(user).gameBalanceInsufficient }); } catch (e) {}
     return;
   }
   let pDice, oDice;
@@ -1499,7 +1499,7 @@ async function resolveUserGame(game) {
     }
   }
   for (const pair of [{ id: Number(player.telegram_id), mine: pRoll, other: oRoll, balance: pFinal }, { id: Number(opponent.telegram_id), mine: oRoll, other: pRoll, balance: oFinal }]) {
-    try { await api.sendMessage({ chat_id: pair.id, text: '🎲 د ګېم پایله\n\nستا 🎲: ' + pair.mine + '\n\nد سیال 🎲: ' + pair.other + '\n\n' + result + '\n\n⭐ اوسنی بیلانس: ' + pair.balance }); } catch (e) {}
+    try { await api.sendMessage({ chat_id: pair.id, text: tx(user).gameResultTitle + '\n\n' + tx(user).yourDice + ': ' + pair.mine + '\n\n' + tx(user).opponentDice + ': ' + pair.other + '\n\n' + result + '\n\n' + tx(user).currentBalance + ': ' + pair.balance }); } catch (e) {}
   }
 }
 async function handleConnectionCallback(query, actor, data, actorId, chatId) {
@@ -2422,7 +2422,7 @@ export default async function (query) {
       chatId: query && query.message && query.message.chat && query.message.chat.id
     });
     if (query && query.message && query.message.chat && query.message.chat.id) {
-      try { await api.sendMessage({ chat_id: query.message.chat.id, text: '⚠️ تخنیکي ستونزه رامنځته شوه. بیا هڅه وکړه.' }); } catch (e) {}
+      try { await api.sendMessage({ chat_id: query.message.chat.id, text: tx(actor).technicalError }); } catch (e) {}
     }
   } finally {
     // Match only after callback handling has completed its response/state transition.
