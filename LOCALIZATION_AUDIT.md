@@ -28,7 +28,7 @@
 - د ګېم د پایلې متن د هر لوبغاړي په خپله ژبه، د ګېم او اډمین تنظیماتو ځینې تېروتنې او تاییدونه.
 - د اډمین د کارن لېست/پروفایل پېژندنې لیبلونه، د ریفرل جایزې خبرتیا او د ګروپ/چینل د بدلون پیغامونه.
 
-د message.js، message-text.js، callback_query.js او callback-text.js لپاره د JavaScript نحوي کتنه بریالۍ وه. د GitHub Actions د Serverless JavaScript د اعتبار ورکولو وروستۍ کتنه هم د 27edfe8 اصلاح لپاره بریالۍ وه؛ له هغې وروسته ځینې نورې کوچنۍ ژباړې هم ثبت شوې دي، نو د وروستي commit لپاره باید د CI حالت بیا تایید شي.
+د message.js، message-text.js، callback_query.js او callback-text.js لپاره د JavaScript نحوي کتنه بریالۍ وه. د GitHub Actions د Serverless JavaScript د اعتبار ورکولو کتنه د 2026-10-18 د وروستیو ژباړیزو بدلونونو لپاره هم بریالۍ وه (run #349، commit `c8801a8`).
 
 ## لنډه پایله
 
