@@ -462,7 +462,7 @@ async function showSessionProfileFromMessage(session, viewerId) {
   const likes = await db.select().from(user_likes).where(eq(user_likes.liker_id, Number(viewerId))).all();
   const liked = likes.some(row => Number(row.liked_id) === targetId);
   const fullProfileAllowed = target.profile_visibility !== 'followers' || following;
-  const text = '🤝 اړیکه فعاله ده.\n\n' + await sessionProfileText(target, viewerId);
+  const text = tx(viewer).sessionText.active + '\n\n' + await sessionProfileText(target, viewerId);
   const markup = sessionInteractionKeyboard(targetId, session.id, following, liked, viewer);
   if (fullProfileAllowed && target.profile_photo_id) {
     try {
@@ -549,7 +549,8 @@ async function endConnection(session, reason) {
     const user = await getUser(pair.id), partner = await getUser(pair.partnerId);
     if (!user) continue;
     await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, pair.id)).run();
-    const p = tx(user).sessionText;\n    const name = partner ? [partner.name || partner.first_name || p.fallbackName, partner.surname || ''].filter(Boolean).join(' ') : p.fallbackName;
+    const p = tx(user).sessionText;
+    const name = partner ? [partner.name || partner.first_name || p.fallbackName, partner.surname || ''].filter(Boolean).join(' ') : p.fallbackName;
     const following = await isFollowing(pair.id, pair.partnerId);
     const ratingButtons = await availableRatingButtons(pair.id, pair.partnerId, session.id);
     const rows = [];
