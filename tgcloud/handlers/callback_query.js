@@ -414,7 +414,7 @@ async function handleAdminCallback(query, actor, data, actorId, chatId) {
   if (p[1] === 'photo') {
     actor.state = 'admin_edit_user_photo:' + targetId;
     await db.update(users).set({ state: actor.state }).where(eq(users.telegram_id, actorId)).run();
-    const prompt = actor.language === 'en' ? 'Send the new profile photo for this user.' : actor.language === 'fa' ? 'عکس جدید پروفایل کاربر را بفرستید.' : actor.language === 'ur' ? 'صارف کی نئی پروفائل تصویر بھیجیں۔' : actor.language === 'ar' ? 'أرسل صورة الملف الشخصي الجديدة لهذا المستخدم.' : 'د دې کارن نوی پروفایل عکس راولېږه.';
+    const prompt = tx(actor).adminPhotoPrompt;
     await sendPrompt(chatId, prompt, { force_reply: true }, actor); return;
   }
   if (p[1] === 'balance') {
@@ -470,7 +470,7 @@ async function handleAdminCallback(query, actor, data, actorId, chatId) {
   if (p[1] === 'send') {
     actor.state = 'admin_send_user_message:' + targetId;
     await db.update(users).set({ state: actor.state }).where(eq(users.telegram_id, actorId)).run();
-    const prompt = actor.language === 'en' ? 'Send any message, photo, video, document, sticker, voice or other Telegram content for this user.' : actor.language === 'fa' ? 'هر نوع پیام، عکس، ویدیو، فایل یا محتوای تلگرام را برای کاربر بفرستید.' : actor.language === 'ur' ? 'صارف کے لیے کوئی بھی پیغام، تصویر، ویڈیو یا فائل بھیجیں۔' : actor.language === 'ar' ? 'أرسل أي رسالة أو صورة أو فيديو أو ملف إلى المستخدم.' : 'کارن ته هر ډول پیغام، عکس، ویډیو، فایل یا نور ټیلیګرام مواد راولېږه.';
+    const prompt = tx(actor).adminSendMessagePrompt;
     await sendPrompt(chatId, prompt, { force_reply: true }, actor); return;
   }
 }
