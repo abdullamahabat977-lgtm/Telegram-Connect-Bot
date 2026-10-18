@@ -1,6 +1,6 @@
 export const T = {
   ps: {
-    lang: '🌐 لومړی خپله ژبه وټاکه:', findFriendType:"🔎 کوم ډول ملګری غواړې؟", country: '🌍 خپل هېواد وټاکه:', gender: '👤 خپل جنسیت وټاکه:',
+    lang: '🌐 لومړی خپله ژبه وټاکه:', findFriendType:"🔎 کوم ډول ملګری غواړې؟", findAuto:"اتومات", findCancelButton:"❌ لغوه", country: '🌍 خپل هېواد وټاکه:', gender: '👤 خپل جنسیت وټاکه:',
     age: '🎂 خپل نږدې عمر وټاکه. عمرونه له ۱۲ څخه تر ۴۰ پورې دي؛ نږدې عمر انتخاب کړه:',
     name: '✍️ خپل نوم ولیکه:', surname: '📝 تخلص اختیاري دی. که یې نه لیکې، لاندې بټن کېکاږه:',
     skip: 'تخلص نه لیکم', membership: '🔐 د بوټ کارولو لپاره په لاندې ټولو ګروپونو یا چینلونو کې ګډون وکړه، بیا د غړیتوب کتلو بټن کېکاږه:',
@@ -60,7 +60,7 @@ export const T = {
     noAccess: '⛔ دا برخه یوازې د مجاز مدیرانو لپاره ده.'
   },
   fa: {
-    lang: '🌐 زبان خود را انتخاب کنید:', findFriendType:"🔎 چه نوع دوستی می‌خواهید؟", country: '🌍 کشور خود را انتخاب کنید:', gender: '👤 جنسیت خود را انتخاب کنید:',
+    lang: '🌐 زبان خود را انتخاب کنید:', findFriendType:"🔎 چه نوع دوستی می‌خواهید؟", findAuto:"خودکار", findCancelButton:"❌ لغو", country: '🌍 کشور خود را انتخاب کنید:', gender: '👤 جنسیت خود را انتخاب کنید:',
     age: '🎂 نزدیک‌ترین سن خود را از ۱۲ تا ۴۰ سال انتخاب کنید:', name: '✍️ نام خود را بنویسید:',
     surname: '📝 نام خانوادگی اختیاری است. برای رد کردن، دکمه زیر را بزنید:', skip: 'رد کردن نام خانوادگی',
     membership: '🔐 برای استفاده از ربات، عضو همه گروه‌ها یا کانال‌های زیر شوید و سپس عضویت را بررسی کنید:',
@@ -119,7 +119,7 @@ export const T = {
     channelFormat: '⚠️ شناسه عددی معتبر بفرستید.', noAccess: '⛔ این بخش فقط برای مدیران مجاز است.'
   },
   en: {
-    lang: '🌐 Choose your language:', findFriendType:"🔎 What kind of friend are you looking for?", country: '🌍 Choose your country:', gender: '👤 Choose your gender:',
+    lang: '🌐 Choose your language:', findFriendType:"🔎 What kind of friend are you looking for?", findAuto:"Automatic", findCancelButton:"❌ Cancel", country: '🌍 Choose your country:', gender: '👤 Choose your gender:',
     age: '🎂 Choose the closest age from 12 to 40:', name: '✍️ Enter your name:',
     surname: '📝 Surname is optional. Press below to skip:', skip: 'Skip surname',
     membership: '🔐 Join every group or channel below to use the bot, then check your membership:',
@@ -178,7 +178,7 @@ export const T = {
     channelFormat: '⚠️ Send a valid numeric ID.', noAccess: '⛔ This section is for authorized admins only.'
   },
   ur: {
-    lang: '🌐 اپنی زبان منتخب کریں:', findFriendType:"🔎 آپ کس قسم کا دوست چاہتے ہیں؟", country: '🌍 اپنا ملک منتخب کریں:', gender: '👤 اپنی جنس منتخب کریں:',
+    lang: '🌐 اپنی زبان منتخب کریں:', findFriendType:"🔎 آپ کس قسم کا دوست چاہتے ہیں؟", findAuto:"خودکار", findCancelButton:"❌ منسوخ", country: '🌍 اپنا ملک منتخب کریں:', gender: '👤 اپنی جنس منتخب کریں:',
     age: '🎂 12 سے 40 سال کے درمیان اپنی قریب ترین عمر منتخب کریں:', name: '✍️ اپنا نام لکھیں:',
     surname: '📝 خاندانی نام اختیاری ہے۔ چھوڑنے کے لیے نیچے بٹن دبائیں:', skip: 'خاندانی نام چھوڑیں',
     membership: '🔐 بوٹ استعمال کرنے کے لیے نیچے دیے گئے تمام گروپس یا چینلز میں شامل ہوں، پھر تصدیق کریں:',
@@ -237,7 +237,7 @@ export const T = {
     channelFormat: '⚠️ درست عددی ID بھیجیں۔', noAccess: '⛔ یہ حصہ صرف مجاز ایڈمنز کے لیے ہے۔'
   },
   ar: {
-    lang: '🌐 اختر لغتك:', findFriendType:"🔎 ما نوع الصديق الذي تبحث عنه؟", country: '🌍 اختر بلدك:', gender: '👤 اختر جنسك:',
+    lang: '🌐 اختر لغتك:', findFriendType:"🔎 ما نوع الصديق الذي تبحث عنه؟", findAuto:"تلقائي", findCancelButton:"❌ إلغاء", country: '🌍 اختر بلدك:', gender: '👤 اختر جنسك:',
     age: '🎂 اختر عمرك الأقرب من 12 إلى 40 سنة:', name: '✍️ اكتب اسمك:',
     surname: '📝 اسم العائلة اختياري. اضغط أدناه للتخطي:', skip: 'تخطي اسم العائلة',
     membership: '🔐 لاستخدام البوت، انضم إلى كل مجموعة أو قناة أدناه ثم تحقق من العضوية:',
