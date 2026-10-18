@@ -228,7 +228,7 @@ async function showFavoriteSettings(chatId, actor, page) {
     text += '👤 ' + name + '\n🆔 ' + friend.telegram_id + '\n\n';
     rows.push([{ text: '❌ ' + w.unfollow + ' ' + name.slice(0, 24), callback_data: 'settings:unfavorite:' + friend.telegram_id + ':' + current }]);
   }
-  if (!all.length) text += actor.language === 'en' ? 'Your favorites list is empty.' : 'د پالو ملګرو لېست تش دی.';
+  if (!all.length) text += mt(actor).noFavorites;
   const nav = [];
   if (current > 0) nav.push({ text: w.prev, callback_data: 'settings:favorites:page:' + (current - 1) });
   if (current < pages - 1) nav.push({ text: w.next, callback_data: 'settings:favorites:page:' + (current + 1) });
