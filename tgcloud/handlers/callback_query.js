@@ -1301,15 +1301,15 @@ async function showConnectedPair(session) {
   if (!first || !second) return;
   await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, Number(first.telegram_id))).run();
   await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, Number(second.telegram_id))).run();
-  try { await api.sendMessage({ chat_id: Number(first.telegram_id), text: '✅ غوښتنه ومنل شوه! اړیکه وصل شوه.\n\n⭐ له غوښتونکي څخه د اړیکې قیمت کم شوی دی.' }); } catch (e) {}
-  try { await api.sendMessage({ chat_id: Number(second.telegram_id), text: '✅ غوښتنه ومنل شوه! اړیکه وصل شوه.\n\nاوس کولای شئ یو بل ته پیغامونه واستوئ.' }); } catch (e) {}
+  try { await api.sendMessage({ chat_id: Number(first.telegram_id), text: tx(first).sessionText.connected }); } catch (e) {}
+  try { await api.sendMessage({ chat_id: Number(second.telegram_id), text: tx(second).sessionText.connectedReady }); } catch (e) {}
   await showSessionProfile(session, Number(first.telegram_id));
   await showSessionProfile(session, Number(second.telegram_id));
   for (const user of [first, second]) {
     try {
       await api.sendMessage({
         chat_id: Number(user.telegram_id),
-        text: '⌨️ د اړیکې چټک کنټرولونه:',
+        text: tx(user).sessionText.quickControls,
         reply_markup: styleKeyboardMarkup(sessionControlKeyboard(user))
       });
     } catch (keyboardError) {
