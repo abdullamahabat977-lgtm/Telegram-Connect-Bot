@@ -448,10 +448,9 @@ async function handleSettingsCallback(query, actor, data, actorId, chatId) {
   if (p[1] === 'main') { await showMain(chatId, actor); return; }
   if (p[1] === 'open') {
     actor.state = 'settings_menu'; await db.update(users).set({ state: actor.state }).where(eq(users.telegram_id, actorId)).run();
-    const labels = { ps: '⚙️ د تنظیماتو یوه برخه وټاکه:', fa: '⚙️ یکی از بخش‌های تنظیمات را انتخاب کنید:', en: '⚙️ Choose a settings section:', ur: '⚙️ ترتیبات کا حصہ منتخب کریں:', ar: '⚙️ اختر قسم الإعدادات:' };
-    const b = { ps: ['👤 د پروفایل تنظیمات','❤️ د پالو ملګرو تنظیمات','🔙 اصلي مېنو'], fa: ['👤 تنظیمات پروفایل','❤️ تنظیمات دوستان محبوب','🔙 منوی اصلی'], en: ['👤 Profile settings','❤️ Favorite friends settings','🔙 Main menu'], ur: ['👤 پروفائل کی ترتیبات','❤️ پسندیدہ دوستوں کی ترتیبات','🔙 مرکزی مینو'], ar: ['👤 إعدادات الملف الشخصي','❤️ إعدادات الأصدقاء المفضلين','🔙 القائمة الرئيسية'] };
-    const pair = b[actor.language] || b.ps;
-    await sendPrompt(chatId, labels[actor.language] || labels.ps, { keyboard: [[{text:pair[0]},{text:pair[1]}],[{text:pair[2]}]], resize_keyboard:true }, actor); return;
+    const settingsText = mt(actor);
+    const b = settingsText.settingsButtons;
+    await sendPrompt(chatId, settingsText.settings, { keyboard: [[{ text: b[0] }, { text: b[1] }], [{ text: b[2] }]], resize_keyboard: true }, actor); return;
   }
   if (p[1] === 'visibility') {
     const visibility = p[2];
