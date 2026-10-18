@@ -53,11 +53,7 @@ async function sendPrompt(chatId, text, markup, user, parseMode) {
   return sent;
 }
 function genderKeyboard(user) {
-  const labels = {
-    ps: ['نارینه', 'ښځینه'], fa: ['مرد', 'زن'], en: ['Male', 'Female'],
-    ur: ['مرد', 'عورت'], ar: ['ذكر', 'أنثى']
-  };
-  const pair = labels[user.language] || labels.ps;
+  const pair = tx(user).genderLabels;
   return { inline_keyboard: [[
     { text: pair[0], callback_data: 'reg:gender:male' },
     { text: pair[1], callback_data: 'reg:gender:female' }
@@ -220,14 +216,7 @@ async function showAge(chatId, user) {
   await sendPrompt(chatId, tx(user).age, ageKeyboard(), user);
 }
 async function requiredChannelAdminKeyboard(actor) {
-  const labels = {
-    ps: ['➕ ګروپ یا چینل زیاتول', '📋 د ګروپونو لېست', '🔙 اډمین پینل'],
-    fa: ['➕ افزودن گروه یا کانال', '📋 فهرست گروه‌ها', '🔙 پنل مدیریت'],
-    en: ['➕ Add group/channel', '📋 List groups', '🔙 Admin panel'],
-    ur: ['➕ گروپ یا چینل شامل کریں', '📋 گروپس کی فہرست', '🔙 ایڈمن پینل'],
-    ar: ['➕ إضافة مجموعة أو قناة', '📋 قائمة المجموعات', '🔙 لوحة الإدارة']
-  };
-  const b = labels[actor.language] || labels.ps;
+  const b = tx(actor).requiredChannelAdminButtons;
   return replyKeyboard([[{ text: b[0] }], [{ text: b[1] }], [{ text: b[2] }]]);
 }
 async function showRequiredChannelList(chatId, actor, notice) {
@@ -247,14 +236,7 @@ async function showRequiredChannelDetail(chatId, actor, chatIdValue, notice) {
   const row = await db.select().from(required_chats).where(eq(required_chats.chat_id, String(chatIdValue))).get();
   if (!row) { await showRequiredChannelList(chatId, actor, sessionTx(actor).sessionText.adminText.channelGone); return; }
   const info = requiredChatInfo(row);
-  const labels = {
-    ps: ['✏️ بدلول', '🗑 حذفول', '🔙 لېست ته بېرته', '📢 ګروپ/چینل', '🔗 لینک'],
-    fa: ['✏️ ویرایش', '🗑 حذف', '🔙 بازگشت به فهرست', '📢 گروه/کانال', '🔗 پیوند'],
-    en: ['✏️ Edit', '🗑 Delete', '🔙 Back to list', '📢 Group/channel', '🔗 Link'],
-    ur: ['✏️ تبدیل کریں', '🗑 حذف کریں', '🔙 فہرست پر واپس', '📢 گروپ/چینل', '🔗 لنک'],
-    ar: ['✏️ تعديل', '🗑 حذف', '🔙 العودة للقائمة', '📢 المجموعة/القناة', '🔗 الرابط']
-  };
-  const b = labels[actor.language] || labels.ps;
+  const b = tx(actor).requiredChannelDetailButtons;
   const text = (notice ? notice + '\n\n' : '') + b[3] + ': ' + info.title + '\n🆔 ID: ' + row.chat_id + '\n' + b[4] + ': ' + (row.invite_link || '—');
   await sendPrompt(chatId, text, { inline_keyboard: [
     [{ text: b[0], callback_data: 'admin:channels:edit:' + encodeURIComponent(String(row.chat_id)) },
