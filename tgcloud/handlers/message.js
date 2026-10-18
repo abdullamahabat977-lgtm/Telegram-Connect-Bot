@@ -606,7 +606,7 @@ async function expireUserTimedActions(userId) {
       if (!expiredOffer || !Array.isArray(expiredOffer.rows) || expiredOffer.rows.length === 0) continue;
       offer.status = 'expired';
       if (Number(offer.recipient_id) > 0) {
-        try { await api.sendMessage({ chat_id: Number(offer.recipient_id), text: '⌛ د اړیکې غوښتنه د تخنیکي ځنډ له امله لغوه شوه.' }); } catch (e) {}
+        try { await api.sendMessage({ chat_id: Number(offer.recipient_id), text: tx(user).sessionText.offerExpired }); } catch (e) {}
       }
     }
     if (user.state === 'searching_connection') await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, id)).run();
