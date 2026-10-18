@@ -1162,8 +1162,8 @@ async function startConnectionSearch(userId, type) {
           });
         }
         await sendPrompt(userId, latestUser && latestUser.state === 'searching_connection'
-          ? '⌛ د لټون حالت لا هم په ډیټابېس کې فعال ښکاري. د ستونزې د معلومولو لپاره اډمین ته راپور ولېږل شو؛ لږ وروسته بیا هڅه وکړه.'
-          : '⌛ د لټون حالت بدل شوی دی. لږ شېبه وروسته بیا هڅه وکړه.',
+          ? tx(user).actionExpired
+          : tx(user).searchTimeout,
           mainKeyboard(user, await isAdmin(userId)), user);
         return;
       }
@@ -1515,14 +1515,14 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
       });
       try {
         await sendPrompt(chatId,
-          '⚠️ د اړیکې غوښتنه پیل نه شوه، ځکه د لټون د چمتو کولو پر مهال ستونزه وشوه. ستوري باید لا نه وي کم شوي. لږ وروسته بیا هڅه وکړه.',
+          tx(actor).sessionText.connectionSearchFailed,
           mainKeyboard(actor, await isAdmin(actorId)), actor);
       } catch (notifyError) {
         reportDiagnostic('callback-handler', 'Could not show connection startup error to user', { actorId, notifyError });
         try {
           await api.sendMessage({
             chat_id: Number(chatId),
-            text: '⚠️ د اړیکې غوښتنه پیل نه شوه. لږ وروسته بیا هڅه وکړه.'
+            text: tx(actor).sessionText.connectionSearchFailed
           });
         } catch (fallbackError) {
           reportDiagnostic('callback-handler', 'Could not send fallback connection startup notice', { actorId, fallbackError });
@@ -1642,7 +1642,7 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
           offerId, actorId, observedStatus: latestOffer && latestOffer.status,
           observedUpdatedAt: latestOffer && latestOffer.updated_at, rejectedAt
         });
-        await sendPrompt(chatId, '⌛ دا غوښتنه نور فعاله نه ده.', mainKeyboard(actor, await isAdmin(actorId)), actor);
+        await sendPrompt(chatId, tx(actor).offerExpired, mainKeyboard(actor, await isAdmin(actorId)), actor);
         return;
       }
       try { await tryOfferSearches(); } catch (error) { reportDiagnostic('callback-handler', 'Connection retry after rejection failed', { offerId: offerId, actorId: actorId, error: error }); }
@@ -1740,7 +1740,7 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
       });
       await db.update(connection_requests).set({ status: 'expired', updated_at: new Date().toISOString() })
         .where(and(eq(connection_requests.id, offerId), eq(connection_requests.status, 'matching'))).run();
-      await sendPrompt(chatId, '⌛ د غوښتونکي لټون پای ته رسېدلی؛ دا غوښتنه نوره فعاله نه ده.', mainKeyboard(actor, await isAdmin(actorId)), actor);
+      await sendPrompt(chatId, tx(actor).offerExpiredTimeout, mainKeyboard(actor, await isAdmin(actorId)), actor);
       return;
     }
     let debited = null, debitError = null;
