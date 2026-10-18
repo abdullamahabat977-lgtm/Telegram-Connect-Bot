@@ -61,6 +61,7 @@ export const T = {
     noAccess: '⛔ دا برخه یوازې د مجاز مدیرانو لپاره ده.'
   },
   fa: {
+    name: '✍️ لطفاً نام خود را بنویسید:', skip: 'نام خانوادگی نمی‌نویسم', noAccess: '⛔ این بخش فقط برای مدیران مجاز است.',
     lang: '🌐 زبان خود را انتخاب کنید:', findFriendType:"🔎 چه نوع دوستی می‌خواهید؟", findAuto:"خودکار", findCancelButton:"❌ لغو", country: '🌍 کشور خود را انتخاب کنید:', gender: '👤 جنسیت خود را انتخاب کنید:',
     age: '🎂 نزدیک‌ترین سن خود را از ۱۲ تا ۴۰ سال انتخاب کنید:', name: '✍️ نام خود را بنویسید:',
     surname: '📝 نام خانوادگی اختیاری است. برای رد کردن، دکمه زیر را بزنید:', skip: 'رد کردن نام خانوادگی',
@@ -121,6 +122,7 @@ export const T = {
     channelFormat: '⚠️ شناسه عددی معتبر بفرستید.', noAccess: '⛔ این بخش فقط برای مدیران مجاز است.'
   },
   en: {
+    name: '✍️ Please enter your name:', skip: 'Skip surname', noAccess: '⛔ This section is for authorized admins only.',
     lang: '🌐 Choose your language:', findFriendType:"🔎 What kind of friend are you looking for?", findAuto:"Automatic", findCancelButton:"❌ Cancel", country: '🌍 Choose your country:', gender: '👤 Choose your gender:',
     age: '🎂 Choose the closest age from 12 to 40:', name: '✍️ Enter your name:',
     surname: '📝 Surname is optional. Press below to skip:', skip: 'Skip surname',
@@ -181,6 +183,7 @@ export const T = {
     channelFormat: '⚠️ Send a valid numeric ID.', noAccess: '⛔ This section is for authorized admins only.'
   },
   ur: {
+    name: '✍️ اپنا نام لکھیں:', skip: 'خاندانی نام نہیں لکھنا', noAccess: '⛔ یہ حصہ صرف مجاز منتظمین کے لیے ہے۔',
     lang: '🌐 اپنی زبان منتخب کریں:', findFriendType:"🔎 آپ کس قسم کا دوست چاہتے ہیں؟", findAuto:"خودکار", findCancelButton:"❌ منسوخ", country: '🌍 اپنا ملک منتخب کریں:', gender: '👤 اپنی جنس منتخب کریں:',
     age: '🎂 12 سے 40 سال کے درمیان اپنی قریب ترین عمر منتخب کریں:', name: '✍️ اپنا نام لکھیں:',
     surname: '📝 خاندانی نام اختیاری ہے۔ چھوڑنے کے لیے نیچے بٹن دبائیں:', skip: 'خاندانی نام چھوڑیں',
@@ -241,6 +244,7 @@ export const T = {
     channelFormat: '⚠️ درست عددی ID بھیجیں۔', noAccess: '⛔ یہ حصہ صرف مجاز ایڈمنز کے لیے ہے۔'
   },
   ar: {
+    name: '✍️ اكتب اسمك:', skip: 'تخطي اسم العائلة', noAccess: '⛔ هذا القسم مخصص للمشرفين المصرح لهم فقط.',
     lang: '🌐 اختر لغتك:', findFriendType:"🔎 ما نوع الصديق الذي تبحث عنه؟", findAuto:"تلقائي", findCancelButton:"❌ إلغاء", country: '🌍 اختر بلدك:', gender: '👤 اختر جنسك:',
     age: '🎂 اختر عمرك الأقرب من 12 إلى 40 سنة:', name: '✍️ اكتب اسمك:',
     surname: '📝 اسم العائلة اختياري. اضغط أدناه للتخطي:', skip: 'تخطي اسم العائلة',
