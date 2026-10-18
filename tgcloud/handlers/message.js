@@ -1448,8 +1448,8 @@ export async function tryMatchGames() {
         await api.sendMessage({
           chat_id: Number(game.player_id),
           text: closed
-            ? '⚠️ مناسب سیال پیدا شو، خو ټیلیګرام ټولو هڅه شویو سیالانو ته پیغام ونه لېږه. د ګېم غوښتنه لغوه شوه؛ اوس بیا ګېم یا ناڅاپي اړیکه پیلولای شې.'
-            : '⚠️ سیال ته د ګېم پیغام ونه لېږل شو. که د ګېم غوښتنه لا فعاله وي، لاندې «❌ ګېم لغوه کول» تڼۍ ووهه. که ستونزه دوام وکړي، اډمین ته خبر ورکړه.',
+            ? tx(user).sessionText.gameText.gameCancelled
+            : tx(user).sessionText.gameText.gameMatchFailed,
           ...(!closed && latestGame && ['waiting', 'pending'].includes(latestGame.status)
             ? { reply_markup: { inline_keyboard: [[{ text: tx(user).sessionText.gameText.cancelButton, callback_data: 'game:cancel' }]] } }
             : {})
