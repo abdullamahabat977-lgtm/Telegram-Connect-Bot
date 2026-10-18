@@ -2,7 +2,7 @@ import { api, db } from 'sdk';
 import { and, eq } from 'sdk/db';
 import { users, admins, required_chats, favorites, chat_sessions, connection_requests, chat_messages, user_ratings, user_likes, game_sessions, user_blocks } from '../schema.js';
 import { activeSessionFor, LANGUAGES, COUNTRIES, AGES, countryKeyboard, ensureInlinePromptTracking, requiredChatInfo, listWords, isFollowing, otherSessionUser, getUser, safeDelete, isAdmin, styleKeyboardMarkup, notifyRuntimeError, reportDiagnostic, getSetting as sharedGetSetting } from '../lib/shared.js';
-import { TEXT } from '../lib/callback-text.js';
+import { TEXT, ADMIN_UI } from '../lib/callback-text.js';
 import { T as MESSAGE_TEXT } from '../lib/message-text.js';
 import { tryMatchGames } from './message.js';
 
@@ -14,33 +14,7 @@ async function getSetting(key, fallback) {
   return sharedGetSetting(key, fallback);
 }
 
-const ADMIN_UI = {
-  ps: {
-    buttons: ['👥 د مدیرانو تنظیمات','📢 د غړیتوب ګروپونه','📣 ډله‌ییز اعلان','⚙️ د کارن تنظیمات','👥 د کاروونکو لېست','🔙 اصلي مېنو','🎁 د جایزو تنظیمات','🔗 د اړیکو تنظیمات','🎲 د ګېم تنظیمات'],
-    management: ['➕ مدیر زیاتول','➖ مدیر لرې کول','📋 د مدیرانو لېست','🔙 اډمین پینل'],
-    intro: '🛡️ د اډمین پینل:', managementIntro: '👥 د مدیرانو اداره:', noAccess: '⛔ دا برخه یوازې د مجاز مدیرانو لپاره ده.', userMissing: 'دا کارن له بوټ سره نه دی یوځای شوی.'
-  },
-  fa: {
-    buttons: ['👥 مدیریت مدیران','📢 عضویت اجباری','📣 پیام همگانی','⚙️ تنظیمات کاربر','👥 فهرست کاربران','🔙 منوی اصلی','🎁 تنظیمات جوایز','🔗 تنظیمات ارتباطات','🎲 تنظیمات بازی'],
-    management: ['➕ افزودن مدیر','➖ حذف مدیر','📋 فهرست مدیران','🔙 پنل مدیریت'],
-    intro: '🛡️ پنل مدیریت:', managementIntro: '👥 مدیریت مدیران:', noAccess: '⛔ این بخش فقط برای مدیران مجاز است.', userMissing: 'این کاربر هنوز ربات را شروع نکرده است.'
-  },
-  en: {
-    buttons: ['👥 Admin management','📢 Required membership','📣 Broadcast','⚙️ User settings','👥 User list','🔙 Main menu','🎁 Reward settings','🔗 Connection settings','🎲 Game settings'],
-    management: ['➕ Add admin','➖ Remove admin','📋 Admin list','🔙 Admin panel'],
-    intro: '🛡️ Admin panel:', managementIntro: '👥 Admin management:', noAccess: '⛔ This section is for authorized admins only.', userMissing: 'This user has not started the bot.'
-  },
-  ur: {
-    buttons: ['👥 ایڈمن مینجمنٹ','📢 لازمی رکنیت','📣 سب کو پیغام','⚙️ صارف کی ترتیبات','👥 صارفین کی فہرست','🔙 مرکزی مینو','🎁 انعامات کی ترتیبات','🔗 رابطے کی ترتیبات','🎲 گیم کی ترتیبات'],
-    management: ['➕ ایڈمن شامل کریں','➖ ایڈمن ہٹائیں','📋 ایڈمن فہرست','🔙 ایڈمن پینل'],
-    intro: '🛡️ ایڈمن پینل:', managementIntro: '👥 ایڈمن مینجمنٹ:', noAccess: '⛔ یہ حصہ صرف مجاز ایڈمنز کے لیے ہے۔', userMissing: 'اس صارف نے ابھی بوٹ شروع نہیں کیا۔'
-  },
-  ar: {
-    buttons: ['👥 إدارة المديرين','📢 العضوية الإلزامية','📣 رسالة جماعية','⚙️ إعدادات المستخدم','👥 قائمة المستخدمين','🔙 القائمة الرئيسية','🎁 إعدادات المكافآت','🔗 إعدادات الاتصال','🎲 إعدادات اللعبة'],
-    management: ['➕ إضافة مدير','➖ إزالة مدير','📋 قائمة المديرين','🔙 لوحة الإدارة'],
-    intro: '🛡️ لوحة الإدارة:', managementIntro: '👥 إدارة المديرين:', noAccess: '⛔ هذا القسم للمديرين المصرح لهم فقط.', userMissing: 'هذا المستخدم لم يبدأ البوت بعد.'
-  }
-};
+
 
 function tx(user) {
   return TEXT[user && TEXT[user.language] ? user.language : 'ps'];
