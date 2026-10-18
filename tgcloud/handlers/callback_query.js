@@ -4,6 +4,7 @@ import { users, admins, required_chats, favorites, chat_sessions, connection_req
 import { activeSessionFor, LANGUAGES, COUNTRIES, AGES, countryKeyboard, ensureInlinePromptTracking, requiredChatInfo, listWords, isFollowing, otherSessionUser, getUser, safeDelete, isAdmin, styleKeyboardMarkup, notifyRuntimeError, reportDiagnostic, getSetting as sharedGetSetting } from '../lib/shared.js';
 import { TEXT } from '../lib/callback-text.js';
 import { T as MESSAGE_TEXT } from '../lib/message-text.js';
+import { T as MESSAGE_TEXT } from '../lib/message-text.js';
 import { tryMatchGames } from './message.js';
 
 
@@ -44,6 +45,9 @@ const ADMIN_UI = {
 
 function tx(user) {
   return TEXT[user && TEXT[user.language] ? user.language : 'ps'];
+}
+function sessionTx(user) {
+  return MESSAGE_TEXT[user && MESSAGE_TEXT[user.language] ? user.language : 'ps'];
 }
 function mt(user) {
   return MESSAGE_TEXT[user && MESSAGE_TEXT[user.language] ? user.language : 'ps'];
@@ -598,7 +602,7 @@ async function endConnection(session, reason) {
     const user = await getUser(pair.id), partner = await getUser(pair.partnerId);
     if (!user) continue;
     await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, pair.id)).run();
-    const p = tx(user).sessionText;
+    const p = sessionTx(user).sessionText;
     const name = partner ? [partner.name || partner.first_name || p.fallbackName, partner.surname || ''].filter(Boolean).join(' ') : p.fallbackName;
     const following = await isFollowing(pair.id, pair.partnerId);
     const ratingButtons = await availableRatingButtons(pair.id, pair.partnerId, session.id);
@@ -904,12 +908,12 @@ async function startConnectionSearch(userId, type) {
   const cost = Number(await getSetting('connection_cost_stars', 1));
   if (!user) return;
   if (!Number.isFinite(cost) || cost < 0) {
-    await sendPrompt(userId, tx(user).sessionText.connectionCostInvalid, mainKeyboard(user, await isAdmin(userId)), user);
+    await sendPrompt(userId, sessionTx(user).sessionText.connectionCostInvalid, mainKeyboard(user, await isAdmin(userId)), user);
     return;
   }
-  if (Number(user.stars || 0) < cost) { await sendPrompt(userId, tx(user).sessionText.connectionCostPrefix + cost + tx(user).sessionText.connectionCostSuffix + Number(user.stars || 0), mainKeyboard(user, await isAdmin(userId)), user); return; }
+  if (Number(user.stars || 0) < cost) { await sendPrompt(userId, sessionTx(user).sessionText.connectionCostPrefix + cost + sessionTx(user).sessionText.connectionCostSuffix + Number(user.stars || 0), mainKeyboard(user, await isAdmin(userId)), user); return; }
   stage = 'check-active-session';
-  if (await activeSessionFor(userId)) { await sendPrompt(userId, tx(user).sessionText.connectionAlreadyActive, mainKeyboard(user, await isAdmin(userId)), user); return; }
+  if (await activeSessionFor(userId)) { await sendPrompt(userId, sessionTx(user).sessionText.connectionAlreadyActive, mainKeyboard(user, await isAdmin(userId)), user); return; }
   stage = 'expire-stale-games';
   const gameWaitSeconds = Math.max(1, Number(await getSetting('game_wait_seconds', 120)) || 120);
   const gameRowsBeforeCleanup = await db.select().from(game_sessions).all();
@@ -952,7 +956,7 @@ async function startConnectionSearch(userId, type) {
   const requests = await db.select().from(connection_requests).all();
   if (requests.some(row => ['searching', 'matching', 'pending'].includes(row.status) &&
       (Number(row.requester_id) === Number(userId) || Number(row.recipient_id) === Number(userId)))) {
-    await sendPrompt(userId, tx(user).sessionText.connectionSearchActive, { inline_keyboard: [[{ text: tx(user).sessionText.searchCancelButton || tx(user).sessionText.searchCancelButton, callback_data: 'conn:cancel_search' }]] }, user);
+    await sendPrompt(userId, sessionTx(user).sessionText.connectionSearchActive, { inline_keyboard: [[{ text: sessionTx(user).sessionText.searchCancelButton || sessionTx(user).sessionText.searchCancelButton, callback_data: 'conn:cancel_search' }]] }, user);
     return;
   }
   let search = null, searchCreatedAt = null, startupStage = 'claim-user-state';
@@ -1193,8 +1197,8 @@ async function startConnectionSearch(userId, type) {
     }
 
     startupStage = 'send-search-prompt';
-    await sendPrompt(userId, tx(user).sessionText.connectionSearchStarted + cost + tx(user).sessionText.connectionSearchCostSuffix,
-      { inline_keyboard: [[{ text: tx(user).sessionText.searchCancelButton, callback_data: 'conn:cancel_search:' + Number(search.id) }]] }, user);
+    await sendPrompt(userId, sessionTx(user).sessionText.connectionSearchStarted + cost + sessionTx(user).sessionText.connectionSearchCostSuffix,
+      { inline_keyboard: [[{ text: sessionTx(user).sessionText.searchCancelButton, callback_data: 'conn:cancel_search:' + Number(search.id) }]] }, user);
   } catch (error) {
     reportDiagnostic('callback-handler', 'Failed to start connection search', {
       userId: Number(userId), type, stage: startupStage,
@@ -1268,7 +1272,7 @@ async function startConnectionSearch(userId, type) {
     try {
       await api.sendMessage({
         chat_id: Number(userId),
-        text: tx(user).sessionText.connectionSearchFailed
+        text: sessionTx(user).sessionText.connectionSearchFailed
       });
     } catch (notifyError) {
       reportDiagnostic('callback-handler', 'Could not notify user about connection search startup failure', { userId: Number(userId), notifyError });
@@ -1282,7 +1286,7 @@ async function startConnectionSearch(userId, type) {
     try {
       await api.sendMessage({
         chat_id: Number(userId),
-        text: tx(user).sessionText.connectionMatchFailed
+        text: sessionTx(user).sessionText.connectionMatchFailed
       });
     } catch (notifyError) {
       reportDiagnostic('callback-handler', 'Could not notify user about matchmaking failure', { userId: Number(userId), notifyError });
@@ -1301,15 +1305,15 @@ async function showConnectedPair(session) {
   if (!first || !second) return;
   await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, Number(first.telegram_id))).run();
   await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, Number(second.telegram_id))).run();
-  try { await api.sendMessage({ chat_id: Number(first.telegram_id), text: tx(first).sessionText.connected }); } catch (e) {}
-  try { await api.sendMessage({ chat_id: Number(second.telegram_id), text: tx(second).sessionText.connectedReady }); } catch (e) {}
+  try { await api.sendMessage({ chat_id: Number(first.telegram_id), text: sessionTx(first).sessionText.connected }); } catch (e) {}
+  try { await api.sendMessage({ chat_id: Number(second.telegram_id), text: sessionTx(second).sessionText.connectedReady }); } catch (e) {}
   await showSessionProfile(session, Number(first.telegram_id));
   await showSessionProfile(session, Number(second.telegram_id));
   for (const user of [first, second]) {
     try {
       await api.sendMessage({
         chat_id: Number(user.telegram_id),
-        text: tx(user).sessionText.quickControls,
+        text: sessionTx(user).sessionText.quickControls,
         reply_markup: styleKeyboardMarkup(sessionControlKeyboard(user))
       });
     } catch (keyboardError) {
