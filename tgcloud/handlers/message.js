@@ -663,7 +663,7 @@ async function expireUserTimedActions(userId) {
     if (!cancelled || !Array.isArray(cancelled.rows) || cancelled.rows.length === 0) continue;
     game.status = 'cancelled';
     for (const playerId of [Number(game.player_id), Number(game.opponent_id || 0)]) {
-      if (playerId > 0 && playerId !== id) try { await api.sendMessage({ chat_id: playerId, text: '⌛ پخوانی ګېم د انتظار د وخت له تېرېدو وروسته لغوه شو. مهرباني وکړه نوی ګېم پیل کړه.' }); } catch (e) {}
+      if (playerId > 0 && playerId !== id) try { await api.sendMessage({ chat_id: playerId, text: tx(await getUser(playerId)).sessionText.gameText.requestExpired }); } catch (e) {}
     }
     expired = true;
   }
@@ -932,19 +932,19 @@ async function startDiceGame(chatId, user) {
     if (expired && Array.isArray(expired.rows) && expired.rows.length > 0 && row.status === 'pending') {
       const otherId = isOwnGame ? Number(row.opponent_id || 0) : Number(row.player_id);
       if (otherId > 0 && otherId !== userId) {
-        try { await api.sendMessage({ chat_id: otherId, text: '⌛ د ګېم غوښتنې وخت پای ته رسېدلی؛ دا ګېم نور فعال نه دی.' }); } catch (e) {}
+        try { await api.sendMessage({ chat_id: otherId, text: tx(await getUser(otherId)).sessionText.gameText.requestExpired }); } catch (e) {}
       }
     }
   }
   const freshRows = await db.select().from(game_sessions).all();
   if (freshRows.some(row => row.status === 'settlement_error' &&
       (Number(row.player_id) === userId || Number(row.opponent_id) === userId))) {
-    await sendPrompt(chatId, '⚠️ ستا په یوه پخواني ګېم کې تخنیکي ستونزه ثبت شوې ده. د فیس او پایلې د کتنې لپاره له اډمین سره اړیکه ونیسه؛ تر هغې نوی ګېم مه پیلوه.', menuKeyboard(user, await isAdmin(user.telegram_id)), user);
+    await sendPrompt(chatId, tx(user).sessionText.gameBalanceStopped, menuKeyboard(user, await isAdmin(user.telegram_id)), user);
     return;
   }
   if (freshRows.some(row => Number(row.player_id) === userId && ['waiting','pending','playing'].includes(row.status)) ||
       freshRows.some(row => Number(row.opponent_id) === userId && ['pending','playing'].includes(row.status))) {
-    await sendPrompt(chatId, '🎲 ستا د ګېم غوښتنه لا روانه ده.', menuKeyboard(user, await isAdmin(user.telegram_id)), user);
+    await sendPrompt(chatId, tx(user).sessionText.gameText.gameInProgress, menuKeyboard(user, await isAdmin(user.telegram_id)), user);
     return;
   }
   const now = new Date().toISOString();
@@ -989,7 +989,7 @@ async function startDiceGame(chatId, user) {
           .returning({ id: game_sessions.id }).run();
         if (cancelled && Array.isArray(cancelled.rows) && cancelled.rows.length > 0 && latest.status === 'pending' && Number(latest.opponent_id || 0) > 0) {
           try {
-            await api.sendMessage({ chat_id: Number(latest.opponent_id), text: '⌛ د ګېم غوښتنه د تخنیکي ستونزې له امله لغوه شوه.' });
+            await api.sendMessage({ chat_id: Number(latest.opponent_id), text: tx(await getUser(Number(latest.opponent_id))).sessionText.gameText.requestExpired });
           } catch (notifyError) {
             console.warn('Could not notify opponent about game request cleanup', {
               gameId: Number(createdGame.id), opponentId: Number(latest.opponent_id), notifyError
@@ -1041,13 +1041,13 @@ export async function resolveBotGame(game) {
   if (![fee, winStars, points].every(Number.isFinite) || fee < 0 || winStars <= 0 || fee >= winStars || points < 0 || !Number.isInteger(points)) {
     await db.update(game_sessions).set({ status: 'settlement_error', updated_at: new Date().toISOString() })
       .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'playing'))).run();
-    try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: '⚠️ د ګېم مالي تنظیمات ناسم دي؛ فیس نه دی تصفیه شوی. له اډمین سره اړیکه ونیسه.' }); } catch (e) {}
+    try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: tx(player).sessionText.gameBadSettings }); } catch (e) {}
     return;
   }
   if (balance < winStars) {
     await db.update(game_sessions).set({ status: 'cancelled', updated_at: new Date().toISOString() })
       .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'playing'))).run();
-    try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: '⚠️ ستوري نور د ګېم د جایزې لپاره کافي نه دي؛ ګېم لغوه شو او فیس نه دی اخیستل شوی.' }); } catch (e) {}
+    try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: tx(player).sessionText.gameInsufficientBalance }); } catch (e) {}
     return;
   }
   let playerDice;
@@ -1057,7 +1057,7 @@ export async function resolveBotGame(game) {
     reportDiagnostic('message-handler', 'Bot game dice failed', { gameId: game.id, playerId: player.telegram_id, error });
     await db.update(game_sessions).set({ status: 'cancelled', updated_at: new Date().toISOString() })
       .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'playing'))).run();
-    try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: '⚠️ د ګېم تخنیکي ستونزه وه؛ ګېم لغوه شو او فیس نه دی اخیستل شوی. بیا هڅه وکړه.' }); } catch (e) {}
+    try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: tx(player).sessionText.gameDiceError }); } catch (e) {}
     return;
   }
   const playerRoll = Number(playerDice && playerDice.dice && playerDice.dice.value || 0);
@@ -1148,7 +1148,7 @@ export async function tryMatchGames() {
     for (const targetId of [Number(staleOffer.player_id), Number(staleOffer.opponent_id)]) {
       if (!Number.isSafeInteger(targetId) || targetId <= 0) continue;
       try {
-        await api.sendMessage({ chat_id: targetId, text: '⌛ د ګېم غوښتنې وخت پای ته رسېدلی؛ دا ګېم نور فعال نه دی. نوې غوښتنه پیلولای شې.' });
+        await api.sendMessage({ chat_id: targetId, text: tx(await getUser(targetId)).sessionText.gameText.requestExpired });
       } catch (notifyError) {
         console.warn('Could not notify player about expired game offer', {
           gameId: Number(staleOffer.id), targetId, notifyError
@@ -1244,7 +1244,7 @@ export async function tryMatchGames() {
               try {
                 await api.sendMessage({
                   chat_id: Number(game.player_id),
-                  text: '⚠️ د بوټ پر وړاندې د ګېم پر مهال تخنیکي ستونزه رامنځته شوه. د ستورو او پایلې حالت باید اډمین وڅېړي؛ مهرباني وکړه نوی ګېم مه پیلوه.'
+                  text: tx(await getUser(Number(game.player_id))).sessionText.gameResultUnconfirmed
                 });
               } catch (notifyError) {
                 reportDiagnostic('message-handler', 'Could not notify player about bot game settlement error', {
