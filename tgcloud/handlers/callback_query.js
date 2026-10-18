@@ -318,23 +318,24 @@ async function handleAdminCallback(query, actor, data, actorId, chatId) {
     if (action === 'back') {
       actor.state = 'admin_channels_menu';
       await db.update(users).set({ state: actor.state }).where(eq(users.telegram_id, actorId)).run();
-      const intro = actor.language === 'en' ? '📢 Required membership management:' : '📢 د اجباري غړیتوب اداره:';
+      const intro = sessionTx(actor).channelIntro;
       await sendPrompt(chatId, intro, await requiredChannelAdminKeyboard(actor), actor);
       return;
     }
     if (!selectedId || !/^-?\d+$/.test(selectedId)) return;
     if (action === 'item') { await showRequiredChannelDetail(chatId, actor, selectedId); return; }
     if (action === 'edit') {
-      const prompt = actor.language === 'en' ? 'Send the new numeric ID of the group/channel:' : 'د دې ګروپ یا چینل نوی عددي ID راولېږه:';
+      const prompt = sessionTx(actor).askChannel;
       actor.state = 'waiting_edit_channel_id:' + selectedId;
       await db.update(users).set({ state: actor.state }).where(eq(users.telegram_id, actorId)).run();
       await sendPrompt(chatId, prompt, { force_reply: true }, actor);
       return;
     }
     if (action === 'delete') {
-      const question = actor.language === 'en' ? 'Are you sure you want to delete this group/channel?' : 'ایا ډاډه یې چې دا ګروپ یا چینل حذف کړې؟';
-      const yes = actor.language === 'en' ? '✅ Yes, delete' : '✅ هو، حذف یې کړه';
-      const no = actor.language === 'en' ? '❌ Cancel' : '❌ لغوه';
+      const adminText = sessionTx(actor).sessionText.adminText;
+      const question = adminText.channelDeleteConfirm;
+      const yes = adminText.channelDeleteYes;
+      const no = adminText.channelDeleteNo;
       await sendPrompt(chatId, question, { inline_keyboard: [
         [{ text: yes, callback_data: 'admin:channels:delete_confirm:' + encodeURIComponent(selectedId) }],
         [{ text: no, callback_data: 'admin:channels:item:' + encodeURIComponent(selectedId) }]
@@ -343,11 +344,11 @@ async function handleAdminCallback(query, actor, data, actorId, chatId) {
     }
     if (action === 'delete_confirm') {
       const existing = await db.select().from(required_chats).where(eq(required_chats.chat_id, selectedId)).get();
-      if (!existing) { await showRequiredChannelList(chatId, actor, actor.language === 'en' ? 'This group/channel was already deleted.' : 'دا ګروپ یا چینل مخکې حذف شوی دی.'); return; }
+      if (!existing) { await showRequiredChannelList(chatId, actor, sessionTx(actor).sessionText.adminText.channelGone); return; }
       await db.delete(required_chats).where(eq(required_chats.chat_id, selectedId)).run();
       const remaining = await db.select().from(required_chats).where(eq(required_chats.chat_id, selectedId)).get();
-      if (remaining) { await showRequiredChannelDetail(chatId, actor, selectedId, actor.language === 'en' ? 'Deletion could not be verified; please retry.' : 'حذف تایید نه شو؛ بیا هڅه وکړه.'); return; }
-      await showRequiredChannelList(chatId, actor, actor.language === 'en' ? '✅ Group/channel deleted.' : '✅ ګروپ یا چینل حذف شو.');
+      if (remaining) { await showRequiredChannelDetail(chatId, actor, selectedId, sessionTx(actor).sessionText.adminText.channelDeleteFailed); return; }
+      await showRequiredChannelList(chatId, actor, sessionTx(actor).sessionText.adminText.channelDeleted);
       return;
     }
     return;
