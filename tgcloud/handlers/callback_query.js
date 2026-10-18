@@ -598,21 +598,22 @@ async function endConnection(session, reason) {
     const user = await getUser(pair.id), partner = await getUser(pair.partnerId);
     if (!user) continue;
     await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, pair.id)).run();
-    const name = partner ? [partner.name || partner.first_name || 'کارن', partner.surname || ''].filter(Boolean).join(' ') : 'کارن';
+    const p = tx(user).sessionText;
+    const name = partner ? [partner.name || partner.first_name || p.fallbackName, partner.surname || ''].filter(Boolean).join(' ') : p.fallbackName;
     const following = await isFollowing(pair.id, pair.partnerId);
     const ratingButtons = await availableRatingButtons(pair.id, pair.partnerId, session.id);
     const rows = [];
     if (ratingButtons.length) rows.push(ratingButtons);
-    if (!following) rows.push([{ text: '➕ ' + name + ' فالو کول', callback_data: 'session:follow:' + pair.partnerId + ':' + session.id }]);
-    rows.push([{ text: '🔙 اصلي مېنو', callback_data: 'settings:main' }]);
+    if (!following) rows.push([{ text: p.follow + ' ' + name, callback_data: 'session:follow:' + pair.partnerId + ':' + session.id }]);
+    rows.push([{ text: p.mainMenu, callback_data: 'settings:main' }]);
     try {
-      await sendPrompt(pair.id, '🛑 اړیکه پای ته ورسېده.\n\n👤 د تېر ملګري نوم: ' + name + '\n\nکه غواړې، خپل پاتې نمرې ورکړه یا ملګری فالو کړه. د پیغامونو حذفولو لپاره د کیبورډ تڼۍ وکاروه.', { inline_keyboard: rows }, user);
+      await sendPrompt(pair.id, p.ended + '\n\n' + p.partnerName + name + '\n\n' + p.afterEnd, { inline_keyboard: rows }, user);
     } catch (e) {}
     try {
       const keyboard = sessionEndedKeyboard(user, await isAdmin(pair.id));
       await api.sendMessage({
         chat_id: pair.id,
-        text: '⌨️ د اړیکې له پای وروسته هم د وروستیو ۱۰ دقیقو پیغامونه حذفولای شې.',
+        text: p.deleteHint,
         reply_markup: styleKeyboardMarkup(keyboard)
       });
     } catch (keyboardError) {
