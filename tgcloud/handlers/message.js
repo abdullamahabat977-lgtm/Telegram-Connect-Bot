@@ -2030,8 +2030,8 @@ async function processMessage(message) {
       await db.update(required_chats).set({ chat_id: requestedId, invite_link: inviteLink, title: chatType + '::' + title, is_active: 1 })
         .where(eq(required_chats.chat_id, originalId)).run();
       const verified = await db.select().from(required_chats).where(eq(required_chats.chat_id, requestedId)).get();
-      if (!verified) { await backToChannels('⚠️ بدلون تایید نه شو؛ بیا هڅه وکړه.'); return; }
-      await backToChannels('✅ ګروپ یا چینل بدل شو.'); return;
+      if (!verified) { await backToChannels(tx(user).sessionText.adminText.channelUpdateFailed); return; }
+      await backToChannels(tx(user).sessionText.adminText.channelUpdated); return;
     }
     await db.insert(required_chats).values({ chat_id: requestedId, invite_link: inviteLink, title: chatType + '::' + title, is_active: 1, created_at: new Date().toISOString() }).run();
     await backToChannels(tx(user).channelAdded); return;
