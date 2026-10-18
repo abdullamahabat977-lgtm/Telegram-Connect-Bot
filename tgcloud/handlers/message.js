@@ -96,10 +96,12 @@ async function showAdminUserSettings(chatId, adminUser, target) {
     ar: { title:'👤 إعدادات المستخدم', referrals:'الإحالات', favorites:'الأصدقاء المفضلون', stars:'النجوم', points:'النقاط', likes:'الإعجابات', photo:'الصورة', status:'الحالة', blocked:'محظور', active:'نشط' }
   };
   const l = labels[adminUser.language] || labels.ps;
-  const text = l.title + '\n━━━━━━━━━━━━━━\n👤 ' + [target.name || target.first_name || '—', target.surname || ''].filter(Boolean).join(' ') +
-    '\n🆔 ' + target.telegram_id + '\n🔗 ' + (target.username ? '@' + target.username : '—') +
-    '\n🌍 ' + (country ? country.label : '—') + '\n⚧ ' + (target.gender || '—') + '  🎂 ' + (target.age || '—') +
-    '\n📢 ' + (target.channel_username || '—') + '\n📨 ' + l.referrals + ': ' + Number(target.referral_count || 0) +
+  const a = tx(adminUser).sessionText.adminText, p = tx(adminUser).sessionText;
+  const gender = target.gender === 'female' ? p.female : target.gender === 'male' ? p.male : '—';
+  const text = l.title + '\n━━━━━━━━━━━━━━\n👤 ' + a.nameLabel + ': ' + [target.name || target.first_name || a.fallbackUserName, target.surname || ''].filter(Boolean).join(' ') +
+    '\n🆔 ' + a.idLabel + ': ' + target.telegram_id + '\n🔗 ' + a.usernameLabel + ': ' + (target.username ? '@' + target.username : '—') +
+    '\n🌍 ' + a.countryLabel + ': ' + (country ? country.label : '—') + '\n⚧ ' + a.genderLabel + ': ' + gender + '  🎂 ' + a.ageLabel + ': ' + (target.age || '—') +
+    '\n📢 ' + a.channelLabel + ': ' + (target.channel_username || '—') + '\n📨 ' + l.referrals + ': ' + Number(target.referral_count || 0) +
     '\n👥 ' + l.favorites + ': ' + favCount + '\n⭐ ' + l.stars + ': ' + Number(target.stars || 0) +
     '\n🏆 ' + l.points + ': ' + Number(target.points || 0) + '\n❤️ ' + l.likes + ': ' + Number(target.likes || 0) +
     '\n🖼 ' + l.photo + ': ' + (target.profile_photo_id ? '✓' : '—') + '\n🚦 ' + l.status + ': ' + (Number(target.is_blocked) === 1 ? l.blocked : l.active);
