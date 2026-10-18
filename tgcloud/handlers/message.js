@@ -1487,7 +1487,7 @@ async function renderAdminConnectionSettings(chatId, user) {
     text += label + ': ' + await getSetting(key, fallback) + '\n\n';
     rows.push([{ text: label, callback_data: 'admin:setting:' + key }]);
   }
-  rows.push([{ text: t.mainMenuButton, callback_data: 'admin:panel' }]);
+  rows.push([{ text: t.adminPanelButton || t.mainMenuButton, callback_data: 'admin:panel' }]);
   await sendPrompt(chatId, text, { inline_keyboard: rows }, user);
 }
 async function renderAdminGameSettings(chatId, user) {
@@ -1500,7 +1500,7 @@ async function renderAdminGameSettings(chatId, user) {
     text += label + ': ' + await getSetting(key, fallback) + '\n\n';
     rows.push([{ text: label, callback_data: 'admin:setting:' + key }]);
   }
-  rows.push([{ text: t.mainMenuButton, callback_data: 'admin:panel' }]);
+  rows.push([{ text: t.adminPanelButton || t.mainMenuButton, callback_data: 'admin:panel' }]);
   await sendPrompt(chatId, text, { inline_keyboard: rows }, user);
 }
 async function processMessage(message) {
@@ -1712,8 +1712,8 @@ async function processMessage(message) {
     await setSetting('referral_reward_' + field, amount);
     user.state = 'admin_menu'; await db.update(users).set({ state: 'admin_menu' }).where(eq(users.telegram_id, id)).run();
     const stars = await getSetting('referral_reward_stars', 15), points = await getSetting('referral_reward_points', 5), likes = await getSetting('referral_reward_likes', 2);
-    await sendPrompt(chatId, '✅ د ریفرل جایزې ثبت شوې:\n\n⭐ ستوري: ' + stars + '\n\n🏆 نمرې: ' + points + '\n\n❤️ لایکونه: ' + likes,
-      { inline_keyboard: [[{ text: '⭐ ستوري', callback_data: 'admin:reward:stars' }, { text: '🏆 نمرې', callback_data: 'admin:reward:points' }], [{ text: '❤️ لایکونه', callback_data: 'admin:reward:likes' }], [{ text: '🔙 اډمین پینل', callback_data: 'admin:panel' }]] }, user); return;
+    await sendPrompt(chatId, tx(user).saved + '\\n\\n' + tx(user).sessionText.adminText.rewardStars + ': ' + stars + '\\n\\n' + tx(user).sessionText.adminText.rewardPoints + ': ' + points + '\\n\\n' + tx(user).sessionText.adminText.rewardLikes + ': ' + likes,
+      { inline_keyboard: [[{ text: tx(user).sessionText.adminText.rewardStars, callback_data: 'admin:reward:stars' }, { text: tx(user).sessionText.adminText.rewardPoints, callback_data: 'admin:reward:points' }], [{ text: tx(user).sessionText.adminText.rewardLikes, callback_data: 'admin:reward:likes' }], [{ text: tx(user).sessionText.adminText.adminPanelButton || tx(user).sessionText.adminText.mainMenuButton, callback_data: 'admin:panel' }]] }, user); return;
   }
   const balanceMatch = String(user.state || '').match(/^admin_adjust_balance:(stars|points|likes):(add|sub):(\d+)$/);
   if (balanceMatch) {
