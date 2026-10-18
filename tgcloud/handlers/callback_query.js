@@ -1308,7 +1308,7 @@ async function resolveUserGame(game) {
     await db.update(game_sessions).set({ status: 'cancelled', updated_at: new Date().toISOString() })
       .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'playing'))).run();
     try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: sessionTx(player).sessionText.gameInsufficientBalance }); } catch (e) {}
-    try { await api.sendMessage({ chat_id: Number(opponent.telegram_id), text: tx(user).gameBalanceInsufficient }); } catch (e) {}
+    try { await api.sendMessage({ chat_id: Number(opponent.telegram_id), text: sessionTx(opponent).sessionText.gameInsufficientBalance }); } catch (e) {}
     return;
   }
   let pDice, oDice;
