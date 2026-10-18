@@ -74,7 +74,7 @@ function adminManagementKeyboard(user) {
   return keyboard([[{ text: b[0] }, { text: b[1] }], [{ text: b[2] }], [{ text: b[3] }]]);
 }
 function adminUserSettingsKeyboard(user, targetId, blocked) {
-  const b = user.language === 'en' ? ['🖼 Change photo','⭐ Stars','🏆 Points','❤️ Likes','⛔ Block','✅ Unblock','📨 Send message','🔙 Admin panel'] : user.language === 'fa' ? ['🖼 تغییر عکس','⭐ ستاره','🏆 امتیاز','❤️ لایک','⛔ مسدود','✅ رفع مسدودی','📨 ارسال پیام','🔙 پنل مدیریت'] : user.language === 'ur' ? ['🖼 تصویر بدلیں','⭐ ستارے','🏆 پوائنٹس','❤️ لائکس','⛔ بلاک','✅ ان بلاک','📨 پیغام بھیجیں','🔙 ایڈمن پینل'] : user.language === 'ar' ? ['🖼 تغيير الصورة','⭐ النجوم','🏆 النقاط','❤️ الإعجابات','⛔ حظر','✅ إلغاء الحظر','📨 إرسال رسالة','🔙 لوحة الإدارة'] : ['🖼 عکس بدلول','⭐ ستوري','🏆 نمرې','❤️ لایکونه','⛔ مسدودول','✅ خلاصول','📨 پیغام لېږل','🔙 اډمین پینل'];
+  const b = tx(user).adminUserSettingsButtons;
   return { inline_keyboard: [
     [{ text: b[0], callback_data: 'admin:photo:' + targetId }],
     [{ text: b[1] + ' +', callback_data: 'admin:balance:stars:add:' + targetId }, { text: b[1] + ' −', callback_data: 'admin:balance:stars:sub:' + targetId }],
@@ -88,14 +88,7 @@ function adminUserSettingsKeyboard(user, targetId, blocked) {
 async function showAdminUserSettings(chatId, adminUser, target) {
   const country = COUNTRIES.find(item => item.code === target.country);
   const favCount = await db.$count(favorites, eq(favorites.user_telegram_id, Number(target.telegram_id)));
-  const labels = {
-    ps: { title:'👤 د کارن تنظیمات', referrals:'رابلل شوي', favorites:'پالو ملګري', stars:'ستوري', points:'نمرې', likes:'لایکونه', photo:'عکس', status:'حالت', blocked:'مسدود', active:'فعال' },
-    fa: { title:'👤 تنظیمات کاربر', referrals:'دعوت‌شده', favorites:'دوستان محبوب', stars:'ستاره', points:'امتیاز', likes:'لایک', photo:'عکس', status:'وضعیت', blocked:'مسدود', active:'فعال' },
-    en: { title:'👤 USER SETTINGS', referrals:'Referrals', favorites:'Favorites', stars:'Stars', points:'Points', likes:'Likes', photo:'Photo', status:'Status', blocked:'Blocked', active:'Active' },
-    ur: { title:'👤 صارف کی ترتیبات', referrals:'مدعو دوست', favorites:'پسندیدہ دوست', stars:'ستارے', points:'پوائنٹس', likes:'لائکس', photo:'تصویر', status:'حالت', blocked:'بلاک', active:'فعال' },
-    ar: { title:'👤 إعدادات المستخدم', referrals:'الإحالات', favorites:'الأصدقاء المفضلون', stars:'النجوم', points:'النقاط', likes:'الإعجابات', photo:'الصورة', status:'الحالة', blocked:'محظور', active:'نشط' }
-  };
-  const l = labels[adminUser.language] || labels.ps;
+  const l = tx(adminUser).adminUserSettings;
   const a = tx(adminUser).sessionText.adminText, p = tx(adminUser).sessionText;
   const gender = target.gender === 'female' ? p.female : target.gender === 'male' ? p.male : '—';
   const text = l.title + '\n━━━━━━━━━━━━━━\n👤 ' + a.nameLabel + ': ' + [target.name || target.first_name || a.fallbackUserName, target.surname || ''].filter(Boolean).join(' ') +
