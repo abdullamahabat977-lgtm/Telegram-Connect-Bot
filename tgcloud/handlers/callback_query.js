@@ -163,7 +163,7 @@ function adminSettingsKeyboard(user, targetId, blocked) {
 async function showAdminUserSettings(chatId, actor, target) {
   const country = COUNTRIES.find(item => item.code === target.country), w = listWords(actor), rt = sessionTx(actor).sessionText.adminText;
   const favCount = await db.$count(favorites, eq(favorites.user_telegram_id, Number(target.telegram_id)));
-  const title = actor.language === 'en' ? '👤 USER SETTINGS' : actor.language === 'fa' ? '👤 تنظیمات کاربر' : actor.language === 'ur' ? '👤 صارف کی ترتیبات' : actor.language === 'ar' ? '👤 إعدادات المستخدم' : '👤 د کارن تنظیمات';
+  const title = tx(actor).adminUserSettingsTitle;
   const gender = target.gender === 'male' ? sessionTx(actor).male : target.gender === 'female' ? sessionTx(actor).female : '—';
   const text = title + '\n━━━━━━━━━━━━━━\n👤 ' + [target.name || target.first_name || '—', target.surname || ''].filter(Boolean).join(' ') +
     '\n' + rt.idLabel + ': ' + target.telegram_id + '\n' + rt.usernameLabel + ': ' + (target.username ? '@' + target.username : '—') +
