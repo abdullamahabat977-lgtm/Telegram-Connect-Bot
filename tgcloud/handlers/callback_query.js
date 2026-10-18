@@ -136,7 +136,7 @@ async function showAdminUserSettings(chatId, actor, target) {
   const gender = target.gender === 'male' ? sessionTx(actor).male : target.gender === 'female' ? sessionTx(actor).female : '—';
   const text = title + '\n━━━━━━━━━━━━━━\n👤 ' + [target.name || target.first_name || '—', target.surname || ''].filter(Boolean).join(' ') +
     '\n' + rt.idLabel + ': ' + target.telegram_id + '\n' + rt.usernameLabel + ': ' + (target.username ? '@' + target.username : '—') +
-    '\n🌍 ' + (country ? country.label : '—') + '\n⚧ ' + gender + '  🎂 ' + (target.age || '—') +
+    '\n🌍 ' + (country ? (mt(actor).countryNames[country.code] || country.label) : '—') + '\n⚧ ' + gender + '  🎂 ' + (target.age || '—') +
     '\n📢 ' + (target.channel_username || '—') + '\n📨 ' + w.ref + ': ' + Number(target.referral_count || 0) +
     '\n👥 ' + w.fav + ': ' + favCount + '\n⭐ ' + w.stars + ': ' + Number(target.stars || 0) +
     '\n🏆 ' + w.points + ': ' + Number(target.points || 0) + '\n❤️ ' + w.likes + ': ' + Number(target.likes || 0) +
@@ -212,7 +212,7 @@ async function showMain(chatId, user, message) {
   await sendPrompt(chatId, text, mainKeyboard(user, await isAdmin(user.telegram_id)), user);
 }
 async function showCountry(chatId, user) {
-  await sendPrompt(chatId, tx(user).country, countryKeyboard(), user);
+  await sendPrompt(chatId, tx(user).country, countryKeyboard(user), user);
 }
 async function showGender(chatId, user) {
   await sendPrompt(chatId, tx(user).gender, genderKeyboard(user), user);
@@ -486,7 +486,7 @@ async function publicProfileText(target, viewerId) {
   const country = COUNTRIES.find(item => item.code === target.country), language = LANGUAGES.find(item => item.code === target.language);
   const favCount = await db.$count(favorites, eq(favorites.favorite_telegram_id, Number(target.telegram_id)));
   return '👤 ' + p.name + ': ' + name + '\n\n⚧ ' + p.gender + ': ' + gender +
-    '\n\n🌍 ' + p.country + ': ' + (country ? country.label : '—') +
+    '\n\n🌍 ' + p.country + ': ' + (country ? (mt(viewer).countryNames[country.code] || country.label) : '—') +
     '\n\n🎂 ' + p.age + ': ' + (target.age || '—') + '\n\n🗣️ ' + p.language + ': ' + (language ? language.label : target.language || '—') +
     '\n\n📢 ' + p.channel + ': ' + (target.channel_username || '—') + '\n\n📨 ' + p.referrals + ': ' + Number(target.referral_count || 0) +
     '\n\n👥 ' + p.favorites + ': ' + favCount + '\n\n🏆 ' + p.points + ': ' + Number(target.points || 0) + '\n\n❤️ ' + p.likes + ': ' + Number(target.likes || 0);
