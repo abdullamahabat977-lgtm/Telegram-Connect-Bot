@@ -1932,7 +1932,7 @@ async function handleFindCallback(query, actor, data, actorId, chatId) {
     if (!['male','female','auto'].includes(p[2])) return;
     await db.update(users).set({ search_gender: p[2], state: 'find_choose_language' }).where(eq(users.telegram_id, actorId)).run();
     actor.search_gender = p[2]; actor.state = 'find_choose_language';
-    await sendPrompt(chatId, tx(actor).findChooseLanguage, { inline_keyboard: [[{ text: 'پښتو', callback_data: 'find:language:ps' }, { text: 'دري', callback_data: 'find:language:fa' }], [{ text: 'English', callback_data: 'find:language:en' }, { text: 'اردو', callback_data: 'find:language:ur' }], [{ text: 'العربية', callback_data: 'find:language:ar' }], [{ text: '🌐 ' + tx(actor).auto, callback_data: 'find:language:auto' }], [{ text: '❌ لغوه', callback_data: 'find:cancel' }]] }, actor); return;
+    await sendPrompt(chatId, tx(actor).findChooseLanguage, { inline_keyboard: [[{ text: 'پښتو', callback_data: 'find:language:ps' }, { text: 'دري', callback_data: 'find:language:fa' }], [{ text: 'English', callback_data: 'find:language:en' }, { text: 'اردو', callback_data: 'find:language:ur' }], [{ text: 'العربية', callback_data: 'find:language:ar' }], [{ text: '🌐 ' + tx(actor).auto, callback_data: 'find:language:auto' }], [{ text: tx(actor).findCancelButton, callback_data: 'find:cancel' }]] }, actor); return;
   }
   if (p[1] === 'language') {
     if (!['ps','fa','en','ur','ar','auto'].includes(p[2])) return;
