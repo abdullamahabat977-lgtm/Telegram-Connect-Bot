@@ -894,11 +894,11 @@ async function startDiceGame(chatId, user) {
   const fee = Number(await getSetting('game_fee_stars', 0.5));
   const requiredBalance = minStars;
   if (![minStars, fee, requiredBalance].every(Number.isFinite) || minStars <= 0 || fee < 0 || fee >= minStars) {
-    await sendPrompt(chatId, '⚠️ د ګېم تنظیمات ناسم دي: فیس باید له جایزې څخه کم وي. له اډمین سره اړیکه ونیسه.', menuKeyboard(user, await isAdmin(user.telegram_id)), user);
+    await sendPrompt(chatId, tx(user).sessionText.gameText.badSettings, menuKeyboard(user, await isAdmin(user.telegram_id)), user);
     return;
   }
   if (Number(user.stars || 0) < requiredBalance) {
-    await sendPrompt(chatId, '🎲 د ګېم لپاره لږ تر لږه ' + requiredBalance + ' ستوري پکار دي (جایزه ' + minStars + '؛ فیس ' + fee + ' د جایزې له اندازې کمېږي).\n\nستا بیلانس: ' + Number(user.stars || 0), menuKeyboard(user, await isAdmin(user.telegram_id)), user);
+    await sendPrompt(chatId, tx(user).sessionText.gameText.minimumBalance + requiredBalance + tx(user).sessionText.gameText.minimumBalanceMid + minStars + tx(user).sessionText.gameText.minimumBalanceFee + fee + tx(user).sessionText.gameText.minimumBalanceEnd + Number(user.stars || 0), menuKeyboard(user, await isAdmin(user.telegram_id)), user);
     return;
   }
   const rows = await db.select().from(game_sessions).all();
@@ -910,7 +910,7 @@ async function startDiceGame(chatId, user) {
     (Number(row.requester_id) === userId || Number(row.recipient_id) === userId)
   );
   if (activeConnection || hasActiveConnectionRequest) {
-    await sendPrompt(chatId, '⚠️ ته لا د اړیکې یا د ملګري د لټون په بهیر کې یې. لومړی هغه پای ته ورسوه، بیا ګېم پیل کړه.', menuKeyboard(user, await isAdmin(userId)), user);
+    await sendPrompt(chatId, tx(user).sessionText.gameText.activeConnection, menuKeyboard(user, await isAdmin(userId)), user);
     return;
   }
   const waitSeconds = Math.max(1, Number(await getSetting('game_wait_seconds', 120)) || 120);
@@ -966,7 +966,7 @@ async function startDiceGame(chatId, user) {
     throw new Error('Game insert could not be verified after insert; returning rows were empty and fallback lookup found no matching row');
   }
   try {
-    await sendPrompt(chatId, '🎲 د ګېم سیال لټول کېږي.\n\n📩 د منلو/ردولو پیغام یوازې هغه کارن ته استول کېږي چې په تېرو ۲ دقیقو کې له بوټ سره فعال و، کافي ستوري ولري، او بل فعال ګېم یا اړیکه ونه لري.\n\n⏳ که په ټاکلي وخت کې مناسب سیال پیدا نه شي، ګېم به د بوټ پر وړاندې حل شي؛ که لغوه کول غواړې، لاندې تڼۍ ووهه.', { inline_keyboard: [[{ text: '❌ ګېم لغوه کول', callback_data: 'game:cancel' }]] }, user);
+    await sendPrompt(chatId, tx(user).sessionText.gameText.searchingOpponent, { inline_keyboard: [[{ text: tx(user).sessionText.gameText.cancelButton, callback_data: 'game:cancel' }]] }, user);
   } catch (promptError) {
     // If the status prompt cannot be delivered, remove only this new request from
     // active matchmaking so it cannot silently block future games/connections.
@@ -1017,7 +1017,7 @@ async function startDiceGame(chatId, user) {
     try {
       await api.sendMessage({
         chat_id: Number(chatId),
-        text: '⚠️ د ګېم غوښتنه ثبت شوه، خو د سیال لټولو پر مهال تخنیکي ستونزه وشوه. غوښتنه لا د لټون په حالت کې ده؛ لږ وروسته بیا هڅه وکړه.'
+        text: tx(user).sessionText.connectionMatchFailed
       });
     } catch (notifyError) {
       reportDiagnostic('message-handler', 'Could not notify player about matchmaking failure', {
@@ -1069,15 +1069,15 @@ export async function resolveBotGame(game) {
     try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: '⚠️ د تاس پایله تایید نه شوه؛ مالي تصفیه ونه شوه. له اډمین سره اړیکه ونیسه.' }); } catch (e) {}
     return;
   }
-  let outcome = '🤝 مساوي! یوازې د ګېم فیس ' + fee + ' ستوری کم شو.';
+  let outcome = tx(player).sessionText.gameText.draw + fee + tx(player).sessionText.gameText.drawEnd;
   let newBalance = balance - fee, newPoints = pointsBalance;
   if (playerRoll > botRoll) {
     newBalance = balance + winStars - fee;
     newPoints += points;
-    outcome = '🎉 ته وګټلې! ستا خالصه جایزه ' + (winStars - fee) + ' ستوري او +' + points + ' نمرې ده.';
+    outcome = tx(player).sessionText.gameText.userWon + (winStars - fee) + tx(player).sessionText.gameText.userWonMid + points + tx(player).sessionText.gameText.userWonEnd;
   } else if (botRoll > playerRoll) {
     newBalance = balance - winStars;
-    outcome = '🤖 بوټ وګټله! ستا ټول لګښت ' + winStars + ' ستوري شو (فیس پکې شامل دی).';
+    outcome = tx(player).sessionText.gameText.botWon + winStars + tx(player).sessionText.gameText.botWonEnd;
   }
   const balanceUpdate = await db.update(users).set({ stars: newBalance, points: newPoints })
     .where(and(eq(users.telegram_id, Number(player.telegram_id)), eq(users.stars, balance), eq(users.points, pointsBalance)))
@@ -1098,7 +1098,7 @@ export async function resolveBotGame(game) {
     try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: '⚠️ مالي بدلون وشو، خو د ګېم پایله په ډیټابیس کې بشپړه ثبت نه شوه. له اډمین سره اړیکه ونیسه.' }); } catch (e) {}
     return;
   }
-  try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: '🎲 د ګېم پایله\n\nستا 🎲: ' + playerRoll + '\n\nد بوټ 🎲: ' + botRoll + '\n\n' + outcome + '\n\n⭐ اوسنی بیلانس: ' + newBalance }); } catch (e) {}
+  try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: tx(player).sessionText.gameText.resultTitle + '\\n\\n' + tx(player).sessionText.gameText.yourDice + playerRoll + '\\n\\n' + tx(player).sessionText.gameText.botDice + botRoll + '\\n\\n' + outcome + '\\n\\n' + tx(player).sessionText.gameText.balanceNow + newBalance }); } catch (e) {}
 }
 export async function tryMatchGames() {
   let rows = await db.select().from(game_sessions).all();
@@ -1294,9 +1294,9 @@ export async function tryMatchGames() {
       try {
         await api.sendMessage({
           chat_id: candidateId,
-          text: '🎲 یو فعال کارن غواړي له تا سره د ګېم لوبه وکړي.\n\nد لوبې لپاره لږ تر لږه ' + requiredBalance + ' ستوري پکار دي. د ګټلو جایزه ' + minStars + ' ده او فیس ' + fee + ' له جایزې کمېږي. د منلو یا ردولو انتخاب وکړه.',
+          text: tx(candidate).sessionText.gameText.requestOffer + requiredBalance + tx(candidate).sessionText.gameText.requestOfferMid + minStars + tx(candidate).sessionText.gameText.requestOfferFee + fee + tx(candidate).sessionText.gameText.requestOfferEnd,
           reply_markup: styleKeyboardMarkup({ inline_keyboard: [[
-            { text: '✅ ګېم منل', callback_data: 'game:accept:' + game.id },
+            { text: tx(candidate).sessionText.gameText.acceptButton, callback_data: 'game:accept:' + game.id },
             { text: tx(candidate).sessionText.reject, callback_data: 'game:reject:' + game.id }
           ]] })
         });
@@ -1327,9 +1327,9 @@ export async function tryMatchGames() {
           try {
             await api.sendMessage({
               chat_id: candidateId,
-              text: '🎲 یو فعال کارن غواړي له تا سره د ګېم لوبه وکړي.\n\nد لوبې لپاره لږ تر لږه ' + requiredBalance + ' ستوري پکار دي. د ګټلو جایزه ' + minStars + ' ده او فیس ' + fee + ' له جایزې کمېږي. د منلو یا ردولو انتخاب وکړه.',
+          text: tx(candidate).sessionText.gameText.requestOffer + requiredBalance + tx(candidate).sessionText.gameText.requestOfferMid + minStars + tx(candidate).sessionText.gameText.requestOfferFee + fee + tx(candidate).sessionText.gameText.requestOfferEnd,
               reply_markup: { inline_keyboard: [[
-                { text: '✅ ګېم منل', callback_data: 'game:accept:' + game.id },
+                { text: tx(candidate).sessionText.gameText.acceptButton, callback_data: 'game:accept:' + game.id },
                 { text: tx(candidate).sessionText.reject, callback_data: 'game:reject:' + game.id }
               ]] }
             });
@@ -1451,7 +1451,7 @@ export async function tryMatchGames() {
             ? '⚠️ مناسب سیال پیدا شو، خو ټیلیګرام ټولو هڅه شویو سیالانو ته پیغام ونه لېږه. د ګېم غوښتنه لغوه شوه؛ اوس بیا ګېم یا ناڅاپي اړیکه پیلولای شې.'
             : '⚠️ سیال ته د ګېم پیغام ونه لېږل شو. که د ګېم غوښتنه لا فعاله وي، لاندې «❌ ګېم لغوه کول» تڼۍ ووهه. که ستونزه دوام وکړي، اډمین ته خبر ورکړه.',
           ...(!closed && latestGame && ['waiting', 'pending'].includes(latestGame.status)
-            ? { reply_markup: { inline_keyboard: [[{ text: '❌ ګېم لغوه کول', callback_data: 'game:cancel' }]] } }
+            ? { reply_markup: { inline_keyboard: [[{ text: tx(user).sessionText.gameText.cancelButton, callback_data: 'game:cancel' }]] } }
             : {})
         });
       } catch (notifyError) {
