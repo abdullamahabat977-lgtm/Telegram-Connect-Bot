@@ -274,7 +274,7 @@ async function showProfile(chatId, user) {
     '\n\n🌍 ' + p.country + ': ' + escapeHtml(c ? (t.countryNames[c.code] || c.label) : t.notSet) +
     '\n\n⚧ ' + p.gender + ': ' + escapeHtml(genderLabel) +
     '\n\n🎂 ' + p.age + ': ' + escapeHtml(user.age || t.notSet) +
-    '\n\n🗣️ ' + p.language + ': ' + escapeHtml(l.label) +
+    '\n\n🗣️ ' + p.language + ': ' + escapeHtml(t.languageNames[l.code] || l.label) +
     '\n\n📢 ' + p.channel + ': ' + escapeHtml(user.channel_username || t.notSet) +
     '\n\n📨 ' + p.referrals + ': ' + Number(user.referral_count || 0) +
     '\n\n👥 ' + p.favorites + ': ' + favCount +
