@@ -1648,7 +1648,7 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
       try { await tryOfferSearches(); } catch (error) { reportDiagnostic('callback-handler', 'Connection retry after rejection failed', { offerId: offerId, actorId: actorId, error: error }); }
       return;
     }
-    if (!search) { await db.update(connection_requests).set({ status: 'expired', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, offerId)).run(); await sendPrompt(chatId, '⌛ د غوښتونکي لټون پای ته رسېدلی.', mainKeyboard(actor, await isAdmin(actorId)), actor); return; }
+    if (!search) { await db.update(connection_requests).set({ status: 'expired', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, offerId)).run(); await sendPrompt(chatId, tx(actor).sessionText.connectionOfferExpired, mainKeyboard(actor, await isAdmin(actorId)), actor); return; }
     const requester = await getUser(offer.requester_id), cost = Number(await getSetting('connection_cost_stars', 1));
     if (requester && await blockedPair(Number(requester.telegram_id), actorId)) {
       await db.update(connection_requests).set({ status: 'rejected', updated_at: new Date().toISOString() })
@@ -1672,7 +1672,7 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
     }
     if (!requester || Number(requester.stars || 0) < cost) {
       await db.update(connection_requests).set({ status: 'rejected', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, offerId)).run();
-      if (requester) try { await api.sendMessage({ chat_id: Number(requester.telegram_id), text: '⚠️ د اړیکې لپاره ستوري نور کافي نه دي. لټون پای ته ورسېد.' }); } catch (e) {}
+      if (requester) try { await api.sendMessage({ chat_id: Number(requester.telegram_id), text: tx(requester).sessionText.connectionInsufficientStars }); } catch (e) {}
       try { await tryOfferSearches(); } catch (error) { reportDiagnostic('callback-handler', 'Connection retry after insufficient balance failed', { offerId: offerId, actorId: actorId, error: error }); }
       return;
     }
@@ -1685,8 +1685,8 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
         .where(and(eq(connection_requests.id, offerId), eq(connection_requests.status, 'pending'))).run();
       await db.update(connection_requests).set({ status: 'cancelled', updated_at: new Date().toISOString() })
         .where(and(eq(connection_requests.id, Number(search.id)), eq(connection_requests.status, 'searching'))).run();
-      await sendPrompt(chatId, '⚠️ د غوښتونکي یا ستا ګېم لا فعال دی. دا د اړیکې غوښتنه بنده شوه؛ د ګېم تر پای وروسته بیا هڅه وکړه.', mainKeyboard(actor, await isAdmin(actorId)), actor);
-      try { await api.sendMessage({ chat_id: Number(requester.telegram_id), text: '⚠️ د ګېم د فعال حالت له امله د اړیکې لټون لغوه شو. د ګېم تر پای وروسته بیا هڅه وکړه.' }); } catch (e) {}
+      await sendPrompt(chatId, tx(actor).sessionText.connectionGameConflictActor, mainKeyboard(actor, await isAdmin(actorId)), actor);
+      try { await api.sendMessage({ chat_id: Number(requester.telegram_id), text: tx(requester).sessionText.connectionGameConflictRequester }); } catch (e) {}
       return;
     }
     const requesterSession = await activeSessionFor(requester.telegram_id);
