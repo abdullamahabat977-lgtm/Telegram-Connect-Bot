@@ -331,9 +331,9 @@ function escapeHtml(value) {
 function rankingName(row) {
   return [row.name || row.first_name || row.username || 'کارن', row.surname || ''].filter(Boolean).join(' ');
 }
-async function topReferralText(allUsers) {
+async function topReferralText(allUsers, user) {
   const top = allUsers.slice().sort((a, b) => Number(b.referral_count || 0) - Number(a.referral_count || 0)).filter(row => Number(row.referral_count || 0) > 0).slice(0, 5);
-  if (!top.length) return 'تر اوسه ریفرل نه شته.';
+  if (!top.length) return tx(user).noReferrals;
   return top.map((row, i) => (i + 1) + '. ' + escapeHtml(rankingName(row)) +
     '\n🆔 ID: <code>' + Number(row.telegram_id) + '</code>' +
     '\n📨 ریفرلونه: ' + Number(row.referral_count || 0)).join('\n\n\n');
@@ -342,9 +342,9 @@ async function showStats(chatId, user) {
   const t = tx(user), allUsers = await db.select().from(users).all();
   const cutoff = Date.now() - 15 * 60 * 1000;
   const onlineUsers = allUsers.filter(row => row.last_active_at && Date.parse(row.last_active_at) >= cutoff);
-  const topRefs = await topReferralText(allUsers);
-  const text = '📊 د بوټ احصائیې\n━━━━━━━━━━━━━━\n\n👥 ټول کاروونکي: ' + allUsers.length +
-    '\n\n🟢 آنلاین کاروونکي: ' + onlineUsers.length + '\n\n🏆 تر ټولو ډېر ریفرل لرونکي ۵ کسان:\n\n' + topRefs;
+  const topRefs = await topReferralText(allUsers, user);
+  const text = t.statsTitle + '\n━━━━━━━━━━━━━━\n\n' + t.statsAll + allUsers.length +
+    '\n\n' + t.statsOnline + onlineUsers.length + '\n\n' + t.statsTop + '\n\n' + topRefs;
   await sendPrompt(chatId, text, menuKeyboard(user, await isAdmin(user.telegram_id)), user, 'HTML');
 }
 async function showReferral(chatId, user) {
@@ -374,8 +374,8 @@ async function showAdminList(chatId, user, page) {
   if (!all.length) text += tx(user).adminEmpty;
   for (const row of items) {
     const profile = await getUser(row.telegram_id);
-    const name = profile ? [profile.name || profile.first_name || 'Admin', profile.surname || ''].filter(Boolean).join(' ') : 'Admin';
-    text += '👤 نوم: ' + name + '\n\n🆔 Telegram ID: ' + row.telegram_id + '\n\n🔗 Username: ' + (profile && profile.username ? '@' + profile.username : '—') + '\n\n━━━━━━━━━━━━━━\n\n';
+    const name = profile ? [profile.name || profile.first_name || tx(user).adminFallback, profile.surname || ''].filter(Boolean).join(' ') : tx(user).adminFallback;
+    text += tx(user).adminName + name + '\n\n' + tx(user).telegramID + ' ' + row.telegram_id + '\n\n' + tx(user).username + ' ' + (profile && profile.username ? '@' + profile.username : '—') + '\n\n━━━━━━━━━━━━━━\n\n';
     rows.push([{ text: w.copy + ' ' + row.telegram_id, copy_text: { text: String(row.telegram_id) } }]);
   }
   const nav = [];
@@ -392,8 +392,8 @@ async function showChannelList(chatId, user, notice) {
     const info = requiredChatInfo(row);
     return [{ text: (info.type === 'channel' ? '📢 ' : '👥 ') + String(info.title || row.chat_id).slice(0, 48), callback_data: 'admin:channels:item:' + encodeURIComponent(String(row.chat_id)) }];
   });
-  rows.push([{ text: '🔙 بېرته', callback_data: 'admin:channels:back' }]);
-  const heading = (notice ? notice + '\n\n' : '') + t.channelButtons[1] + '\n\n' + (list.length ? 'د ګروپ یا چینل د تنظیماتو لپاره یې نوم وټاکه:' : t.channelEmpty);
+  rows.push([{ text: t.channelBack, callback_data: 'admin:channels:back' }]);
+  const heading = (notice ? notice + '\n\n' : '') + t.channelButtons[1] + '\n\n' + (list.length ? t.channelPrompt : t.channelEmpty);
   await sendPrompt(chatId, heading, { inline_keyboard: rows }, user);
 }
 async function completeProfile(chatId, user, extra) {
