@@ -1561,7 +1561,7 @@ async function processMessage(message) {
   // This only changes the game status; it does not alter any user's stars or points.
   if (input === '/cleartestgames' || input === '/cleartestgames@' + String((await getSetting('bot_username', '') || '')).replace(/^@/, '')) {
     if (!(await isAdmin(id))) {
-      await sendPrompt(chatId, '⛔ دا امر یوازې د اډمین لپاره دی.', menuKeyboard(user, false), user);
+      await sendPrompt(chatId, tx(user).adminText.adminOnlyCommand, menuKeyboard(user, false), user);
       return;
     }
     const failedGames = await db.select().from(game_sessions).all();
@@ -1688,12 +1688,12 @@ async function processMessage(message) {
     const key = adminSettingMatch[1], value = Number(input);
     const allowed = ['welcome_reward_stars','welcome_reward_points','welcome_reward_likes','referral_reward_stars','referral_reward_points','referral_reward_likes','connection_search_seconds','connection_idle_minutes','connection_max_minutes','connection_cost_stars','game_min_stars','game_fee_stars','game_win_points','game_wait_seconds'];
     if (!(await isAdmin(id))) { await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, id)).run(); user.state = 'ready'; await sendPrompt(chatId, tx(user).noAccess, menuKeyboard(user, false), user); return; }
-    if (!allowed.includes(key) || !Number.isFinite(value) || value < 0 || value > 1000000 || ((key.startsWith('welcome_reward_') || key.startsWith('referral_reward_') || key.includes('seconds') || key.includes('minutes') || key === 'game_win_points') && !Number.isInteger(value))) { await sendPrompt(chatId, '⚠️ معتبر عدد ولیکه. د ستورو فیس اعشاري کېدای شي، لکه 0.5.', { force_reply: true }, user); return; }
+    if (!allowed.includes(key) || !Number.isFinite(value) || value < 0 || value > 1000000 || ((key.startsWith('welcome_reward_') || key.startsWith('referral_reward_') || key.includes('seconds') || key.includes('minutes') || key === 'game_win_points') && !Number.isInteger(value))) { await sendPrompt(chatId, tx(user).adminText.invalidSettingValue, { force_reply: true }, user); return; }
     if (key === 'game_fee_stars' || key === 'game_min_stars') {
       const prize = key === 'game_min_stars' ? value : Number(await getSetting('game_min_stars', 3.5));
       const configuredFee = key === 'game_fee_stars' ? value : Number(await getSetting('game_fee_stars', 0.5));
       if (!Number.isFinite(prize) || prize <= 0 || !Number.isFinite(configuredFee) || configuredFee < 0 || configuredFee >= prize) {
-        await sendPrompt(chatId, '⚠️ د لوبې فیس باید له جایزې څخه کم وي. لومړی مناسب مقدار وټاکه، بیا بیا هڅه وکړه.', { force_reply: true }, user);
+        await sendPrompt(chatId, tx(user).adminText.gameFeeMustBeLess, { force_reply: true }, user);
         return;
       }
     }
@@ -1708,7 +1708,7 @@ async function processMessage(message) {
   if (rewardMatch) {
     const field = rewardMatch[1], amount = Number(input);
     if (!(await isAdmin(id))) { user.state = 'ready'; await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, tx(user).noAccess, menuKeyboard(user, false), user); return; }
-    if (!Number.isSafeInteger(amount) || amount < 0 || amount > 1000000) { await sendPrompt(chatId, '⚠️ صفر یا مثبت صحیح عدد ولیکه.', { force_reply: true }, user); return; }
+    if (!Number.isSafeInteger(amount) || amount < 0 || amount > 1000000) { await sendPrompt(chatId, tx(user).adminText.invalidInteger, { force_reply: true }, user); return; }
     await setSetting('referral_reward_' + field, amount);
     user.state = 'admin_menu'; await db.update(users).set({ state: 'admin_menu' }).where(eq(users.telegram_id, id)).run();
     const stars = await getSetting('referral_reward_stars', 15), points = await getSetting('referral_reward_points', 5), likes = await getSetting('referral_reward_likes', 2);
@@ -1731,7 +1731,7 @@ async function processMessage(message) {
   if (sendToUserMatch) {
     const targetId = Number(sendToUserMatch[1]);
     try { await api.copyMessage({ chat_id: targetId, from_chat_id: chatId, message_id: message.message_id }); }
-    catch (e) { await sendPrompt(chatId, user.language === 'en' ? 'Could not send this message to the user.' : 'دا پیغام کارن ته ونه لېږل شو.', { force_reply: true }, user); return; }
+    catch (e) { await sendPrompt(chatId, user.language === 'en' ? 'Could not send this message to the user.' : tx(user).adminText.adminMessageFailed, { force_reply: true }, user); return; }
     const target = await getUser(targetId); user.state = 'admin_menu'; await db.update(users).set({ state: 'admin_menu' }).where(eq(users.telegram_id, id)).run();
     if (target) await showAdminUserSettings(chatId, user, target); return;
   }
