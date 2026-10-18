@@ -1338,7 +1338,7 @@ async function resolveUserGame(game) {
     await db.update(game_sessions).set({ status: 'cancelled', updated_at: new Date().toISOString() })
       .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'playing'))).run();
     for (const item of [player, opponent]) {
-      if (item) try { await api.sendMessage({ chat_id: Number(item.telegram_id), text: '⚠️ ګېم لغوه شو، ځکه یو لوبغاړی نور موجود نه دی. فیس نه دی اخیستل شوی.' }); } catch (e) {}
+      if (item) try { await api.sendMessage({ chat_id: Number(item.telegram_id), text: sessionTx(item).sessionText.gamePlayerUnavailable }); } catch (e) {}
     }
     return;
   }
@@ -1348,7 +1348,7 @@ async function resolveUserGame(game) {
   if (![fee, winStars, points].every(Number.isFinite) || fee < 0 || winStars <= 0 || fee >= winStars || points < 0 || !Number.isInteger(points)) {
     await db.update(game_sessions).set({ status: 'settlement_error', updated_at: new Date().toISOString() })
       .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'playing'))).run();
-    const notice = '⚠️ د ګېم مالي تنظیمات ناسم دي؛ د ستورو حساب ونه شو. له اډمین سره اړیکه ونیسه.';
+    const notice = sessionTx(player).sessionText.gameBadSettings;
     try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: notice }); } catch (e) {}
     try { await api.sendMessage({ chat_id: Number(opponent.telegram_id), text: notice }); } catch (e) {}
     return;
@@ -1356,7 +1356,7 @@ async function resolveUserGame(game) {
   if (Number(player.stars || 0) < winStars || Number(opponent.stars || 0) < winStars) {
     await db.update(game_sessions).set({ status: 'cancelled', updated_at: new Date().toISOString() })
       .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'playing'))).run();
-    try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: '⚠️ د لوبې لپاره د یوه لوبغاړي بیلانس کافي نه دی.' }); } catch (e) {}
+    try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: sessionTx(player).sessionText.gameInsufficientBalance }); } catch (e) {}
     try { await api.sendMessage({ chat_id: Number(opponent.telegram_id), text: '⚠️ د لوبې لپاره د یوه لوبغاړي بیلانس کافي نه دی.' }); } catch (e) {}
     return;
   }
@@ -1375,7 +1375,7 @@ async function resolveUserGame(game) {
     } catch (stateError) {
       reportDiagnostic('callback-handler', 'Could not cancel game after dice delivery failure', { gameId: game.id, stateError });
     }
-    const notice = '⚠️ د ګېم د تاس اچولو پر مهال تخنیکي ستونزه وه. ګېم لغوه شو؛ تر دې مرحلې فیس نه دی کم شوی. وروسته بیا هڅه وکړه.';
+    const notice = sessionTx(player).sessionText.gameDiceError;
     try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: notice }); } catch (e) {}
     try { await api.sendMessage({ chat_id: Number(opponent.telegram_id), text: notice }); } catch (e) {}
     return;
@@ -1385,7 +1385,7 @@ async function resolveUserGame(game) {
   if (![pRoll, oRoll].every(value => Number.isInteger(value) && value >= 1 && value <= 6)) {
     await db.update(game_sessions).set({ status: 'settlement_error', updated_at: new Date().toISOString() })
       .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'playing'))).run();
-    const notice = '⚠️ د تاس پایله تایید نه شوه؛ د ستورو حساب ونه شو. له اډمین سره اړیکه ونیسه.';
+    const notice = sessionTx(player).sessionText.gameResultUnconfirmed;
     try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: notice }); } catch (e) {}
     try { await api.sendMessage({ chat_id: Number(opponent.telegram_id), text: notice }); } catch (e) {}
     return;
@@ -1474,7 +1474,7 @@ async function resolveUserGame(game) {
     }
     await db.update(game_sessions).set({ status: 'settlement_error', updated_at: new Date().toISOString() })
       .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'playing'))).run();
-    const notice = '⚠️ د یوه لوبغاړي بیلانس د تصفیې پر مهال بدل شو؛ حساب خوندي کولو لپاره ودرول شو. له اډمین سره اړیکه ونیسه.';
+    const notice = sessionTx(player).sessionText.gameSettlementStopped;
     try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: notice }); } catch (e) {}
     try { await api.sendMessage({ chat_id: Number(opponent.telegram_id), text: notice }); } catch (e) {}
     return;
@@ -1492,7 +1492,7 @@ async function resolveUserGame(game) {
       });
       await db.update(game_sessions).set({ status: 'settlement_error', updated_at: new Date().toISOString() })
         .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'playing'))).run();
-      const notice = '⚠️ د ستورو حساب وشو، خو د لوبې پایله تایید نه شوه؛ اډمین ته راپور واستول شو. له اډمین سره اړیکه ونیسه.';
+      const notice = sessionTx(player).sessionText.gameResultUnconfirmed;
       try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: notice }); } catch (e) {}
       try { await api.sendMessage({ chat_id: Number(opponent.telegram_id), text: notice }); } catch (e) {}
       return;
@@ -2125,7 +2125,7 @@ async function handleGameCallback(query, actor, data, actorId, chatId) {
     } else if (stillPending) {
       await showMain(chatId, actor, '⚠️ د ګېم غوښتنه لا فعاله ده. لږ شېبه وروسته بیا د لغوه کولو هڅه وکړه.');
     } else if (cancelledCount > 0) {
-      await showMain(chatId, actor, '❌ ګېم لغوه شو. اوس نوی ګېم پیل کولای شې.');
+      await showMain(chatId, actor, sessionTx(actor).sessionText.gameCancelled);
     } else {
       await showMain(chatId, actor, '⌛ ستا لپاره فعاله ګېم غوښتنه ونه موندل شوه. اوس نوی ګېم پیل کولای شې.');
     }
@@ -2168,7 +2168,7 @@ async function handleGameCallback(query, actor, data, actorId, chatId) {
         gameId, actorId, observedStatus: latestGame && latestGame.status,
         observedUpdatedAt: latestGame && latestGame.updated_at, rejectedAt
       });
-      await sendPrompt(chatId, '⌛ دا ګېم نور فعال نه دی؛ ښايي مخکې منل شوی یا لغوه شوی وي.', mainKeyboard(actor, await isAdmin(actorId)), actor);
+      await sendPrompt(chatId, sessionTx(actor).sessionText.gameInactive, mainKeyboard(actor, await isAdmin(actorId)), actor);
       return;
     }
     const latestGames = await db.select().from(game_sessions).all();
