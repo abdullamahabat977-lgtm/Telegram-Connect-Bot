@@ -1597,15 +1597,10 @@ async function processMessage(message) {
       user = await getUser(id);
     }
     if (rewardClaimed) {
-    const welcomeText = user.language === 'en'
-      ? '🎉 Welcome! Your welcome reward has been added to your account.\n\n⭐ Stars: ' + welcomeStars + '\n🏆 Points: ' + welcomePoints + '\n❤️ Likes: ' + welcomeLikes
-      : user.language === 'fa'
-        ? '🎉 خوش آمدید! جایزه خوش‌آمدگویی به حساب شما اضافه شد.\n\n⭐ ستاره: ' + welcomeStars + '\n🏆 امتیاز: ' + welcomePoints + '\n❤️ لایک: ' + welcomeLikes
-        : user.language === 'ur'
-          ? '🎉 خوش آمدید! آپ کا استقبالی انعام آپ کے اکاؤنٹ میں شامل کر دیا گیا ہے۔\n\n⭐ ستارے: ' + welcomeStars + '\n🏆 پوائنٹس: ' + welcomePoints + '\n❤️ لائکس: ' + welcomeLikes
-          : user.language === 'ar'
-            ? '🎉 أهلاً بك! أُضيفت مكافأة الترحيب إلى حسابك.\n\n⭐ النجوم: ' + welcomeStars + '\n🏆 النقاط: ' + welcomePoints + '\n❤️ الإعجابات: ' + welcomeLikes
-            : '🎉 ښه راغلاست! ستا د ښه راغلاست جایزه ستا حساب ته اضافه شوه.\n\n⭐ ستوري: ' + welcomeStars + '\n🏆 نمرې: ' + welcomePoints + '\n❤️ لایکونه: ' + welcomeLikes;
+    const welcomeText = tx(user).welcomeRewardLine
+      .replace('{stars}', String(welcomeStars))
+      .replace('{points}', String(welcomePoints))
+      .replace('{likes}', String(welcomeLikes))
     try { await api.sendMessage({ chat_id: chatId, text: welcomeText }); } catch (e) { reportDiagnostic('message-handler', 'Welcome reward notification failed', e); }
     }
   }
