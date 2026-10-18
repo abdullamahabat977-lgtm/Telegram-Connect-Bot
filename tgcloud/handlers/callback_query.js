@@ -394,9 +394,7 @@ async function handleAdminCallback(query, actor, data, actorId, chatId) {
     const t = tx(actor);
     const labels = { stars: t.adminStarsLabel, points: t.adminPointsLabel, likes: t.adminLikesLabel };
     const verb = operation === 'add' ? t.adminAddVerb : t.adminSubtractVerb;
-    const prompt = actor.language === 'en'
-      ? 'Send a positive whole number to ' + verb + ' ' + labels[field] + ':'
-      : labels[field] + ' ' + verb + ' ' + t.adminAmountPrompt;
+    const prompt = t.adminAmountInstruction.replace('{verb}', verb).replace('{label}', labels[field]);
     await sendPrompt(chatId, prompt, { force_reply: true }, actor); return;
   }
   if (p[1] === 'block' || p[1] === 'unblock') {
