@@ -72,8 +72,7 @@ function ageKeyboard() {
 }
 async function showMembership(chatId, user, prefix) {
   const t = tx(user), chats = await db.select().from(required_chats).where(eq(required_chats.is_active, 1)).all(), rows = [];
-  const labels = { ps: ['چینل ته ګډون', 'ګروپ ته ګډون'], fa: ['عضویت در کانال', 'عضویت در گروه'], en: ['Join channel', 'Join group'], ur: ['چینل میں شامل ہوں', 'گروپ میں شامل ہوں'], ar: ['الانضمام إلى القناة', 'الانضمام إلى المجموعة'] };
-  const pair = labels[user.language] || labels.ps;
+  const pair = mt(user).requiredChatLabels;
   for (const chat of chats) {
     const info = requiredChatInfo(chat);
     if (chat.invite_link) rows.push([{ text: ((info.type === 'channel' ? pair[0] : pair[1]) + (info.title ? ': ' + info.title : '')).slice(0, 60), url: chat.invite_link }]);
