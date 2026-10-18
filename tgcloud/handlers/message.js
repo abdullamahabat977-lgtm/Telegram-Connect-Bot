@@ -1478,14 +1478,16 @@ async function renderAdminRewardSettings(chatId, user) {
   await sendPrompt(chatId, text, { inline_keyboard: rows }, user);
 }
 async function renderAdminConnectionSettings(chatId, user) {
-  const keys = [
-    ['connection_search_seconds','⏱ د ملګري لټون ثانیې',120], ['connection_idle_minutes','💤 د بې‌پیغامۍ دقیقې',5],
-    ['connection_max_minutes','⌛ د اړیکې اعظمي دقیقې',40], ['connection_cost_stars','⭐ د اړیکې قیمت',1]
-  ];
-  let text = '🔗 د اړیکو تنظیمات\n\n';
+  const t = tx(user).sessionText.adminText;
+  const keys = [['connection_search_seconds',120],['connection_idle_minutes',5],['connection_max_minutes',40],['connection_cost_stars',1]];
+  let text = t.connectionSettingsTitle + '\n\n';
   const rows = [];
-  for (const item of keys) { text += item[1] + ': ' + await getSetting(item[0], item[2]) + '\n\n'; rows.push([{ text: item[1], callback_data: 'admin:setting:' + item[0] }]); }
-  rows.push([{ text: '🔙 اډمین پینل', callback_data: 'admin:panel' }]);
+  for (const [key, fallback] of keys) {
+    const label = t.settingLabels[key];
+    text += label + ': ' + await getSetting(key, fallback) + '\n\n';
+    rows.push([{ text: label, callback_data: 'admin:setting:' + key }]);
+  }
+  rows.push([{ text: t.mainMenuButton, callback_data: 'admin:panel' }]);
   await sendPrompt(chatId, text, { inline_keyboard: rows }, user);
 }
 async function renderAdminGameSettings(chatId, user) {
