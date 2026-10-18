@@ -904,12 +904,12 @@ async function startConnectionSearch(userId, type) {
   const cost = Number(await getSetting('connection_cost_stars', 1));
   if (!user) return;
   if (!Number.isFinite(cost) || cost < 0) {
-    await sendPrompt(userId, '⚠️ د اړیکې د ستورو تنظیم ناسم دی. له اډمین سره اړیکه ونیسه.', mainKeyboard(user, await isAdmin(userId)), user);
+    await sendPrompt(userId, tx(user).sessionText.connectionCostInvalid, mainKeyboard(user, await isAdmin(userId)), user);
     return;
   }
-  if (Number(user.stars || 0) < cost) { await sendPrompt(userId, '⭐ د اړیکې لپاره ' + cost + ' ستوري پکار دي. ستا بیلانس: ' + Number(user.stars || 0), mainKeyboard(user, await isAdmin(userId)), user); return; }
+  if (Number(user.stars || 0) < cost) { await sendPrompt(userId, tx(user).sessionText.connectionCostPrefix + cost + tx(user).sessionText.connectionCostSuffix + Number(user.stars || 0), mainKeyboard(user, await isAdmin(userId)), user); return; }
   stage = 'check-active-session';
-  if (await activeSessionFor(userId)) { await sendPrompt(userId, '⚠️ ته لا له یوه کس سره په اړیکه کې یې. لومړی اړیکه پای ته ورسوه.', mainKeyboard(user, await isAdmin(userId)), user); return; }
+  if (await activeSessionFor(userId)) { await sendPrompt(userId, tx(user).sessionText.connectionAlreadyActive, mainKeyboard(user, await isAdmin(userId)), user); return; }
   stage = 'expire-stale-games';
   const gameWaitSeconds = Math.max(1, Number(await getSetting('game_wait_seconds', 120)) || 120);
   const gameRowsBeforeCleanup = await db.select().from(game_sessions).all();
@@ -952,7 +952,7 @@ async function startConnectionSearch(userId, type) {
   const requests = await db.select().from(connection_requests).all();
   if (requests.some(row => ['searching', 'matching', 'pending'].includes(row.status) &&
       (Number(row.requester_id) === Number(userId) || Number(row.recipient_id) === Number(userId)))) {
-    await sendPrompt(userId, '🔎 ستا د ملګري لټون یا د اړیکې غوښتنه لا فعاله ده. لومړی یې پای ته ورسوه، بیا نوی لټون پیل کړه.', { inline_keyboard: [[{ text: '❌ لټون لغوه کول', callback_data: 'conn:cancel_search' }]] }, user);
+    await sendPrompt(userId, tx(user).sessionText.connectionSearchActive, { inline_keyboard: [[{ text: tx(user).sessionText.searchCancelButton || '❌ لټون لغوه کول', callback_data: 'conn:cancel_search' }]] }, user);
     return;
   }
   let search = null, searchCreatedAt = null, startupStage = 'claim-user-state';
@@ -1193,7 +1193,7 @@ async function startConnectionSearch(userId, type) {
     }
 
     startupStage = 'send-search-prompt';
-    await sendPrompt(userId, '🔎 د ملګري لټون پیل شو.\n\n⏳ د مناسب کس لټون تر ۲ دقیقو دوام کوي. که وخت تېر شي، د ستا راتلونکي پیغام یا تڼۍ پر مهال به لټون لغوه شي.\n\n⭐ د منلو پر مهال به ' + cost + ' ستوری کم شي.',
+    await sendPrompt(userId, tx(user).sessionText.connectionSearchStarted + cost + tx(user).sessionText.connectionSearchCostSuffix,
       { inline_keyboard: [[{ text: '❌ لټون لغوه کول', callback_data: 'conn:cancel_search:' + Number(search.id) }]] }, user);
   } catch (error) {
     reportDiagnostic('callback-handler', 'Failed to start connection search', {
@@ -1268,7 +1268,7 @@ async function startConnectionSearch(userId, type) {
     try {
       await api.sendMessage({
         chat_id: Number(userId),
-        text: '⚠️ د ملګري لټون پیل نه شو. غوښتنه خوندي نه ده فعاله پاتې شوې؛ لږ وروسته بیا هڅه وکړه. که بیا تکرار شو، اډمین ته خبر ورکړه.'
+        text: tx(user).sessionText.connectionSearchFailed
       });
     } catch (notifyError) {
       reportDiagnostic('callback-handler', 'Could not notify user about connection search startup failure', { userId: Number(userId), notifyError });
@@ -1282,7 +1282,7 @@ async function startConnectionSearch(userId, type) {
     try {
       await api.sendMessage({
         chat_id: Number(userId),
-        text: '⚠️ لټون پیل شو، خو د سیال لټولو پر مهال ستونزه وشوه. لږ وروسته بیا هڅه وکړه.'
+        text: tx(user).sessionText.connectionMatchFailed
       });
     } catch (notifyError) {
       reportDiagnostic('callback-handler', 'Could not notify user about matchmaking failure', { userId: Number(userId), notifyError });
