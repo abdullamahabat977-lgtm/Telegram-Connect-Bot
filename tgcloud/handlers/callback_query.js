@@ -2385,7 +2385,7 @@ async function handleCallback(query) {
     user.age = age;
     user.state = setting ? 'ready' : 'enter_name';
     if (setting) await showMain(chatId, user, tx(user).saved);
-    else await sendPrompt(chatId, (user.language === 'en' ? '✍️ Enter your name:' : user.language === 'fa' ? '✍️ نام خود را بنویسید:' : user.language === 'ur' ? '✍️ اپنا نام لکھیں:' : user.language === 'ar' ? '✍️ اكتب اسمك:' : '✍️ خپل نوم ولیکه:'), { force_reply: true }, user);
+    else await sendPrompt(chatId, mt(user).name, { force_reply: true }, user);
     return;
   }
 
@@ -2407,7 +2407,7 @@ export default async function (query) {
       chatId: query && query.message && query.message.chat && query.message.chat.id
     });
     if (query && query.message && query.message.chat && query.message.chat.id) {
-      try { await api.sendMessage({ chat_id: query.message.chat.id, text: tx(actor).technicalError }); } catch (e) {}
+      try { const errorUser = query.from && await getUser(Number(query.from.id)); await api.sendMessage({ chat_id: query.message.chat.id, text: tx(errorUser).technicalError }); } catch (e) {}
     }
   } finally {
     // Match only after callback handling has completed its response/state transition.
