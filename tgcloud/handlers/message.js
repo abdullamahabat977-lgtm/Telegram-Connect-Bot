@@ -280,7 +280,7 @@ async function showProfile(chatId, user) {
   const fullName = [user.name || user.first_name || t.notSet, user.surname || ''].filter(Boolean).join(' ');
   const favCount = await db.$count(favorites, eq(favorites.favorite_telegram_id, Number(user.telegram_id)));
   const text = t.profile + '\n━━━━━━━━━━━━━━\n\n👤 نوم: ' + fullName +
-    '\n\n🆔 Telegram ID: ' + Number(user.telegram_id) +
+    '\n\n🆔 Telegram ID:' +
     '\n\n🌍 هېواد: ' + (c ? c.label : t.notSet) + '\n\n⚧ جنسیت: ' + genderLabel + '\n\n🎂 عمر: ' + (user.age || t.notSet) +
     '\n\n🗣️ ژبه: ' + l.label + '\n\n📢 عام چینل: ' + (user.channel_username || t.notSet) +
     '\n\n📨 ریفرلونه: ' + Number(user.referral_count || 0) + '\n\n👥 پالو ملګري: ' + favCount +
