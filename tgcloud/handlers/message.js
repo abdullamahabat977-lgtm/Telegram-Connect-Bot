@@ -404,14 +404,8 @@ async function completeProfile(chatId, user, extra) {
 
 // ── Chat sessions and connection lifecycle ──
 function sessionControlLabels(user) {
-  const labels = {
-    ps: { profile: '👤 پروفایل لیدل', end: '🛑 اړیکه پای ته رسول', delete: '🗑 د وروستیو ۱۰ دقیقو پیغامونه حذفول' },
-    fa: { profile: '👤 مشاهده پروفایل', end: '🛑 پایان دادن به ارتباط', delete: '🗑 حذف پیام‌های ۱۰ دقیقه اخیر' },
-    en: { profile: '👤 View profile', end: '🛑 End connection', delete: '🗑 Delete last 10 minutes of messages' },
-    ur: { profile: '👤 پروفائل دیکھیں', end: '🛑 رابطہ ختم کریں', delete: '🗑 گزشتہ ۱۰ منٹ کے پیغامات حذف کریں' },
-    ar: { profile: '👤 عرض الملف الشخصي', end: '🛑 إنهاء الاتصال', delete: '🗑 حذف رسائل آخر 10 دقائق' }
-  };
-  return labels[user && labels[user.language] ? user.language : 'ps'];
+  const p = tx(user).sessionText;
+  return { profile: p.controlProfile, end: p.controlEnd, delete: p.controlDelete };
 }
 function sessionControlAction(input) {
   for (const lang of ['ps', 'fa', 'en', 'ur', 'ar']) {
