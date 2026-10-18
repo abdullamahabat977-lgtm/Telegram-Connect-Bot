@@ -3,7 +3,6 @@ import { and, eq } from 'sdk/db';
 import { users, admins, required_chats, favorites, chat_sessions, connection_requests, chat_messages, user_ratings, user_likes, game_sessions, user_blocks } from '../schema.js';
 import { activeSessionFor, LANGUAGES, COUNTRIES, AGES, countryKeyboard, ensureInlinePromptTracking, requiredChatInfo, listWords, isFollowing, otherSessionUser, getUser, safeDelete, isAdmin, styleKeyboardMarkup, notifyRuntimeError, reportDiagnostic, getSetting as sharedGetSetting } from '../lib/shared.js';
 import { TEXT } from '../lib/callback-text.js';
-import { T as MESSAGE_TEXT } from '../lib/message-text.js';
 import { tryMatchGames } from './message.js';
 
 
@@ -44,9 +43,6 @@ const ADMIN_UI = {
 
 function tx(user) {
   return TEXT[user && TEXT[user.language] ? user.language : 'ps'];
-}
-function mt(user) {
-  return MESSAGE_TEXT[user && MESSAGE_TEXT[user.language] ? user.language : 'ps'];
 }
 async function sendPrompt(chatId, text, markup, user, parseMode) {
   await ensureInlinePromptTracking();
@@ -502,33 +498,29 @@ async function blockedPair(firstId, secondId) {
     (Number(row.blocker_telegram_id) === Number(secondId) && Number(row.blocked_telegram_id) === Number(firstId)));
 }
 async function publicProfileText(target, viewerId) {
-  const viewer = await getUser(viewerId);
-  const p = mt(viewer).sessionText;
-  const name = [target.name || target.first_name || p.fallbackName, target.surname || ''].filter(Boolean).join(' ');
-  const gender = target.gender === 'female' ? p.female : target.gender === 'male' ? p.male : p.genderUnset;
+  const name = [target.name || target.first_name || 'کارن', target.surname || ''].filter(Boolean).join(' ');
+  const gender = target.gender === 'female' ? 'ښځینه' : target.gender === 'male' ? 'نارینه' : 'نه دی ثبت';
   if (target.profile_visibility === 'followers' && !(await isFollowing(viewerId, target.telegram_id))) {
-    return '👤 ' + p.name + ': ' + name + '\n\n⚧ ' + p.gender + ': ' + gender + '\n\n' + p.privateProfile;
+    return '👤 نوم: ' + name + '\n\n⚧ جنسیت: ' + gender + '\n\n🔒 د بشپړ پروفایل لپاره لومړی دا کارن فالو کړه.';
   }
   const country = COUNTRIES.find(item => item.code === target.country), language = LANGUAGES.find(item => item.code === target.language);
   const favCount = await db.$count(favorites, eq(favorites.favorite_telegram_id, Number(target.telegram_id)));
-  return '👤 ' + p.name + ': ' + name + '\n\n⚧ ' + p.gender + ': ' + gender +
-    '\n\n🌍 ' + p.country + ': ' + (country ? country.label : '—') +
-    '\n\n🎂 ' + p.age + ': ' + (target.age || '—') + '\n\n🗣️ ' + p.language + ': ' + (language ? language.label : target.language || '—') +
-    '\n\n📢 ' + p.channel + ': ' + (target.channel_username || '—') + '\n\n📨 ' + p.referrals + ': ' + Number(target.referral_count || 0) +
-    '\n\n👥 ' + p.favorites + ': ' + favCount + '\n\n🏆 ' + p.points + ': ' + Number(target.points || 0) + '\n\n❤️ ' + p.likes + ': ' + Number(target.likes || 0);
+  return '👤 نوم: ' + name + '\n\n⚧ جنسیت: ' + gender + '\n\n🌍 هېواد: ' + (country ? country.label : '—') +
+    '\n\n🎂 عمر: ' + (target.age || '—') + '\n\n🗣️ ژبه: ' + (language ? language.label : target.language || '—') +
+    '\n\n📢 عام چینل: ' + (target.channel_username || '—') + '\n\n📨 ریفرلونه: ' + Number(target.referral_count || 0) +
+    '\n\n👥 پالو ملګري: ' + favCount + '\n\n🏆 نمرې: ' + Number(target.points || 0) + '\n\n❤️ لایکونه: ' + Number(target.likes || 0);
 }
 function sessionControlLabels(user) {
-  const p = mt(user).sessionText;
-  return { profile: p.controlProfile, end: p.controlEnd, delete: p.controlDelete };
+  const labels = {
+    ps: { profile: '👤 پروفایل لیدل', end: '🛑 اړیکه پای ته رسول', delete: '🗑 د وروستیو ۱۰ دقیقو پیغامونه حذفول' },
+    fa: { profile: '👤 مشاهده پروفایل', end: '🛑 پایان دادن به ارتباط', delete: '🗑 حذف پیام‌های ۱۰ دقیقه اخیر' },
+    en: { profile: '👤 View profile', end: '🛑 End connection', delete: '🗑 Delete last 10 minutes of messages' },
+    ur: { profile: '👤 پروفائل دیکھیں', end: '🛑 رابطہ ختم کریں', delete: '🗑 گزشتہ ۱۰ منٹ کے پیغامات حذف کریں' },
+    ar: { profile: '👤 عرض الملف الشخصي', end: '🛑 إنهاء الاتصال', delete: '🗑 حذف رسائل آخر 10 دقائق' }
+  };
+  return labels[user && labels[user.language] ? user.language : 'ps'];
 }
-function sessionKeyboard(targetId, sessionId, following, liked, user) {
-  const p = mt(user).sessionText;
-  return { inline_keyboard: [[
-    { text: following ? p.followed : p.follow, callback_data: 'session:follow:' + targetId + ':' + sessionId },
-    { text: liked ? p.unlike : p.like, callback_data: 'session:like:' + targetId + ':' + sessionId }
-  ]] };
-}
-async function showSessionProfile(session, viewerId) {function sessionControlKeyboard(user) {
+function sessionControlKeyboard(user) {
   const b = sessionControlLabels(user);
   return { keyboard: [[{ text: b.profile }, { text: b.end }], [{ text: b.delete }]], resize_keyboard: true };
 }
@@ -550,8 +542,8 @@ async function showSessionProfile(session, viewerId) {
   const likes = await db.select().from(user_likes).where(eq(user_likes.liker_id, Number(viewerId))).all();
   const liked = likes.some(row => Number(row.liked_id) === targetId);
   const fullProfileAllowed = target.profile_visibility !== 'followers' || following;
-  const text = mt(viewer).sessionText.active + '\n\n' + await publicProfileText(target, viewerId);
-  const markup = sessionKeyboard(targetId, session.id, following, liked, viewer);
+  const text = '🤝 اړیکه فعاله ده.\n\n' + await publicProfileText(target, viewerId);
+  const markup = sessionKeyboard(targetId, session.id, following, liked);
   if (fullProfileAllowed && target.profile_photo_id) {
     try {
       await ensureInlinePromptTracking();
