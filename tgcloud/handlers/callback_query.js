@@ -1654,7 +1654,7 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
         .where(and(eq(connection_requests.id, offerId), eq(connection_requests.status, 'pending'))).run();
       await db.update(connection_requests).set({ status: 'cancelled', updated_at: new Date().toISOString() })
         .where(and(eq(connection_requests.id, Number(search.id)), eq(connection_requests.status, 'searching'))).run();
-      const notice = '⚠️ د دواړو کارنانو ترمنځ بلاک موجود دی؛ اړیکه نه شي جوړېدای.';
+      const notice = tx(actor).sessionText.connectionBlocked;
       try { await api.sendMessage({ chat_id: Number(requester.telegram_id), text: notice }); } catch (e) {}
       await sendPrompt(chatId, notice, mainKeyboard(actor, await isAdmin(actorId)), actor);
       return;
@@ -1664,7 +1664,7 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
         .where(and(eq(connection_requests.id, offerId), eq(connection_requests.status, 'pending'))).run();
       await db.update(connection_requests).set({ status: 'cancelled', updated_at: new Date().toISOString() })
         .where(and(eq(connection_requests.id, Number(search.id)), eq(connection_requests.status, 'searching'))).run();
-      const notice = '⚠️ د اړیکې د ستورو تنظیم ناسم دی؛ اړیکه جوړه نه شوه. له اډمین سره اړیکه ونیسه.';
+      const notice = tx(actor).sessionText.connectionCostInvalid;
       try { await api.sendMessage({ chat_id: Number(offer.requester_id), text: notice }); } catch (e) {}
       await sendPrompt(chatId, notice, mainKeyboard(actor, await isAdmin(actorId)), actor);
       return;
@@ -1695,7 +1695,7 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
         .where(and(eq(connection_requests.id, offerId), eq(connection_requests.status, 'pending'))).run();
       await db.update(connection_requests).set({ status: 'cancelled', updated_at: new Date().toISOString() })
         .where(and(eq(connection_requests.id, Number(search.id)), eq(connection_requests.status, 'searching'))).run();
-      const notice = '⚠️ یو کارن لا له بل چا سره په فعاله اړیکه کې دی؛ نوې اړیکه نه ده جوړه شوې. د اوسنۍ اړیکې تر ختمېدو وروسته بیا هڅه وکړه.';
+      const notice = tx(actor).sessionText.connectionBusy;
       try { await api.sendMessage({ chat_id: Number(requester.telegram_id), text: notice }); } catch (e) {}
       await sendPrompt(chatId, notice, mainKeyboard(actor, await isAdmin(actorId)), actor);
       return;
@@ -1788,7 +1788,7 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
         .where(and(eq(connection_requests.id, Number(search.id)), eq(connection_requests.status, 'connected'))).run();
       await db.update(connection_requests).set({ status: 'rejected', updated_at: new Date().toISOString() })
         .where(and(eq(connection_requests.id, offerId), eq(connection_requests.status, 'matching'))).run();
-      const notice = '⚠️ د ستورو د کمولو عملیات تایید نه شول؛ اړیکه جوړه نه شوه. که ستوري کم شوي وي، له اډمین سره اړیکه ونیسه.';
+      const notice = tx(actor).sessionText.connectionDebitFailed;
       try { await api.sendMessage({ chat_id: Number(requester.telegram_id), text: notice }); } catch (e) {}
       await sendPrompt(chatId, notice, mainKeyboard(actor, await isAdmin(actorId)), actor);
       return;
@@ -1812,11 +1812,10 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
         .where(and(eq(connection_requests.id, Number(search.id)), eq(connection_requests.status, 'connected'))).run();
       await db.update(connection_requests).set({ status: 'rejected', updated_at: new Date().toISOString() })
         .where(and(eq(connection_requests.id, offerId), eq(connection_requests.status, 'matching'))).run();
-      const notice = refunded
-        ? '⚠️ بلې اړیکې مخکې وصل شو؛ دا غوښتنه لغوه شوه او ستوري بېرته ستانه شول.'
-        : '⚠️ بلې اړیکې مخکې وصل شو؛ دا غوښتنه لغوه شوه، خو د ستورو د بېرته ستنولو حالت تایید نه شو. له اډمین سره اړیکه ونیسه.';
-      try { await api.sendMessage({ chat_id: Number(requester.telegram_id), text: notice }); } catch (e) {}
-      await sendPrompt(chatId, notice, mainKeyboard(actor, await isAdmin(actorId)), actor);
+      const requesterNotice = refunded ? tx(requester).sessionText.connectionRefunded : tx(requester).sessionText.connectionRefundUnverified;
+      const actorNotice = refunded ? tx(actor).sessionText.connectionRefunded : tx(actor).sessionText.connectionRefundUnverified;
+      try { await api.sendMessage({ chat_id: Number(requester.telegram_id), text: requesterNotice }); } catch (e) {}
+      await sendPrompt(chatId, actorNotice, mainKeyboard(actor, await isAdmin(actorId)), actor);
       return;
     }
     await db.update(connection_requests).set({ status: 'accepted', updated_at: new Date().toISOString() })
