@@ -4,7 +4,6 @@ import { users, admins, required_chats, favorites, chat_sessions, connection_req
 import { activeSessionFor, LANGUAGES, COUNTRIES, AGES, countryKeyboard, ensureInlinePromptTracking, requiredChatInfo, listWords, isFollowing, otherSessionUser, getUser, safeDelete, isAdmin, styleKeyboardMarkup, notifyRuntimeError, reportDiagnostic, getSetting as sharedGetSetting } from '../lib/shared.js';
 import { TEXT } from '../lib/callback-text.js';
 import { T as MESSAGE_TEXT } from '../lib/message-text.js';
-import { T as MESSAGE_TEXT } from '../lib/message-text.js';
 import { tryMatchGames } from './message.js';
 
 
