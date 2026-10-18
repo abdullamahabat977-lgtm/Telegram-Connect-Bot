@@ -422,13 +422,17 @@ async function handleAdminCallback(query, actor, data, actorId, chatId) {
     if (!['stars','points','likes'].includes(field) || !['add','sub'].includes(operation)) return;
     actor.state = 'admin_adjust_balance:' + field + ':' + operation + ':' + targetId;
     await db.update(users).set({ state: actor.state }).where(eq(users.telegram_id, actorId)).run();
-    const labels = { stars: '⭐ Stars', points: '🏆 Points', likes: '❤️ Likes' };
-    const verb = operation === 'add' ? (actor.language === 'en' ? 'add to' : 'زیاتول') : (actor.language === 'en' ? 'subtract from' : 'کمول');
-    await sendPrompt(chatId, actor.language === 'en' ? 'Send the whole-number amount to ' + verb + ' ' + labels[field] + ':' : labels[field] + ' ' + verb + ' لپاره مثبت صحیح عدد راولېږه:', { force_reply: true }, actor); return;
+    const t = tx(actor);
+    const labels = { stars: t.adminStarsLabel, points: t.adminPointsLabel, likes: t.adminLikesLabel };
+    const verb = operation === 'add' ? t.adminAddVerb : t.adminSubtractVerb;
+    const prompt = actor.language === 'en'
+      ? 'Send a positive whole number to ' + verb + ' ' + labels[field] + ':'
+      : labels[field] + ' ' + verb + ' ' + t.adminAmountPrompt;
+    await sendPrompt(chatId, prompt, { force_reply: true }, actor); return;
   }
   if (p[1] === 'block' || p[1] === 'unblock') {
     if (p[1] === 'block' && await isAdmin(targetId)) {
-      await sendPrompt(chatId, actor.language === 'en' ? '⛔ Administrators cannot be blocked from this panel.' : '⛔ د بوټ مدیران د دې پینل له لارې نه شي مسدودېدای.', adminUserSettingsKeyboard(actor, targetId, target.is_blocked), actor); return;
+      await sendPrompt(chatId, tx(actor).adminCannotBlock, adminUserSettingsKeyboard(actor, targetId, target.is_blocked), actor); return;
     }
     const blocking = p[1] === 'block';
     const value = blocking ? 1 : 0;
@@ -457,9 +461,9 @@ async function handleAdminCallback(query, actor, data, actorId, chatId) {
             .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, game.status))).run();
         }
       } catch (e) { reportDiagnostic('callback-handler', 'Could not cancel blocked user games', e); }
-      try { await api.sendMessage({ chat_id: targetId, text: target.language === 'en' ? '⛔ Your account has been restricted by an administrator.' : '⛔ ستا حساب د اډمین له خوا محدود شو.' }); } catch (e) {}
+      try { await api.sendMessage({ chat_id: targetId, text: tx(target).accountRestricted }); } catch (e) {}
     } else {
-      try { await api.sendMessage({ chat_id: targetId, text: target.language === 'en' ? '✅ Your account restriction has been removed.' : '✅ ستا د حساب محدودیت لرې شو.' }); } catch (e) {}
+      try { await api.sendMessage({ chat_id: targetId, text: tx(target).accountRestrictionRemoved }); } catch (e) {}
     }
     await showAdminUserSettings(chatId, actor, target); return;
   }
@@ -2091,7 +2095,7 @@ async function handleSessionCallback(query, actor, data, actorId, chatId) {
       // Keep the Telegram message ID if deletion failed, so the database does not claim it was removed.
       if (wasDeleted) await db.update(chat_messages).set({ recipient_message_id: 0 }).where(eq(chat_messages.id, Number(row.id))).run();
     }
-    await sendPrompt(chatId, '🗑 د وروستیو ۱۰ دقیقو د ملګري ' + deleted + ' لېږل شوي پیغامونه حذف شول. د Telegram د محدودیت له امله د کارن خپل اصلي پیغامونه نه حذف کېږي.', mainKeyboard(actor, await isAdmin(actorId)), actor); return;
+    await sendPrompt(chatId, tx(actor).deleteRecentPrefix + deleted + tx(actor).deleteRecentSuffix, mainKeyboard(actor, await isAdmin(actorId)), actor); return;
   }
 }
 async function handleGameCallback(query, actor, data, actorId, chatId) {
