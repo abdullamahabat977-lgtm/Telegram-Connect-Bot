@@ -609,7 +609,7 @@ async function expireUserTimedActions(userId) {
       if (!expiredOffer || !Array.isArray(expiredOffer.rows) || expiredOffer.rows.length === 0) continue;
       offer.status = 'expired';
       if (Number(offer.recipient_id) > 0) {
-        try { await api.sendMessage({ chat_id: Number(offer.recipient_id), text: tx(user).sessionText.offerExpired }); } catch (e) {}
+        try { await api.sendMessage({ chat_id: Number(offer.recipient_id), text: tx(await getUser(Number(offer.recipient_id))).sessionText.offerExpired }); } catch (e) {}
       }
     }
     if (user.state === 'searching_connection') await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, id)).run();
@@ -624,7 +624,7 @@ async function expireUserTimedActions(userId) {
     for (const offer of requests.filter(row => Number(row.requester_id) === id && row.status === 'pending')) {
       await db.update(connection_requests).set({ status: 'expired', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, Number(offer.id))).run();
       offer.status = 'expired';
-      if (Number(offer.recipient_id) > 0) try { await api.sendMessage({ chat_id: Number(offer.recipient_id), text: tx(user).sessionText.connectionTimeoutSearch }); } catch (e) {}
+      if (Number(offer.recipient_id) > 0) try { await api.sendMessage({ chat_id: Number(offer.recipient_id), text: tx(await getUser(Number(offer.recipient_id))).sessionText.connectionTimeoutSearch }); } catch (e) {}
     }
     if (user.state === 'searching_connection') await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, id)).run();
     expired = true;
@@ -641,12 +641,12 @@ async function expireUserTimedActions(userId) {
       const requester = await getUser(sourceSearch.requester_id);
       if (requester) {
         if (requester.state === 'searching_connection') await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, Number(requester.telegram_id))).run();
-        try { await api.sendMessage({ chat_id: Number(requester.telegram_id), text: tx(user).sessionText.searchTimeout }); } catch (e) {}
+        try { await api.sendMessage({ chat_id: Number(requester.telegram_id), text: tx(requester).sessionText.searchTimeout }); } catch (e) {}
       }
       for (const otherOffer of requests.filter(row => Number(row.requester_id) === Number(sourceSearch.requester_id) && row.status === 'pending')) {
         await db.update(connection_requests).set({ status: 'expired', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, Number(otherOffer.id))).run();
         otherOffer.status = 'expired';
-        if (Number(otherOffer.recipient_id) > 0 && Number(otherOffer.recipient_id) !== id) try { await api.sendMessage({ chat_id: Number(otherOffer.recipient_id), text: tx(user).sessionText.connectionTimeoutSearch }); } catch (e) {}
+        if (Number(otherOffer.recipient_id) > 0 && Number(otherOffer.recipient_id) !== id) try { await api.sendMessage({ chat_id: Number(otherOffer.recipient_id), text: tx(await getUser(Number(otherOffer.recipient_id))).sessionText.connectionTimeoutSearch }); } catch (e) {}
       }
     }
     expired = true;
@@ -721,10 +721,10 @@ async function tryOfferSearches() {
         .returning({ id: connection_requests.id }).run();
       if (expiredOffer && Array.isArray(expiredOffer.rows) && expiredOffer.rows.length > 0) {
         staleOffer.status = 'expired';
-        if (Number(staleOffer.recipient_id) > 0) try { await api.sendMessage({ chat_id: Number(staleOffer.recipient_id), text: tx(user).sessionText.connectionTimeoutSearch }); } catch (e) {}
+        if (Number(staleOffer.recipient_id) > 0) try { await api.sendMessage({ chat_id: Number(staleOffer.recipient_id), text: tx(allUsers.find(row => Number(row.telegram_id) === Number(staleOffer.recipient_id))).sessionText.connectionTimeoutSearch }); } catch (e) {}
       }
     }
-    try { await api.sendMessage({ chat_id: Number(staleSearch.requester_id), text: tx(user).sessionText.searchTimeout }); } catch (e) {}
+    try { await api.sendMessage({ chat_id: Number(staleSearch.requester_id), text: tx(allUsers.find(row => Number(row.telegram_id) === Number(staleSearch.requester_id))).sessionText.searchTimeout }); } catch (e) {}
   }
   for (const search of searches.filter(row => row.status === 'searching')) {
     const age = now - Date.parse(search.created_at || '');
