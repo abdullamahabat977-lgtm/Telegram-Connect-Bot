@@ -1539,7 +1539,7 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
     for (const requesterId of notifyRequesters) {
       try {
         const requester = await getUser(requesterId);
-        await api.sendMessage({ chat_id: requesterId, text: requester ? sessionTx(requester).sessionText.offerCancelledByRecipient : '⌛ Connection request cancelled.' });
+        await api.sendMessage({ chat_id: requesterId, text: requester ? sessionTx(requester).sessionText.offerCancelledByRecipient : MESSAGE_TEXT.ps.sessionText.offerCancelledByRecipient });
       } catch (error) {
         console.warn('Could not notify requester after recipient cancelled offer', { actorId, requesterId, error });
       }
@@ -2122,7 +2122,7 @@ async function handleGameCallback(query, actor, data, actorId, chatId) {
         for (const targetId of [Number(game.player_id), Number(game.opponent_id)]) {
           if (!targetId) continue;
           try { const targetUser = await getUser(targetId);
-          await api.sendMessage({ chat_id: targetId, text: targetUser ? sessionTx(targetUser).sessionText.gameText.requestExpired : '⌛ Game request expired.' }); } catch (e) {}
+          await api.sendMessage({ chat_id: targetId, text: targetUser ? sessionTx(targetUser).sessionText.gameText.requestExpired : MESSAGE_TEXT.ps.sessionText.gameText.requestExpired }); } catch (e) {}
         }
       }
       await sendPrompt(chatId, sessionTx(actor).sessionText.gameText.gameExpiredPrompt, mainKeyboard(actor, await isAdmin(actorId)), actor);
