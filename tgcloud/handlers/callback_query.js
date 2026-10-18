@@ -1983,7 +1983,7 @@ async function handleSessionCallback(query, actor, data, actorId, chatId) {
   const target = await getUser(targetId);
   if (!target) return;
   if (targetId === actorId && ['follow', 'like', 'rate'].includes(action)) {
-    await sendPrompt(chatId, '⚠️ دا عمل پر خپل پروفایل نه شي ترسره کېدای.', mainKeyboard(actor, await isAdmin(actorId)), actor);
+    await sendPrompt(chatId, tx(actor).sessionText.connectionSelfAction, mainKeyboard(actor, await isAdmin(actorId)), actor);
     return;
   }
   if (action === 'follow') {
@@ -1991,7 +1991,7 @@ async function handleSessionCallback(query, actor, data, actorId, chatId) {
     if (!rows.some(row => Number(row.favorite_telegram_id) === targetId)) await db.insert(favorites).values({ user_telegram_id: actorId, favorite_telegram_id: targetId, created_at: new Date().toISOString() }).run();
     const session = await db.select().from(chat_sessions).where(eq(chat_sessions.id, sessionId)).get();
     if (session && session.status === 'connected') await showSessionProfile(session, actorId);
-    else await sendPrompt(chatId, '❤️ کارن فالو شو.\n\n' + await publicProfileText(target, actorId), mainKeyboard(actor, await isAdmin(actorId)), actor);
+    else await sendPrompt(chatId, tx(actor).sessionText.followed + '\n\n' + await publicProfileText(target, actorId), mainKeyboard(actor, await isAdmin(actorId)), actor);
     return;
   }
   if (action === 'like') {
