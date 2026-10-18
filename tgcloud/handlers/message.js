@@ -2059,7 +2059,7 @@ async function processMessage(message) {
       }
       const deleted = await deleteRecentPartnerMessages(session, id);
       const keyboard = activeSession ? sessionControlKeyboard(user) : sessionEndedKeyboard(user, await isAdmin(id));
-      await sendPrompt(chatId, tx(user).deleteRecentDone.replace('پیغامونه', 'پیغامونه') + ' ' + deleted, keyboard, user);
+      await sendPrompt(chatId, tx(user).deleteRecentDonePrefix + deleted + tx(user).deleteRecentDoneSuffix, keyboard, user);
       return;
     }
   }
