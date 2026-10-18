@@ -279,15 +279,16 @@ async function showProfile(chatId, user) {
   const genderLabel = user.gender === 'male' ? t.male : (user.gender === 'female' ? t.female : t.notSet);
   const fullName = [user.name || user.first_name || t.notSet, user.surname || ''].filter(Boolean).join(' ');
   const favCount = await db.$count(favorites, eq(favorites.favorite_telegram_id, Number(user.telegram_id)));
-  const text = t.profile + '\n━━━━━━━━━━━━━━\n\n👤 نوم: ' + fullName +
-    '\n\n🆔 Telegram ID:' +
-    '\n\n🌍 هېواد: ' + (c ? c.label : t.notSet) + '\n\n⚧ جنسیت: ' + genderLabel + '\n\n🎂 عمر: ' + (user.age || t.notSet) +
-    '\n\n🗣️ ژبه: ' + l.label + '\n\n📢 عام چینل: ' + (user.channel_username || t.notSet) +
+  const idLabel = t.telegramIdLabel || '🆔 Telegram ID number:';
+  const text = t.profile + '\n━━━━━━━━━━━━━━\n\n👤 نوم: ' + escapeHtml(fullName) +
+    '\n\n' + idLabel + ' <code>' + Number(user.telegram_id) + '</code>' +
+    '\n\n🌍 هېواد: ' + escapeHtml(c ? c.label : t.notSet) + '\n\n⚧ جنسیت: ' + escapeHtml(genderLabel) + '\n\n🎂 عمر: ' + escapeHtml(user.age || t.notSet) +
+    '\n\n🗣️ ژبه: ' + escapeHtml(l.label) + '\n\n📢 عام چینل: ' + escapeHtml(user.channel_username || t.notSet) +
     '\n\n📨 ریفرلونه: ' + Number(user.referral_count || 0) + '\n\n👥 پالو ملګري: ' + favCount +
     '\n\n⭐ ستوري: ' + Number(user.stars || 0) + '\n\n🏆 نمرې: ' + Number(user.points || 0) + '\n\n❤️ لایکونه: ' + Number(user.likes || 0);
-  const markup = { inline_keyboard: [[{ text: String(Number(user.telegram_id)), copy_text: { text: String(Number(user.telegram_id)) } }]] };
+  const markup = { inline_keyboard: [] };
   if (!user.profile_photo_id) {
-    await sendPrompt(chatId, text, markup, user);
+    await sendPrompt(chatId, text, markup, user, 'HTML');
     return;
   }
   await ensureInlinePromptTracking();
@@ -295,12 +296,12 @@ async function showProfile(chatId, user) {
   const previousId = Number(latest && latest.last_prompt_id || 0);
   if (previousId > 0) await safeDelete(chatId, previousId);
   try {
-    const sent = await api.sendPhoto({ chat_id: chatId, photo: user.profile_photo_id, caption: text, reply_markup: styleKeyboardMarkup(markup) });
+    const sent = await api.sendPhoto({ chat_id: chatId, photo: user.profile_photo_id, caption: text, parse_mode: 'HTML', reply_markup: styleKeyboardMarkup(markup) });
     const sentId = Number(sent && sent.message_id || 0);
     await db.update(users).set({ last_prompt_id: sentId }).where(eq(users.telegram_id, Number(user.telegram_id))).run();
     user.last_prompt_id = sentId;
   } catch (e) {
-    await sendPrompt(chatId, text, markup, user);
+    await sendPrompt(chatId, text, markup, user, 'HTML');
   }
 }
 
@@ -1896,8 +1897,26 @@ async function processMessage(message) {
     if (!['creator', 'administrator', 'member', 'restricted'].includes(botStatus)) { await backToChannels(channelError(user, 'member')); return; }
     if (!['creator', 'administrator'].includes(botStatus)) { await backToChannels(channelError(user, 'admin')); return; }
     let inviteLink = chat.invite_link || (chat.username ? 'https://t.me/' + chat.username : '');
-    if (!inviteLink) { try { const invite = await api.createChatInviteLink({ chat_id: requestedId }); inviteLink = invite && invite.invite_link ? invite.invite_link : ''; } catch (e) {} }
-    if (!inviteLink.startsWith('https://t.me/')) { await backToChannels(channelError(user, 'link')); return; }
+    if (!inviteLink) {
+      try {
+        const invite = await api.createChatInviteLink({ chat_id: requestedId });
+        inviteLink = invite && invite.invite_link ? invite.invite_link : '';
+      } catch (createError) {
+        // Some Telegram API adapters expose exportChatInviteLink but not
+        // createChatInviteLink. Try the legacy method before rejecting a
+        // private group/channel that the bot is allowed to manage.
+        try {
+          inviteLink = await api.exportChatInviteLink({ chat_id: requestedId }) || '';
+        } catch (exportError) {
+          reportDiagnostic('message-handler', 'Could not create required-chat invite link', {
+            chatId: requestedId, createError, exportError
+          });
+        }
+      }
+    }
+    if (!(String(inviteLink || '').startsWith('https://t.me/') || String(inviteLink || '').startsWith('http://t.me/'))) {
+      await backToChannels(channelError(user, 'link')); return;
+    }
     const chatType = chat.type === 'channel' ? 'channel' : 'group';
     const title = String(chat.title || chat.first_name || chat.username || requestedId).replace(/^(channel|group)::/, '');
     if (editing) {
