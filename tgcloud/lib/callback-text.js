@@ -1,5 +1,7 @@
 export const TEXT = {
   ps: {
+    findDeductionPrefix: "⭐ د اړیکې پر منلو به ",
+    findDeductionSuffix: " ستوری کم شي.",
     findCancel: "❌ لغوه شو.",
     findChooseLanguage: "🌐 د کومې ژبې ملګری غواړې؟",
     findCostPrefix: "⭐ د ملګري لټون لپاره ",
@@ -21,6 +23,8 @@ export const TEXT = {
     ready: '🎉 ستا پروفایل جوړ شو!', main: 'اصلي مېنو:', saved: '✅ بدلون ثبت شو.'
   },
   fa: {
+    findDeductionPrefix: "⭐ با پذیرفتن ارتباط، ",
+    findDeductionSuffix: " ستاره کسر می‌شود.",
     findCancel: "❌ لغو شد.",
     findChooseLanguage: "🌐 دوست را به چه زبانی می‌خواهید؟",
     findCostPrefix: "⭐ برای جستجوی دوست ",
@@ -42,6 +46,8 @@ export const TEXT = {
     ready: '🎉 پروفایل شما آماده شد!', main: 'منوی اصلی:', saved: '✅ تغییرات ذخیره شد.'
   },
   en: {
+    findDeductionPrefix: "⭐ Accepting the connection will deduct ",
+    findDeductionSuffix: " stars.",
     findCancel: "❌ Cancelled.",
     findChooseLanguage: "🌐 Which language should your friend speak?",
     findCostPrefix: "⭐ Friend search requires ",
@@ -63,6 +69,8 @@ export const TEXT = {
     ready: '🎉 Your profile is ready!', main: 'Main menu:', saved: '✅ Changes saved.'
   },
   ur: {
+    findDeductionPrefix: "⭐ رابطہ قبول کرنے پر ",
+    findDeductionSuffix: " اسٹارز کٹیں گے۔",
     findCancel: "❌ منسوخ ہو گیا۔",
     findChooseLanguage: "🌐 آپ کس زبان بولنے والا دوست چاہتے ہیں؟",
     findCostPrefix: "⭐ دوست تلاش کرنے کے لیے ",
@@ -84,6 +92,8 @@ export const TEXT = {
     ready: '🎉 آپ کا پروفائل تیار ہے!', main: 'مرکزی مینو:', saved: '✅ تبدیلی محفوظ ہوگئی۔'
   },
   ar: {
+    findDeductionPrefix: "⭐ عند قبول الاتصال سيتم خصم ",
+    findDeductionSuffix: " نجوم.",
     findCancel: "❌ تم الإلغاء.",
     findChooseLanguage: "🌐 ما اللغة التي تريد أن يتحدث بها صديقك؟",
     findCostPrefix: "⭐ يتطلب البحث عن صديق ",
