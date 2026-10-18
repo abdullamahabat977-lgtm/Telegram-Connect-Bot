@@ -1578,7 +1578,7 @@ async function processMessage(message) {
         if (verified && verified.status === 'cancelled') cleared++;
       }
     }
-    await sendPrompt(chatId, '✅ د ټېسټ بوټ د خراب حالت پاتې لوبې پاکې شوې.\nلغوه شوې لوبې: ' + cleared + '\n\nیادونه: د لوبغاړو ستوري او نمرې نه دي بدل شوي.', menuKeyboard(user, await isAdmin(id)), user);
+    await sendPrompt(chatId, tx(user).adminText.clearTestGamesTitle + '\n' + tx(user).adminText.clearTestGamesCount + cleared + '\n\n' + tx(user).adminText.clearTestGamesNote, menuKeyboard(user, await isAdmin(id)), user);
     return;
   }
   if (Number(user.welcome_reward_claimed || 0) !== 1) {
@@ -2200,7 +2200,7 @@ async function processMessage(message) {
     }
   }
   else if (field === 'game') await startDiceGame(chatId, user);
-  else if (field === 'leaderboards') await sendPrompt(chatId, '🏆 لوړ رتبه کسان\n\nلاندې درجه‌بندي وټاکه:', { inline_keyboard: [[{ text: '🏆 تر ټولو ډېرې نمرې', callback_data: 'admin:rank:points' }], [{ text: '📨 تر ټولو ډېر ریفرلونه', callback_data: 'admin:rank:referrals' }], [{ text: '👥 تر ټولو ډېر فالو', callback_data: 'admin:rank:follows' }], [{ text: '❤️ تر ټولو ډېر لایکونه', callback_data: 'admin:rank:likes' }], [{ text: '🔙 اصلي مېنو', callback_data: 'admin:main' }]] }, user);
+  else if (field === 'leaderboards') { const a = tx(user).adminText; await sendPrompt(chatId, a.rankMenuTitle + '\n\n' + a.rankMenuPrompt, { inline_keyboard: [[{ text: a.rankPoints, callback_data: 'admin:rank:points' }], [{ text: a.rankReferrals, callback_data: 'admin:rank:referrals' }], [{ text: a.rankFollows, callback_data: 'admin:rank:follows' }], [{ text: a.rankLikes, callback_data: 'admin:rank:likes' }], [{ text: a.mainMenuButton, callback_data: 'admin:main' }]] }, user); }
   else if (field === 'invite') await showReferral(chatId, user);
   else if (field === 'profile') await showProfile(chatId, user);
   else if (field === 'language') {
