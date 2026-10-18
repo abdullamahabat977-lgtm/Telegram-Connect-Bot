@@ -359,7 +359,7 @@ async function handleAdminCallback(query, actor, data, actorId, chatId) {
     if (!allowed.includes(key)) return;
     actor.state = 'admin_set_setting:' + key;
     await db.update(users).set({ state: actor.state }).where(eq(users.telegram_id, actorId)).run();
-    const prompt = actor.language === 'en' ? 'Send the new numeric value. Decimal star values such as 0.5 are allowed; time values must be whole numbers.' : 'د دې تنظیم نوی عدد راولېږه. د ستورو لپاره اعشاري عدد لکه 0.5 منل کېږي؛ د وخت لپاره صحیح عدد ولیکه.';
+    const prompt = sessionTx(actor).sessionText.adminText.settingPrompt;
     await sendPrompt(chatId, prompt, { force_reply: true }, actor); return;
   }
   if (p[1] === 'reward') {
@@ -367,8 +367,9 @@ async function handleAdminCallback(query, actor, data, actorId, chatId) {
     if (!['stars','points','likes'].includes(field)) return;
     actor.state = 'admin_set_referral_reward:' + field;
     await db.update(users).set({ state: actor.state }).where(eq(users.telegram_id, actorId)).run();
-    const label = { stars: '⭐ Stars', points: '🏆 Points', likes: '❤️ Likes' }[field];
-    await sendPrompt(chatId, 'Send the new whole-number amount for ' + label + ' per successful referral. Zero is allowed.', { force_reply: true }, actor); return;
+    const rt = sessionTx(actor).sessionText.adminText;
+    const label = { stars: rt.rewardStars, points: rt.rewardPoints, likes: rt.rewardLikes }[field];
+    await sendPrompt(chatId, rt.rewardPromptPrefix + label + rt.rewardPromptSuffix, { force_reply: true }, actor); return;
   }
   if (p[1] === 'rank') {
     const kind = p[2];
