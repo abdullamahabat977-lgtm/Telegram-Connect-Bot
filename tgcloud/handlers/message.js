@@ -145,6 +145,7 @@ function actionFor(input) {
       ['rewardSettings', t.adminButtons[6]],
       ['adminManagement', t.adminButtons[0]], ['channels', t.adminButtons[1]], ['broadcast', t.adminButtons[2]],
       ['userSettings', t.adminButtons[3]], ['usersList', t.adminButtons[4]], ['rewardSettings', t.adminButtons[6]], ['connectionAdminSettings', t.adminButtons[7]], ['gameAdminSettings', t.adminButtons[8]],
+      ['publicChannel', t.channelTypeButtons[0]], ['privateChannel', t.channelTypeButtons[1]],
       ['adminAdd', t.adminManagementButtons[0]], ['adminRemove', t.adminManagementButtons[1]],
       ['adminsList', t.adminManagementButtons[2]], ['cancel', t.cancel], ['skip', t.skip],
       ['photoSet', t.photoSettingsButtons[0]], ['photoRemove', t.photoSettingsButtons[1]],
@@ -1934,8 +1935,30 @@ async function processMessage(message) {
     await backToChannels(tx(user).channelAdded);
     return;
   }
-  if (user.state === 'waiting_channel_details' || /^waiting_edit_channel_id:-?\d+$/.test(String(user.state || ''))) {
+  if (user.state === 'waiting_channel_type') {
+    if (action === 'cancel' || input === '/cancel') {
+      user.state = 'admin_channels_menu';
+      await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run();
+      await sendPrompt(chatId, tx(user).cancel, channelKeyboard(user), user);
+      return;
+    }
+    if (action === 'publicChannel' || action === 'privateChannel') {
+      user.state = action === 'publicChannel' ? 'waiting_public_channel_details' : 'waiting_private_channel_details';
+      await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run();
+      await sendPrompt(chatId, tx(user).askChannel, { force_reply: true }, user);
+      return;
+    }
+    await sendPrompt(chatId, tx(user).channelTypePrompt, keyboard([
+      [{ text: tx(user).channelTypeButtons[0] }, { text: tx(user).channelTypeButtons[1] }],
+      [{ text: tx(user).cancel }]
+    ]), user);
+    return;
+  }
+  if (user.state === 'waiting_channel_details' || user.state === 'waiting_public_channel_details' ||
+      user.state === 'waiting_private_channel_details' || /^waiting_edit_channel_id:-?\d+$/.test(String(user.state || ''))) {
     const editing = /^waiting_edit_channel_id:-?\d+$/.test(String(user.state || ''));
+    const isPublicAdd = user.state === 'waiting_public_channel_details';
+    const isPrivateAdd = user.state === 'waiting_private_channel_details';
     const originalId = editing ? String(user.state).slice('waiting_edit_channel_id:'.length) : '';
     const requestedId = input.trim();
     const backToChannels = async (message) => { user.state = 'admin_channels_menu'; await db.update(users).set({ state: 'admin_channels_menu' }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, message, channelKeyboard(user), user); };
@@ -1952,8 +1975,23 @@ async function processMessage(message) {
     const botStatus = botMember && botMember.status;
     if (!['creator', 'administrator', 'member', 'restricted'].includes(botStatus)) { await backToChannels(channelError(user, 'member')); return; }
     if (!['creator', 'administrator'].includes(botStatus)) { await backToChannels(channelError(user, 'admin')); return; }
-    let inviteLink = chat.invite_link || (chat.username ? 'https://t.me/' + chat.username : '');
-    if (!inviteLink) {
+
+    // For private additions, never call Telegram's invite-link creation APIs.
+    // Ask for an already-existing link immediately after validating the chat ID.
+    if (isPrivateAdd) {
+      user.state = 'waiting_channel_invite_link:' + requestedId + ':new';
+      await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run();
+      await sendPrompt(chatId, tx(user).askChannelInviteLink, { force_reply: true }, user);
+      return;
+    }
+
+    if (isPublicAdd && !chat.username) {
+      await backToChannels(tx(user).channelPublicOnly);
+      return;
+    }
+    let inviteLink = isPublicAdd ? 'https://t.me/' + chat.username :
+      (chat.invite_link || (chat.username ? 'https://t.me/' + chat.username : ''));
+    if (!inviteLink && !isPublicAdd) {
       try {
         const invite = await api.createChatInviteLink({ chat_id: requestedId });
         inviteLink = invite && invite.invite_link ? invite.invite_link : '';
@@ -2115,9 +2153,12 @@ async function processMessage(message) {
     const i = tx(user).channelButtons.indexOf(input);
     const field = i >= 0 ? ['channelAdd', 'channelList', 'back'][i] : action;
     if (field === 'channelAdd') {
-      user.state = 'waiting_channel_details';
+      user.state = 'waiting_channel_type';
       await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run();
-      await sendPrompt(chatId, tx(user).askChannel, { force_reply: true }, user);
+      await sendPrompt(chatId, tx(user).channelTypePrompt, keyboard([
+        [{ text: tx(user).channelTypeButtons[0] }, { text: tx(user).channelTypeButtons[1] }],
+        [{ text: tx(user).cancel }]
+      ]), user);
     } else if (field === 'channelList') await showChannelList(chatId, user);
     else {
       user.state = 'admin_menu';
