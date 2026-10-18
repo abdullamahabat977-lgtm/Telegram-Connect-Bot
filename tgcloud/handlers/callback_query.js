@@ -699,7 +699,7 @@ async function expireUserTimedActions(userId, options = {}) {
       for (const otherOffer of requests.filter(row => Number(row.requester_id) === Number(sourceSearch.requester_id) && row.status === 'pending')) {
         await db.update(connection_requests).set({ status: 'expired', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, Number(otherOffer.id))).run();
         otherOffer.status = 'expired';
-        if (Number(otherOffer.recipient_id) > 0 && Number(otherOffer.recipient_id) !== id) try { await api.sendMessage({ chat_id: Number(otherOffer.recipient_id), text: sessionTx(await getUser(Number(offer.recipient_id))).sessionText.offerExpiredTimeout }); } catch (e) {}
+        if (Number(otherOffer.recipient_id) > 0 && Number(otherOffer.recipient_id) !== id) try { await api.sendMessage({ chat_id: Number(otherOffer.recipient_id), text: sessionTx(await getUser(Number(otherOffer.recipient_id))).sessionText.offerExpiredTimeout }); } catch (e) {}
       }
     }
     expired = true;
@@ -767,10 +767,10 @@ async function tryOfferSearches() {
         .returning({ id: connection_requests.id }).run();
       if (expiredOffer && Array.isArray(expiredOffer.rows) && expiredOffer.rows.length > 0) {
         staleOffer.status = 'expired';
-        if (Number(staleOffer.recipient_id) > 0) try { await api.sendMessage({ chat_id: Number(staleOffer.recipient_id), text: sessionTx(await getUser(Number(offer.recipient_id))).sessionText.offerExpiredTimeout }); } catch (e) {}
+        if (Number(staleOffer.recipient_id) > 0) try { await api.sendMessage({ chat_id: Number(staleOffer.recipient_id), text: sessionTx(await getUser(Number(staleOffer.recipient_id))).sessionText.offerExpiredTimeout }); } catch (e) {}
       }
     }
-    try { await api.sendMessage({ chat_id: Number(staleSearch.requester_id), text: sessionTx(await getUser(Number(requester.telegram_id))).sessionText.searchTimeout }); } catch (e) {}
+    try { await api.sendMessage({ chat_id: Number(staleSearch.requester_id), text: sessionTx(await getUser(Number(staleSearch.requester_id))).sessionText.searchTimeout }); } catch (e) {}
   }
   for (const search of requests.filter(row => row.status === 'searching' && !row.recipient_id)) {
     const age = now - Date.parse(search.created_at || '');
