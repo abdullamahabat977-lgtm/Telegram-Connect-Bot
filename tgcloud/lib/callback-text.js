@@ -22,7 +22,7 @@ export const TEXT = {
     surname: '📝 تخلص اختیاري دی. که یې نه لیکې، لاندې بټن کېکاږه:',
     skip: 'تخلص نه لیکم', membership: '🔐 د بوټ کارولو لپاره په لاندې ټولو ګروپونو یا چینلونو کې ګډون وکړه، بیا د غړیتوب کتلو بټن کېکاږه:',
     joined: '✅ ګډون مې وکړ، بیا یې وګوره', membershipFail: '⚠️ غړیتوب تایید نه شو. په ټولو ګروپونو کې ګډون وکړه او ډاډ ترلاسه کړه چې بوټ د غړیتوب د کتلو اجازه لري.',
-    ready: '🎉 ستا پروفایل جوړ شو!', main: 'اصلي مېنو:', saved: '✅ بدلون ثبت شو.'
+    ready: '🎉 ستا پروفایل جوړ شو!', main: 'اصلي مېنو:', cancelled: "❌ لغوه شو.", findLanguage: "🌐 د کومې ژبې ملګری غواړې؟", auto: "اتومات", costInsufficient: "⭐ د ملګري لټون لپاره ", costSuffix: " ستوري پکار دي. ستا بیلانس: ", confirmFind: "🔎 د ملګري لټون تایید کړه.", gender: "جنسیت", language: "ژبه", deductOnAccept: "⭐ د اړیکې پر منلو به ", deductSuffix: " ستوری کم شي.", confirmButton: "✅ تایید او لټون پیلول", cancelButton: "❌ لغوه", selfAction: "⚠️ دا عمل پر خپل پروفایل نه شي ترسره کېدای.", followedNotice: "❤️ کارن فالو شو.", connectionRefunded: "⚠️ اړیکه د تخنیکي ستونزې له امله جوړه نه شوه؛ ستوري بېرته ستانه شول. بیا هڅه وکړه.", connectionRefundFailed: "⚠️ اړیکه جوړه نه شوه او د ستورو د بېرته ستنولو حالت تایید نه شو. مهرباني وکړه له اډمین سره اړیکه ونیسه.", requestCancelled: "⌛ دا د اړیکې غوښتنه لغوه شوه، ځکه یو ګډونوال له بل کس سره وصل شو.", saved: '✅ بدلون ثبت شو.'
   },
   fa: {
     profileFollowersOnly: "🔒 پروفایل کامل شما فقط برای دنبال‌کنندگان‌تان نمایش داده می‌شود؛ دیگران فقط نام و جنسیت را می‌بینند.",
@@ -47,7 +47,7 @@ export const TEXT = {
     surname: '📝 نام خانوادگی اختیاری است. برای رد کردن، دکمه زیر را بزنید:',
     skip: 'رد کردن نام خانوادگی', membership: '🔐 برای استفاده از ربات، عضو همه گروه‌ها یا کانال‌های زیر شوید و سپس عضویت را بررسی کنید:',
     joined: '✅ عضو شدم، بررسی کن', membershipFail: '⚠️ عضویت تأیید نشد. عضو همه گروه‌ها شوید و دسترسی بررسی عضویت ربات را بررسی کنید.',
-    ready: '🎉 پروفایل شما آماده شد!', main: 'منوی اصلی:', saved: '✅ تغییرات ذخیره شد.'
+    ready: '🎉 پروفایل شما آماده شد!', main: 'منوی اصلی:', cancelled: "❌ لغو شد.", findLanguage: "🌐 دوست را به چه زبانی می‌خواهید؟", auto: "خودکار", costInsufficient: "⭐ برای جستجوی دوست ", costSuffix: " ستاره لازم است. موجودی شما: ", confirmFind: "🔎 جستجوی دوست را تأیید کنید.", gender: "جنسیت", language: "زبان", deductOnAccept: "⭐ با پذیرش ارتباط، ", deductSuffix: " ستاره کسر می‌شود.", confirmButton: "✅ تأیید و شروع جستجو", cancelButton: "❌ لغو", selfAction: "⚠️ این عمل روی پروفایل خودتان امکان‌پذیر نیست.", followedNotice: "❤️ کاربر به دوستان محبوب اضافه شد.", connectionRefunded: "⚠️ به دلیل مشکل فنی ارتباط برقرار نشد؛ ستاره‌ها بازگردانده شدند. دوباره تلاش کنید.", connectionRefundFailed: "⚠️ ارتباط برقرار نشد و بازگشت ستاره‌ها تأیید نشد. لطفاً با مدیر تماس بگیرید.", requestCancelled: "⌛ این درخواست ارتباط لغو شد، زیرا یکی از کاربران به فرد دیگری متصل شد.", saved: '✅ تغییرات ذخیره شد.'
   },
   en: {
     profileFollowersOnly: "🔒 Your full profile is visible only to your followers; others can see only your name and gender.",
@@ -72,7 +72,7 @@ export const TEXT = {
     surname: '📝 Surname is optional. Press below to skip:',
     skip: 'Skip surname', membership: '🔐 Join every group or channel below to use the bot, then check your membership:',
     joined: '✅ I joined, check again', membershipFail: '⚠️ Membership is not confirmed. Join all listed groups and ensure the bot can check membership.',
-    ready: '🎉 Your profile is ready!', main: 'Main menu:', saved: '✅ Changes saved.'
+    ready: '🎉 Your profile is ready!', main: 'Main menu:', cancelled: "❌ Cancelled.", findLanguage: "🌐 Which language should your friend speak?", auto: "Automatic", costInsufficient: "⭐ Friend search costs ", costSuffix: " stars. Your balance: ", confirmFind: "🔎 Confirm friend search.", gender: "Gender", language: "Language", deductOnAccept: "⭐ When the connection is accepted, ", deductSuffix: " stars will be deducted.", confirmButton: "✅ Confirm and start search", cancelButton: "❌ Cancel", selfAction: "⚠️ You cannot perform this action on your own profile.", followedNotice: "❤️ User added to favorites.", connectionRefunded: "⚠️ The connection could not be created due to a technical issue; your stars were refunded. Please try again.", connectionRefundFailed: "⚠️ The connection could not be created and the star refund could not be verified. Please contact an administrator.", requestCancelled: "⌛ This connection request was cancelled because one participant connected with someone else.", saved: '✅ Changes saved.'
   },
   ur: {
     profileFollowersOnly: "🔒 آپ کا مکمل پروفائل صرف آپ کے فالوورز دیکھ سکتے ہیں؛ دوسرے صرف نام اور جنس دیکھیں گے۔",
@@ -97,7 +97,7 @@ export const TEXT = {
     surname: '📝 خاندانی نام اختیاری ہے۔ چھوڑنے کے لیے نیچے بٹن دبائیں:',
     skip: 'خاندانی نام چھوڑیں', membership: '🔐 بوٹ استعمال کرنے کے لیے نیچے دیے گئے تمام گروپس یا چینلز میں شامل ہوں، پھر تصدیق کریں:',
     joined: '✅ شامل ہوگیا، دوبارہ چیک کریں', membershipFail: '⚠️ رکنیت کی تصدیق نہیں ہوئی۔ تمام گروپس میں شامل ہوں اور بوٹ کی اجازت چیک کریں۔',
-    ready: '🎉 آپ کا پروفائل تیار ہے!', main: 'مرکزی مینو:', saved: '✅ تبدیلی محفوظ ہوگئی۔'
+    ready: '🎉 آپ کا پروفائل تیار ہے!', main: 'مرکزی مینو:', cancelled: "❌ منسوخ ہوگیا۔", findLanguage: "🌐 آپ کس زبان بولنے والا دوست چاہتے ہیں؟", auto: "خودکار", costInsufficient: "⭐ دوست تلاش کرنے کے لیے ", costSuffix: " اسٹارز درکار ہیں۔ آپ کا بیلنس: ", confirmFind: "🔎 دوست کی تلاش کی تصدیق کریں۔", gender: "جنس", language: "زبان", deductOnAccept: "⭐ رابطہ قبول ہونے پر ", deductSuffix: " اسٹارز کٹ جائیں گے۔", confirmButton: "✅ تصدیق کریں اور تلاش شروع کریں", cancelButton: "❌ منسوخ", selfAction: "⚠️ یہ عمل اپنے پروفائل پر نہیں کیا جا سکتا۔", followedNotice: "❤️ صارف پسندیدہ دوستوں میں شامل ہوگیا۔", connectionRefunded: "⚠️ تکنیکی مسئلے کی وجہ سے رابطہ قائم نہیں ہو سکا؛ اسٹارز واپس کر دیے گئے ہیں۔ دوبارہ کوشش کریں۔", connectionRefundFailed: "⚠️ رابطہ قائم نہیں ہوا اور اسٹارز کی واپسی کی تصدیق نہیں ہو سکی۔ ایڈمن سے رابطہ کریں۔", requestCancelled: "⌛ رابطے کی درخواست منسوخ ہوگئی کیونکہ ایک صارف کسی اور سے رابطے میں آگیا۔", saved: '✅ تبدیلی محفوظ ہوگئی۔'
   },
   ar: {
     profileFollowersOnly: "🔒 يظهر ملفك الكامل لمتابعيك فقط؛ أما الآخرون فيرون الاسم والجنس فقط.",
@@ -122,6 +122,6 @@ export const TEXT = {
     surname: '📝 اسم العائلة اختياري. اضغط أدناه للتخطي:',
     skip: 'تخطي اسم العائلة', membership: '🔐 لاستخدام البوت، انضم إلى كل مجموعة أو قناة أدناه ثم تحقق من العضوية:',
     joined: '✅ انضممت، تحقق مرة أخرى', membershipFail: '⚠️ لم يتم تأكيد العضوية. انضم إلى جميع المجموعات وتأكد أن البوت يستطيع التحقق.',
-    ready: '🎉 ملفك الشخصي جاهز!', main: 'القائمة الرئيسية:', saved: '✅ تم حفظ التغييرات.'
+    ready: '🎉 ملفك الشخصي جاهز!', main: 'القائمة الرئيسية:', cancelled: "❌ تم الإلغاء.", findLanguage: "🌐 ما اللغة التي تريد أن يتحدث بها صديقك؟", auto: "تلقائي", costInsufficient: "⭐ البحث عن صديق يتطلب ", costSuffix: " نجوم. رصيدك: ", confirmFind: "🔎 أكّد البحث عن صديق.", gender: "الجنس", language: "اللغة", deductOnAccept: "⭐ عند قبول الاتصال، سيتم خصم ", deductSuffix: " نجوم.", confirmButton: "✅ تأكيد وبدء البحث", cancelButton: "❌ إلغاء", selfAction: "⚠️ لا يمكنك تنفيذ هذا الإجراء على ملفك الشخصي.", followedNotice: "❤️ تمت إضافة المستخدم إلى المفضلة.", connectionRefunded: "⚠️ تعذّر إنشاء الاتصال بسبب مشكلة تقنية؛ أُعيدت النجوم إلى رصيدك. حاول مجدداً.", connectionRefundFailed: "⚠️ تعذّر إنشاء الاتصال ولم نتمكن من تأكيد إعادة النجوم. يرجى التواصل مع المسؤول.", requestCancelled: "⌛ أُلغي طلب الاتصال لأن أحد المشاركين اتصل بشخص آخر.", saved: '✅ تم حفظ التغييرات.'
   }
 };
