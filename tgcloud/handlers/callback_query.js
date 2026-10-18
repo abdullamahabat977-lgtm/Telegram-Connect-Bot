@@ -784,7 +784,7 @@ async function tryOfferSearches() {
       if (games.some(row => ['waiting', 'pending', 'playing', 'settlement_error'].includes(row.status) &&
           (Number(row.player_id) === cid || Number(row.opponent_id) === cid))) return false;
       const active = Date.parse(candidate.last_active_at || '');
-      if (!Number.isFinite(active) || now - active > 120000 || tried.has(cid)) return false;
+      if (!Number.isFinite(active) || now - active > wait * 1000 || tried.has(cid)) return false;
       if (blocks.some(row => (Number(row.blocker_telegram_id) === cid && Number(row.blocked_telegram_id) === Number(search.requester_id)) ||
         (Number(row.blocker_telegram_id) === Number(search.requester_id) && Number(row.blocked_telegram_id) === cid))) return false;
       const connected = sessions.some(row => row.status === 'connected' && (Number(row.first_user_telegram_id) === cid || Number(row.second_user_telegram_id) === cid));
@@ -2141,7 +2141,18 @@ async function handleGameCallback(query, actor, data, actorId, chatId) {
     const rejected = await db.update(game_sessions).set({ status: 'rejected', updated_at: rejectedAt })
       .where(and(eq(game_sessions.id, gameId), eq(game_sessions.status, 'pending'), eq(game_sessions.opponent_id, actorId)))
       .returning({ id: game_sessions.id }).run();
-    if (!rejected || !Array.isArray(rejected.rows) || rejected.rows.length === 0) {
+    let rejectionVerified = Boolean(rejected && Array.isArray(rejected.rows) && rejected.rows.length > 0);
+    if (!rejectionVerified) {
+      const persistedGame = await db.select().from(game_sessions).where(eq(game_sessions.id, gameId)).get();
+      rejectionVerified = Boolean(persistedGame && persistedGame.status === 'rejected' &&
+        Number(persistedGame.opponent_id) === actorId && String(persistedGame.updated_at || '') === rejectedAt);
+    }
+    if (!rejectionVerified) {
+      const latestGame = await db.select().from(game_sessions).where(eq(game_sessions.id, gameId)).get();
+      reportDiagnostic('callback-handler', 'Game rejection could not be verified', {
+        gameId, actorId, observedStatus: latestGame && latestGame.status,
+        observedUpdatedAt: latestGame && latestGame.updated_at, rejectedAt
+      });
       await sendPrompt(chatId, '⌛ دا ګېم نور فعال نه دی؛ ښايي مخکې منل شوی یا لغوه شوی وي.', mainKeyboard(actor, await isAdmin(actorId)), actor);
       return;
     }
@@ -2302,20 +2313,27 @@ async function handleCallback(query) {
   }
 
   if (kind === 'membership' && value === 'check') {
-    if (user.state !== 'check_membership') {
-      if (!user.country) {
-        user.state = 'check_membership';
-        await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run();
-      } else {
-        await showMain(chatId, user);
-        return;
-      }
+    const previousState = user.state;
+    if (previousState !== 'check_membership' && !user.country) {
+      user.state = 'check_membership';
+      await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run();
     }
-    if (await checkMembership(id)) {
-      await db.update(users).set({ state: 'choose_country' }).where(eq(users.telegram_id, id)).run();
-      user.state = 'choose_country';
-      await showCountry(chatId, user);
-    } else await showMembership(chatId, user, tx(user).membershipFail);
+    if (!(await checkMembership(id))) {
+      await showMembership(chatId, user, tx(user).membershipFail);
+      return;
+    }
+    if (user.country) {
+      const nextState = previousState === 'searching_connection' ? 'searching_connection' : 'ready';
+      await db.update(users).set({ state: nextState }).where(eq(users.telegram_id, id)).run();
+      user.state = nextState;
+      if (nextState === 'searching_connection') {
+        await sendPrompt(chatId, tx(user).main, mainKeyboard(user, await isAdmin(id)), user);
+      } else await showMain(chatId, user);
+      return;
+    }
+    await db.update(users).set({ state: 'choose_country' }).where(eq(users.telegram_id, id)).run();
+    user.state = 'choose_country';
+    await showCountry(chatId, user);
     return;
   }
 
