@@ -1605,12 +1605,12 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
       const terminalStatuses = ['cancelled', 'rejected', 'expired', 'accepted', 'connected'];
       if (observedOffer && terminalStatuses.includes(String(observedOffer.status || ''))) {
         const message = observedOffer.status === 'cancelled'
-          ? '⌛ دا غوښتنه مخکې لغوه شوې ده؛ نور اقدام ته اړتیا نشته.'
+          ? tx(actor).requestStatusCancelled
           : observedOffer.status === 'rejected'
-            ? '⌛ دا غوښتنه مخکې رد شوې ده.'
+            ? tx(actor).requestStatusRejected
             : observedOffer.status === 'expired'
-              ? '⌛ د دې غوښتنې وخت پای ته رسېدلی دی.'
-              : '⌛ دا غوښتنه مخکې پروسس شوې ده.';
+              ? tx(actor).requestStatusExpired
+              : tx(actor).requestStatusProcessed;
         await sendPrompt(chatId, message, mainKeyboard(actor, await isAdmin(actorId)), actor);
         return;
       }
@@ -1621,7 +1621,7 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
         observedRequesterId: observedOffer && Number(observedOffer.requester_id),
         callbackAction: p[1]
       });
-      await sendPrompt(chatId, '⌛ دا غوښتنه نوره فعاله نه ده.', mainKeyboard(actor, await isAdmin(actorId)), actor);
+      await sendPrompt(chatId, tx(actor).requestStatusInactive, mainKeyboard(actor, await isAdmin(actorId)), actor);
       return;
     }
     const search = rows.find(row => Number(row.requester_id) === Number(offer.requester_id) && row.status === 'searching' && !row.recipient_id);
@@ -1717,7 +1717,7 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
         offerId, actorId, observedStatus: latestOffer && latestOffer.status,
         observedUpdatedAt: latestOffer && latestOffer.updated_at, offerClaimAt
       });
-      await sendPrompt(chatId, '⌛ دا غوښتنه نور فعاله نه ده.', mainKeyboard(actor, await isAdmin(actorId)), actor);
+      await sendPrompt(chatId, tx(actor).requestStatusInactive, mainKeyboard(actor, await isAdmin(actorId)), actor);
       return;
     }
     const searchClaimAt = new Date().toISOString();
