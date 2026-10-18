@@ -93,7 +93,7 @@ async function showAdminUserSettings(chatId, adminUser, target) {
   const gender = target.gender === 'female' ? p.female : target.gender === 'male' ? p.male : '—';
   const text = l.title + '\n━━━━━━━━━━━━━━\n👤 ' + a.nameLabel + ': ' + [target.name || target.first_name || a.fallbackUserName, target.surname || ''].filter(Boolean).join(' ') +
     '\n🆔 ' + a.idLabel + ': ' + target.telegram_id + '\n🔗 ' + a.usernameLabel + ': ' + (target.username ? '@' + target.username : '—') +
-    '\n🌍 ' + a.countryLabel + ': ' + (country ? country.label : '—') + '\n⚧ ' + a.genderLabel + ': ' + gender + '  🎂 ' + a.ageLabel + ': ' + (target.age || '—') +
+    '\n🌍 ' + a.countryLabel + ': ' + (country ? (tx(adminUser).countryNames[country.code] || country.label) : '—') + '\n⚧ ' + a.genderLabel + ': ' + gender + '  🎂 ' + a.ageLabel + ': ' + (target.age || '—') +
     '\n📢 ' + a.channelLabel + ': ' + (target.channel_username || '—') + '\n📨 ' + l.referrals + ': ' + Number(target.referral_count || 0) +
     '\n👥 ' + l.favorites + ': ' + favCount + '\n⭐ ' + l.stars + ': ' + Number(target.stars || 0) +
     '\n🏆 ' + l.points + ': ' + Number(target.points || 0) + '\n❤️ ' + l.likes + ': ' + Number(target.likes || 0) +
@@ -256,7 +256,7 @@ function matchLanguage(input) {
   }) || null;
 }
 async function showLanguage(chatId, user) { await sendPrompt(chatId, tx(user).lang, languageKeyboard(), user); }
-async function showCountry(chatId, user) { await sendPrompt(chatId, tx(user).country, countryKeyboard(), user); }
+async function showCountry(chatId, user) { await sendPrompt(chatId, tx(user).country, countryKeyboard(user), user); }
 async function showGender(chatId, user) { await sendPrompt(chatId, tx(user).gender, genderKeyboard(user), user); }
 async function showAge(chatId, user) { await sendPrompt(chatId, tx(user).age, ageKeyboard(), user); }
 async function showName(chatId, user) { await sendPrompt(chatId, tx(user).name, { force_reply: true }, user); }
@@ -279,7 +279,7 @@ async function showProfile(chatId, user) {
   const p = t.sessionText;
   const text = t.profile + '\n━━━━━━━━━━━━━━\n\n👤 ' + p.name + ': ' + escapeHtml(fullName) +
     '\n\n' + idLabel + ' <code>' + Number(user.telegram_id) + '</code>' +
-    '\n\n🌍 ' + p.country + ': ' + escapeHtml(c ? c.label : t.notSet) +
+    '\n\n🌍 ' + p.country + ': ' + escapeHtml(c ? (t.countryNames[c.code] || c.label) : t.notSet) +
     '\n\n⚧ ' + p.gender + ': ' + escapeHtml(genderLabel) +
     '\n\n🎂 ' + p.age + ': ' + escapeHtml(user.age || t.notSet) +
     '\n\n🗣️ ' + p.language + ': ' + escapeHtml(l.label) +
@@ -440,7 +440,7 @@ async function sessionProfileText(target, viewerId) {
   const language = LANGUAGES.find(item => item.code === target.language);
   const favCount = await db.$count(favorites, eq(favorites.favorite_telegram_id, Number(target.telegram_id)));
   return '👤 ' + p.name + ': ' + name + '\n\n⚧ ' + p.gender + ': ' + gender +
-    '\n\n🌍 ' + p.country + ': ' + (country ? country.label : '—') +
+    '\n\n🌍 ' + p.country + ': ' + (country ? (tx(await getUser(viewerId)).countryNames[country.code] || country.label) : '—') +
     '\n\n🎂 ' + p.age + ': ' + (target.age || '—') + '\n\n🗣️ ' + p.language + ': ' + (language ? language.label : target.language || '—') +
     '\n\n📢 ' + p.channel + ': ' + (target.channel_username || '—') + '\n\n📨 ' + p.referrals + ': ' + Number(target.referral_count || 0) +
     '\n\n👥 ' + p.favorites + ': ' + favCount + '\n\n🏆 ' + p.points + ': ' + Number(target.points || 0) + '\n\n❤️ ' + p.likes + ': ' + Number(target.likes || 0);
@@ -1770,7 +1770,7 @@ async function processMessage(message) {
     return;
   }
   if (user.state === 'choose_country' || user.state === 'settings_country') {
-    const selected = COUNTRIES.find(function (item) { return item.label === input; });
+    const selected = COUNTRIES.find(function (item) { return (tx(user).countryNames[item.code] || item.label) === input || item.label === input; });
     if (!selected) { await showCountry(chatId, user); return; }
     const setting = user.state === 'settings_country';
     await db.update(users).set({ country: selected.code, state: setting ? 'ready' : 'choose_gender' }).where(eq(users.telegram_id, id)).run();
