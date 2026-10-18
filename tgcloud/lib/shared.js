@@ -172,11 +172,13 @@ export function languageKeyboard() {
   ] };
 }
 
-export function countryKeyboard() {
+export function countryKeyboard(user) {
   const rows = [];
+  const language = user && T[user.language] ? user.language : 'ps';
+  const labels = T[language].countryNames || T.ps.countryNames;
   for (let i = 0; i < COUNTRIES.length; i += 2) {
-    const row = [{ text: COUNTRIES[i].label, callback_data: 'reg:country:' + COUNTRIES[i].code }];
-    if (COUNTRIES[i + 1]) row.push({ text: COUNTRIES[i + 1].label, callback_data: 'reg:country:' + COUNTRIES[i + 1].code });
+    const row = [{ text: labels[COUNTRIES[i].code] || COUNTRIES[i].label, callback_data: 'reg:country:' + COUNTRIES[i].code }];
+    if (COUNTRIES[i + 1]) row.push({ text: labels[COUNTRIES[i + 1].code] || COUNTRIES[i + 1].label, callback_data: 'reg:country:' + COUNTRIES[i + 1].code });
     rows.push(row);
   }
   return { inline_keyboard: rows };
