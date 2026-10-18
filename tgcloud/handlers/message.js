@@ -1637,8 +1637,8 @@ async function processMessage(message) {
     else if (user.state === 'settings_photo_menu') await sendPrompt(chatId, '🖼 ' + tx(user).settings, photoSettingsKeyboard(user), user);
     else if (user.state === 'settings_channel_menu') await sendPrompt(chatId, '📢 ' + tx(user).settings, channelSettingsKeyboard(user), user);
     else if (user.state === 'settings_favorites_menu') await sendPrompt(chatId, '❤️ ' + tx(user).settings, favoriteSettingsKeyboard(user), user);
-    else if (user.state === 'waiting_profile_photo') await sendPrompt(chatId, user.language === 'en' ? 'Send the profile photo now.' : 'اوس د پروفایل عکس راولېږه.', { force_reply: true }, user);
-    else if (user.state === 'waiting_profile_channel') await sendPrompt(chatId, user.language === 'en' ? 'Send a public channel @username or t.me/username.' : 'د عام چینل @username یا لینک راولېږه.', { force_reply: true }, user);
+    else if (user.state === 'waiting_profile_photo') await sendPrompt(chatId, tx(user).waitingPhotoPrompt, { force_reply: true }, user);
+    else if (user.state === 'waiting_profile_channel') await sendPrompt(chatId, tx(user).waitingChannelPrompt, { force_reply: true }, user);
     else if (user.state === 'admin_menu' || user.state.startsWith('waiting_') || user.state.startsWith('admin_edit_user_') || user.state.startsWith('admin_adjust_balance:') || user.state.startsWith('admin_send_user_message:') || user.state.startsWith('admin_set_referral_reward:') || user.state.startsWith('admin_set_setting:')) {
       user.state = 'admin_menu'; await db.update(users).set({ state: 'admin_menu' }).where(eq(users.telegram_id, id)).run();
       await sendPrompt(chatId, tx(user).adminIntro, adminKeyboard(user), user);
@@ -1677,7 +1677,7 @@ async function processMessage(message) {
   const adminPhotoMatch = String(user.state || '').match(/^admin_edit_user_photo:(\d+)$/);
   if (adminPhotoMatch) {
     const targetId = Number(adminPhotoMatch[1]);
-    if (!Array.isArray(message.photo) || !message.photo.length) { await sendPrompt(chatId, user.language === 'en' ? 'Please send a photo to set as the user profile picture.' : 'د کارن د پروفایل لپاره عکس راولېږه.', { force_reply: true }, user); return; }
+    if (!Array.isArray(message.photo) || !message.photo.length) { await sendPrompt(chatId, tx(user).waitingPhotoPrompt, { force_reply: true }, user); return; }
     const photoId = message.photo[message.photo.length - 1].file_id;
     await db.update(users).set({ profile_photo_id: photoId }).where(eq(users.telegram_id, targetId)).run();
     user.state = 'admin_menu'; await db.update(users).set({ state: 'admin_menu' }).where(eq(users.telegram_id, id)).run();
@@ -2059,7 +2059,7 @@ async function processMessage(message) {
       }
       const deleted = await deleteRecentPartnerMessages(session, id);
       const keyboard = activeSession ? sessionControlKeyboard(user) : sessionEndedKeyboard(user, await isAdmin(id));
-      await sendPrompt(chatId, '🗑 د ملګري ' + deleted + ' پیغامونه د وروستیو ۱۰ دقیقو له لېست څخه حذف شول. یوازې هغه پیغامونه حذفېږي چې بوټ یې په دې چټ کې کاپي کړي وي.', keyboard, user);
+      await sendPrompt(chatId, tx(user).deleteRecentDone.replace('پیغامونه', 'پیغامونه') + ' ' + deleted, keyboard, user);
       return;
     }
   }
@@ -2077,9 +2077,9 @@ async function processMessage(message) {
   if (user.state === 'profile_settings_menu') {
     const i = tx(user).profileSettingsButtons.indexOf(input);
     const field = i >= 0 ? ['country','gender','age','name','surname','photoSettings','channelSettings','profileVisibility','back'][i] : action;
-    if (field === 'profileVisibility') { await sendPrompt(chatId, '🔒 د خپل پروفایل د ښکاره کېدو حالت وټاکه:', { inline_keyboard: [[{ text: '🌐 ټولو ته ښکاره', callback_data: 'settings:visibility:everyone' }], [{ text: '❤️ یوازې پالو ملګرو ته', callback_data: 'settings:visibility:followers' }], [{ text: '🔙 بېرته', callback_data: 'settings:open' }]] }, user); return; }
-    if (field === 'photoSettings') { user.state = 'settings_photo_menu'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, '🖼 د پروفایل عکس تنظیمات:', photoSettingsKeyboard(user), user); return; }
-    if (field === 'channelSettings') { user.state = 'settings_channel_menu'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, '📢 د عام چینل تنظیمات:\n\n' + (user.channel_username || 'چینل نه دی ثبت شوی'), channelSettingsKeyboard(user), user); return; }
+    if (field === 'profileVisibility') { await sendPrompt(chatId, tx(user).profileVisibilityPrompt, { inline_keyboard: [[{ text: tx(user).visibilityEveryone, callback_data: 'settings:visibility:everyone' }], [{ text: tx(user).visibilityFollowers, callback_data: 'settings:visibility:followers' }], [{ text: '🔙 بېرته', callback_data: 'settings:open' }]] }, user); return; }
+    if (field === 'photoSettings') { user.state = 'settings_photo_menu'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, tx(user).photoSettingsTitle, photoSettingsKeyboard(user), user); return; }
+    if (field === 'channelSettings') { user.state = 'settings_channel_menu'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, tx(user).channelSettingsTitle + '\n\n' + (user.channel_username || tx(user).channelNotSet), channelSettingsKeyboard(user), user); return; }
     if (field === 'back') { user.state = 'settings_menu'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, tx(user).settings, settingsKeyboard(user), user); return; }
     if (!['country','gender','age','name','surname'].includes(field)) { await sendPrompt(chatId, tx(user).settings, profileSettingsKeyboard(user), user); return; }
     user.state = 'settings_' + field; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run();
@@ -2089,7 +2089,7 @@ async function processMessage(message) {
     if (action === 'photoSet') { user.state = 'waiting_profile_photo'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, user.language === 'en' ? 'Send the profile photo now.' : user.language === 'fa' ? 'اکنون عکس پروفایل را بفرستید.' : user.language === 'ur' ? 'اب پروفائل تصویر بھیجیں۔' : user.language === 'ar' ? 'أرسل صورة الملف الشخصي الآن.' : 'اوس د پروفایل عکس راولېږه.', { force_reply: true }, user); return; }
     if (action === 'photoRemove') { await db.update(users).set({ profile_photo_id: null, state: 'settings_menu' }).where(eq(users.telegram_id, id)).run(); user.profile_photo_id = null; user.state = 'settings_menu'; await sendPrompt(chatId, tx(user).saved + '\n' + tx(user).settings, settingsKeyboard(user), user); return; }
     if (action === 'back') { user.state = 'settings_menu'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, tx(user).settings, settingsKeyboard(user), user); return; }
-    await sendPrompt(chatId, user.language === 'en' ? 'Choose an option below.' : 'لاندې یو انتخاب وټاکه.', photoSettingsKeyboard(user), user); return;
+    await sendPrompt(chatId, user.language === 'en' ? 'Choose an option below.' : tx(user).chooseOption, photoSettingsKeyboard(user), user); return;
   }
   if (user.state === 'settings_channel_menu') {
     if (action === 'channelSet') { user.state = 'waiting_profile_channel'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, user.language === 'en' ? 'Send a public channel @username or https://t.me/username. Private invite links are not accepted.' : user.language === 'fa' ? 'نام کاربری یا لینک عمومی کانال را بفرستید؛ لینک خصوصی پذیرفته نیست.' : user.language === 'ur' ? 'عوامی چینل کا @username یا لنک بھیجیں؛ نجی لنک قبول نہیں۔' : user.language === 'ar' ? 'أرسل اسم المستخدم أو رابط القناة العامة؛ الروابط الخاصة غير مقبولة.' : 'د عام چینل @username یا لینک راولېږه؛ خصوصي لینک نه منل کېږي.', { force_reply: true }, user); return; }
