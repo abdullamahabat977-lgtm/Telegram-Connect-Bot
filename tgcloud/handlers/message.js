@@ -1066,7 +1066,7 @@ export async function resolveBotGame(game) {
   if (![playerRoll, botRoll].every(value => Number.isInteger(value) && value >= 1 && value <= 6)) {
     await db.update(game_sessions).set({ status: 'settlement_error', updated_at: new Date().toISOString() })
       .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'playing'))).run();
-    try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: '⚠️ د تاس پایله تایید نه شوه؛ مالي تصفیه ونه شوه. له اډمین سره اړیکه ونیسه.' }); } catch (e) {}
+    try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: tx(player).sessionText.gameText.botResultUnconfirmed }); } catch (e) {}
     return;
   }
   let outcome = tx(player).sessionText.gameText.draw + fee + tx(player).sessionText.gameText.drawEnd;
@@ -1085,7 +1085,7 @@ export async function resolveBotGame(game) {
   if (!balanceUpdate || !Array.isArray(balanceUpdate.rows) || balanceUpdate.rows.length === 0) {
     await db.update(game_sessions).set({ status: 'settlement_error', updated_at: new Date().toISOString() })
       .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'playing'))).run();
-    try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: '⚠️ د ګېم پر مهال ستا بیلانس بدل شو؛ د ناسم حساب د مخنیوي لپاره تصفیه ودرول شوه. له اډمین سره اړیکه ونیسه.' }); } catch (e) {}
+    try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: tx(player).sessionText.gameText.botBalanceChanged }); } catch (e) {}
     return;
   }
   const completed = await db.update(game_sessions)
@@ -1095,7 +1095,7 @@ export async function resolveBotGame(game) {
   if (!completed || !Array.isArray(completed.rows) || completed.rows.length === 0) {
     await db.update(game_sessions).set({ status: 'settlement_error', updated_at: new Date().toISOString() })
       .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'playing'))).run();
-    try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: '⚠️ مالي بدلون وشو، خو د ګېم پایله په ډیټابیس کې بشپړه ثبت نه شوه. له اډمین سره اړیکه ونیسه.' }); } catch (e) {}
+    try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: tx(player).sessionText.gameText.botResultNotSaved }); } catch (e) {}
     return;
   }
   try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: tx(player).sessionText.gameText.resultTitle + '\\n\\n' + tx(player).sessionText.gameText.yourDice + playerRoll + '\\n\\n' + tx(player).sessionText.gameText.botDice + botRoll + '\\n\\n' + outcome + '\\n\\n' + tx(player).sessionText.gameText.balanceNow + newBalance }); } catch (e) {}
