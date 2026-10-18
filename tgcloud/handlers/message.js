@@ -2183,7 +2183,7 @@ async function processMessage(message) {
     await showMembership(chatId, user);
     return;
   }
-  if (field === 'find') await sendPrompt(chatId, tx(user).findFriendType, { inline_keyboard: [[{ text: '👨 ' + tx(user).male, callback_data: 'find:gender:male' }, { text: '👩 ' + tx(user).female, callback_data: 'find:gender:female' }], [{ text: '🌐 ' + tx(user).auto, callback_data: 'find:gender:auto' }], [{ text: tx(user).findCancelButton, callback_data: 'find:cancel' }]] }, user);
+  if (field === 'find') await sendPrompt(chatId, tx(user).findFriendType, { inline_keyboard: [[{ text: '👨 ' + tx(user).male, callback_data: 'find:gender:male' }, { text: '👩 ' + tx(user).female, callback_data: 'find:gender:female' }], [{ text: '🌐 ' + tx(user).findAuto, callback_data: 'find:gender:auto' }], [{ text: tx(user).findCancelButton, callback_data: 'find:cancel' }]] }, user);
   else if (field === 'random') {
     const t = tx(user).sessionText;
     const cost = Number(await getSetting('connection_cost_stars', 1));
