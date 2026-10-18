@@ -1426,7 +1426,7 @@ async function resolveUserGame(game) {
       });
       await db.update(game_sessions).set({ status: 'settlement_error', updated_at: new Date().toISOString() })
         .where(and(eq(game_sessions.id, Number(game.id)), eq(game_sessions.status, 'playing'))).run();
-      const notice = '⚠️ د لوبې د ستورو حساب د بیلانس د اختلاف له امله ودرول شو؛ اډمین ته راپور واستول شو. له اډمین سره اړیکه ونیسه.';
+      const notice = sessionTx(player).sessionText.gameBalanceStopped;
       try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: notice }); } catch (e) {}
       try { await api.sendMessage({ chat_id: Number(opponent.telegram_id), text: notice }); } catch (e) {}
       return;
@@ -2220,8 +2220,8 @@ async function handleGameCallback(query, actor, data, actorId, chatId) {
           return;
         }
         const notice = pairBlocked
-          ? '⚠️ د دواړو لوبغاړو ترمنځ بلاک موجود دی؛ ګېم لغوه شو. بیا هڅه وکړه.'
-          : '⚠️ یو لوبغاړی د بلې اړیکې یا ګېم په بهیر کې دی؛ د ټکر د مخنیوي لپاره ګېم لغوه شو. بیا هڅه وکړه.';
+          ? sessionTx(actor).sessionText.gameText.gameActiveConflictBlocked
+          : sessionTx(actor).sessionText.gameText.gameActiveConflictOther;
         try { await api.sendMessage({ chat_id: Number(game.player_id), text: notice }); } catch (e) {}
         try { await api.sendMessage({ chat_id: actorId, text: notice }); } catch (e) {}
         return;
@@ -2248,7 +2248,7 @@ async function handleGameCallback(query, actor, data, actorId, chatId) {
           Number(playing.opponent_id) === actorId &&
           String(playing.updated_at || '') === acceptedAt;
         if (!thisAcceptWon) {
-          await sendPrompt(chatId, '⌛ دا ګېم نور فعال نه دی یا مخکې منل شوی دی.', mainKeyboard(actor, await isAdmin(actorId)), actor);
+          await sendPrompt(chatId, sessionTx(actor).sessionText.gameInactive, mainKeyboard(actor, await isAdmin(actorId)), actor);
           return;
         }
       }
@@ -2257,7 +2257,7 @@ async function handleGameCallback(query, actor, data, actorId, chatId) {
           gameId, actorId, observedStatus: playing && playing.status,
           observedUpdatedAt: playing && playing.updated_at, acceptedAt
         });
-        await sendPrompt(chatId, '⚠️ د ګېم حالت تایید نه شو؛ فیس نه دی قصداً اخیستل شوی. مهرباني وکړه له اډمین سره اړیکه ونیسه.', mainKeyboard(actor, await isAdmin(actorId)), actor);
+        await sendPrompt(chatId, sessionTx(actor).sessionText.gameResultUnconfirmed, mainKeyboard(actor, await isAdmin(actorId)), actor);
         return;
       }
       await resolveUserGame(playing);
@@ -2272,7 +2272,7 @@ async function handleGameCallback(query, actor, data, actorId, chatId) {
       } catch (stateError) {
         reportDiagnostic('callback-handler', 'Could not mark game settlement error', { gameId, actorId, stateError });
       }
-      const notice = '⚠️ د ګېم پر مهال تخنیکي ستونزه رامنځته شوه. د فیس او پایلې حالت لا نه دی تایید شوی؛ مهرباني وکړه ګېم بیا مه منئ او له اډمین سره اړیکه ونیسه.';
+      const notice = sessionTx(actor).sessionText.gameSettlementStopped;
       try { await api.sendMessage({ chat_id: Number(game.player_id), text: notice }); } catch (e) {}
       try { if (game.opponent_id) await api.sendMessage({ chat_id: Number(game.opponent_id), text: notice }); } catch (e) {}
     }
