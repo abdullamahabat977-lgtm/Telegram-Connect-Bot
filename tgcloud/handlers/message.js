@@ -1491,19 +1491,18 @@ async function renderAdminConnectionSettings(chatId, user) {
   await sendPrompt(chatId, text, { inline_keyboard: rows }, user);
 }
 async function renderAdminGameSettings(chatId, user) {
-  const keys = [
-    ['game_min_stars','⭐ د لوبې لږ تر لږه بیلانس / د ګټلو جایزه',3.5],
-    ['game_fee_stars','💰 د لوبې فیس',0.5], ['game_win_points','⭐ د ګټلو نمرې',1],
-    ['game_wait_seconds','⏱ د سیال انتظار ثانیې',120]
-  ];
-  let text = '🎲 د ګېم تنظیمات\n\n';
+  const t = tx(user).sessionText.adminText;
+  const keys = [['game_min_stars',3.5],['game_fee_stars',0.5],['game_win_points',1],['game_wait_seconds',120]];
+  let text = t.gameSettingsTitle + '\n\n';
   const rows = [];
-  for (const item of keys) { text += item[1] + ': ' + await getSetting(item[0], item[2]) + '\n\n'; rows.push([{ text: item[1], callback_data: 'admin:setting:' + item[0] }]); }
-  rows.push([{ text: '🔙 اډمین پینل', callback_data: 'admin:panel' }]);
+  for (const [key, fallback] of keys) {
+    const label = t.settingLabels[key];
+    text += label + ': ' + await getSetting(key, fallback) + '\n\n';
+    rows.push([{ text: label, callback_data: 'admin:setting:' + key }]);
+  }
+  rows.push([{ text: t.mainMenuButton, callback_data: 'admin:panel' }]);
   await sendPrompt(chatId, text, { inline_keyboard: rows }, user);
 }
-
-// ── Incoming message routing ──
 async function processMessage(message) {
   if (!message || !message.chat || !message.from || message.chat.type !== 'private') return;
   const chatId = message.chat.id;
