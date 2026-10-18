@@ -1896,8 +1896,8 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
         .where(and(eq(connection_requests.id, offerId), eq(connection_requests.status, 'accepted'))).run();
       await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, actorId)).run();
       const notice = refunded
-        ? '⚠️ اړیکه د تخنیکي ستونزې له امله جوړه نه شوه؛ ستوري بېرته ستانه شول. بیا هڅه وکړه.'
-        : '⚠️ اړیکه جوړه نه شوه او د ستورو د بېرته ستنولو حالت تایید نه شو. مهرباني وکړه له اډمین سره اړیکه ونیسه.';
+        ? tx(actor).connectionRefunded
+        : tx(actor).connectionRefundFailed;
       try { await api.sendMessage({ chat_id: Number(requester.telegram_id), text: notice }); } catch (e) {}
       await sendPrompt(chatId, notice, mainKeyboard(actor, await isAdmin(actorId)), actor);
       return;
@@ -1915,7 +1915,7 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
       if (!cancelledOther || !Array.isArray(cancelledOther.rows) || cancelledOther.rows.length === 0) continue;
       const externalParty = participantIds.has(Number(row.requester_id)) ? Number(row.recipient_id || 0) : Number(row.requester_id || 0);
       if (externalParty > 0 && !participantIds.has(externalParty)) {
-        try { await api.sendMessage({ chat_id: externalParty, text: '⌛ دا د اړیکې غوښتنه لغوه شوه، ځکه یو ګډونوال له بل کس سره وصل شو.' }); } catch (e) {}
+        try { await api.sendMessage({ chat_id: externalParty, text: tx(actor).requestCancelled }); } catch (e) {}
       }
     }
     const sessions = await db.select().from(chat_sessions).all();
@@ -1926,7 +1926,7 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
   }
 }
 async function handleFindCallback(query, actor, data, actorId, chatId) {
-  const p = data.split(':');
+  const t = tx(actor), p = data.split(':');
   if (p[1] === 'cancel') { await showMain(chatId, actor, tx(actor).findCancel); return; }
   if (p[1] === 'gender') {
     if (!['male','female','auto'].includes(p[2])) return;
