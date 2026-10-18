@@ -2223,7 +2223,7 @@ export default async function (message) {
       try {
         await api.sendMessage({
           chat_id: message.chat.id,
-          text: tx(user).technicalError
+          text: tx(await getUser(Number(message.from.id))).technicalError
         });
       } catch (sendError) {}
     }
