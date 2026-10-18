@@ -1211,7 +1211,7 @@ async function startConnectionSearch(userId, type) {
             .returning({ id: connection_requests.id }).run();
           if (cancelledOffer && Array.isArray(cancelledOffer.rows) && cancelledOffer.rows.length > 0) {
             try {
-              await api.sendMessage({ chat_id: Number(offer.recipient_id), text: sessionTx(user).sessionText.connectionRequestCancelledError });
+              await api.sendMessage({ chat_id: Number(offer.recipient_id), text: sessionTx(user).sessionText.offerExpired });
             } catch (notifyError) {
               console.warn('Could not notify recipient about cleaned-up connection offer', {
                 searchId: Number(search.id), offerId: Number(offer.id), recipientId: Number(offer.recipient_id), notifyError
