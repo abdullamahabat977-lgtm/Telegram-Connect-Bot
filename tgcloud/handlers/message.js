@@ -286,7 +286,7 @@ async function showProfile(chatId, user) {
     '\n\n🗣️ ژبه: ' + escapeHtml(l.label) + '\n\n📢 عام چینل: ' + escapeHtml(user.channel_username || t.notSet) +
     '\n\n📨 ریفرلونه: ' + Number(user.referral_count || 0) + '\n\n👥 پالو ملګري: ' + favCount +
     '\n\n⭐ ستوري: ' + Number(user.stars || 0) + '\n\n🏆 نمرې: ' + Number(user.points || 0) + '\n\n❤️ لایکونه: ' + Number(user.likes || 0);
-  const markup = { inline_keyboard: [] };
+  const markup = null;
   if (!user.profile_photo_id) {
     await sendPrompt(chatId, text, markup, user, 'HTML');
     return;
