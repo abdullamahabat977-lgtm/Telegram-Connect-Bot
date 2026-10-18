@@ -1538,7 +1538,7 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
         .where(and(eq(connection_requests.id, Number(row.id)), eq(connection_requests.status, row.status))).run();
     }
     await db.update(users).set({ state: 'ready' }).where(eq(users.telegram_id, actorId)).run();
-    actor.state = 'ready'; await showMain(chatId, actor, '❌ لټون لغوه شو.'); return;
+    actor.state = 'ready'; await showMain(chatId, actor, sessionTx(actor).sessionText.searchCancelled); return;
   }
   if (p[1] === 'cancel_search') {
     // Cancel this user's own search/offers, and allow a recipient to dismiss an
@@ -1574,7 +1574,8 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
     }
     for (const requesterId of notifyRequesters) {
       try {
-        await api.sendMessage({ chat_id: requesterId, text: '⌛ مقابل لوري د اړیکې غوښتنه لغوه کړه؛ د هغه غوښتنه نور فعاله نه ده.' });
+        const requester = await getUser(requesterId);
+        await api.sendMessage({ chat_id: requesterId, text: requester ? sessionTx(requester).sessionText.offerCancelledByRecipient : '⌛ Connection request cancelled.' });
       } catch (error) {
         console.warn('Could not notify requester after recipient cancelled offer', { actorId, requesterId, error });
       }
@@ -1592,8 +1593,8 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
       reportDiagnostic('callback-handler', 'Could not restart connection matching after cancellation', { actorId, error });
     }
     await showMain(chatId, actor, cancelledCount
-      ? '❌ لټون/غوښتنه لغوه شوه. اوس نوی لټون پیلولای شې.'
-      : '⌛ فعاله غوښتنه ونه موندل شوه. اوس بیا لټون پیلولای شې.');
+      ? sessionTx(actor).sessionText.searchCancelledNotice
+      : sessionTx(actor).sessionText.searchNoActive);
     return;
   }
   if (p[1] === 'reject' || p[1] === 'accept') {
