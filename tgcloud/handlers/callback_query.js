@@ -485,7 +485,7 @@ async function handleSettingsCallback(query, actor, data, actorId, chatId) {
     if (!['everyone','followers'].includes(visibility)) return;
     await db.update(users).set({ profile_visibility: visibility, state: 'ready' }).where(eq(users.telegram_id, actorId)).run();
     actor.profile_visibility = visibility; actor.state = 'ready';
-    await sendPrompt(chatId, visibility === 'followers' ? '🔒 ستا بشپړ پروفایل به یوازې ستا پالو ملګرو ته ښکاري؛ نورو ته به یوازې نوم او جنسیت ښکاري.' : '🌐 ستا پروفایل ټولو ته ښکاره دی، خو د ستورو بیلانس هېڅکله نورو ته نه ښکاري.', mainKeyboard(actor, await isAdmin(actorId)), actor); return;
+    await sendPrompt(chatId, visibility === 'followers' ? tx(actor).profileFollowersOnly : tx(actor).profilePublic, mainKeyboard(actor, await isAdmin(actorId)), actor); return;
   }
 
   if (p[1] === 'favorites' && p[2] === 'page') { await showFavoriteSettings(chatId, actor, Number(p[3])); return; }
