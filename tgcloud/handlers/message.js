@@ -1547,7 +1547,7 @@ async function processMessage(message) {
           points: Number(parent.points || 0) + rewardPoints,
           likes: Number(parent.likes || 0) + rewardLikes
         }).where(eq(users.telegram_id, referrer)).run();
-        const rewardText = '🎉 یو کس ستا د دعوتي لینک له لارې بوټ ته راغی!\n\nستا د ریفرل جایزه:\n⭐ ' + rewardStars + ' ستوري\n\n🏆 ' + rewardPoints + ' نمرې\n\n❤️ ' + rewardLikes + ' لایکونه';
+        const rewardText = tx(parent).sessionText.referralNoticeTitle + '\n\n' + tx(parent).sessionText.referralNoticeBody + '\n⭐ ' + rewardStars + ' ' + tx(parent).sessionText.adminText.rewardStars.replace(/^⭐\s*/, '') + '\n\n🏆 ' + rewardPoints + ' ' + tx(parent).sessionText.adminText.rewardPoints.replace(/^🏆\s*/, '') + '\n\n❤️ ' + rewardLikes + ' ' + tx(parent).sessionText.adminText.rewardLikes.replace(/^❤️\s*/, '');
         try { await api.sendMessage({ chat_id: referrer, text: rewardText }); } catch (e) {}
       }
     }
