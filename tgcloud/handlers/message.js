@@ -1662,7 +1662,7 @@ async function processMessage(message) {
       user.profile_photo_id = photoId; user.state = 'settings_menu';
       await sendPrompt(chatId, tx(user).saved + '\n' + tx(user).settings, settingsKeyboard(user), user); return;
     }
-    await sendPrompt(chatId, user.language === 'en' ? 'Please send a photo.' : user.language === 'fa' ? 'لطفاً یک عکس بفرستید.' : user.language === 'ur' ? 'براہ کرم تصویر بھیجیں۔' : user.language === 'ar' ? 'أرسل صورة من فضلك.' : 'مهرباني وکړه عکس راولېږه.', { force_reply: true }, user); return;
+    await sendPrompt(chatId, tx(user).photoRequired, { force_reply: true }, user); return;
   }
   if (user.state === 'waiting_profile_channel') {
     const raw = input.trim();
@@ -1671,13 +1671,13 @@ async function processMessage(message) {
     if (linkMatch) username = linkMatch[1];
     if (!/^[A-Za-z][A-Za-z0-9_]{4,31}$/.test(username)) {
       user.state = 'settings_channel_menu'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run();
-      await sendPrompt(chatId, user.language === 'en' ? 'Send a public channel @username or t.me/username link only.' : user.language === 'fa' ? 'فقط نام کاربری یا لینک عمومی کانال را بفرستید.' : user.language === 'ur' ? 'صرف عوامی چینل کا @username یا t.me لنک بھیجیں۔' : user.language === 'ar' ? 'أرسل اسم المستخدم أو رابط القناة العامة فقط.' : 'یوازې د عام چینل @username یا t.me لینک راولېږه.', channelSettingsKeyboard(user), user); return;
+      await sendPrompt(chatId, tx(user).publicChannelOnly, channelSettingsKeyboard(user), user); return;
     }
     let publicChat = null;
     try { publicChat = await api.getChat({ chat_id: '@' + username }); } catch (e) {}
     if (!publicChat || publicChat.type !== 'channel' || !publicChat.username) {
       user.state = 'settings_channel_menu'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run();
-      await sendPrompt(chatId, user.language === 'en' ? 'That public channel could not be verified. Check the username and try again.' : user.language === 'fa' ? 'کانال عمومی تأیید نشد؛ نام کاربری را بررسی کنید.' : user.language === 'ur' ? 'عوامی چینل کی تصدیق نہیں ہوئی، نام دوبارہ چیک کریں۔' : user.language === 'ar' ? 'تعذر التحقق من القناة العامة؛ تحقق من اسم المستخدم.' : 'دا عام چینل تایید نه شو؛ یوزرنیم سم وګوره.', channelSettingsKeyboard(user), user); return;
+      await sendPrompt(chatId, tx(user).publicChannelVerifyFailed, channelSettingsKeyboard(user), user); return;
     }
     await db.update(users).set({ channel_username: '@' + publicChat.username, state: 'settings_menu' }).where(eq(users.telegram_id, id)).run();
     user.channel_username = '@' + publicChat.username; user.state = 'settings_menu';
@@ -2078,9 +2078,9 @@ async function processMessage(message) {
 
   if (user.state === 'settings_menu') {
     if (action === 'profileSettings') { user.state = 'profile_settings_menu'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, tx(user).profileSettingsTitle, profileSettingsKeyboard(user), user); return; }
-    if (action === 'photoSettings') { user.state = 'settings_photo_menu'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, (user.profile_photo_id ? '✅ ' : '➖ ') + (user.language === 'en' ? 'Profile photo settings:' : user.language === 'fa' ? 'تنظیمات عکس پروفایل:' : user.language === 'ur' ? 'پروفائل تصویر کی ترتیبات:' : user.language === 'ar' ? 'إعدادات صورة الملف الشخصي:' : 'د پروفایل عکس تنظیمات:'), photoSettingsKeyboard(user), user); return; }
-    if (action === 'channelSettings') { user.state = 'settings_channel_menu'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, (user.channel_username ? user.channel_username + '\n' : '➖ ') + (user.language === 'en' ? 'Public channel settings:' : user.language === 'fa' ? 'تنظیمات کانال عمومی:' : user.language === 'ur' ? 'عوامی چینل کی ترتیبات:' : user.language === 'ar' ? 'إعدادات القناة العامة:' : 'د عام چینل تنظیمات:'), channelSettingsKeyboard(user), user); return; }
-    if (action === 'favoriteSettings') { user.state = 'settings_favorites_menu'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, user.language === 'en' ? '❤️ Manage favorite friends:' : user.language === 'fa' ? '❤️ مدیریت دوستان محبوب:' : user.language === 'ur' ? '❤️ پسندیدہ دوستوں کا انتظام:' : user.language === 'ar' ? '❤️ إدارة الأصدقاء المفضلين:' : '❤️ د پالو ملګرو تنظیمات:', favoriteSettingsKeyboard(user), user); return; }
+    if (action === 'photoSettings') { user.state = 'settings_photo_menu'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, (user.profile_photo_id ? '✅ ' : '➖ ') + (tx(user).photoSettingsTitle), photoSettingsKeyboard(user), user); return; }
+    if (action === 'channelSettings') { user.state = 'settings_channel_menu'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, (user.channel_username ? user.channel_username + '\n' : '➖ ') + (tx(user).channelSettingsTitle), channelSettingsKeyboard(user), user); return; }
+    if (action === 'favoriteSettings') { user.state = 'settings_favorites_menu'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, tx(user).favoriteSettingsTitle, favoriteSettingsKeyboard(user), user); return; }
     await showMain(chatId, user); return;
   }
   if (user.state === 'profile_settings_menu') {
@@ -2095,13 +2095,13 @@ async function processMessage(message) {
     if (field === 'country') await showCountry(chatId, user); else if (field === 'gender') await showGender(chatId, user); else if (field === 'age') await showAge(chatId, user); else if (field === 'name') await showName(chatId, user); else await showSurname(chatId, user); return;
   }
   if (user.state === 'settings_photo_menu') {
-    if (action === 'photoSet') { user.state = 'waiting_profile_photo'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, user.language === 'en' ? 'Send the profile photo now.' : user.language === 'fa' ? 'اکنون عکس پروفایل را بفرستید.' : user.language === 'ur' ? 'اب پروفائل تصویر بھیجیں۔' : user.language === 'ar' ? 'أرسل صورة الملف الشخصي الآن.' : 'اوس د پروفایل عکس راولېږه.', { force_reply: true }, user); return; }
+    if (action === 'photoSet') { user.state = 'waiting_profile_photo'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, tx(user).waitingPhotoPrompt, { force_reply: true }, user); return; }
     if (action === 'photoRemove') { await db.update(users).set({ profile_photo_id: null, state: 'settings_menu' }).where(eq(users.telegram_id, id)).run(); user.profile_photo_id = null; user.state = 'settings_menu'; await sendPrompt(chatId, tx(user).saved + '\n' + tx(user).settings, settingsKeyboard(user), user); return; }
     if (action === 'back') { user.state = 'settings_menu'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, tx(user).settings, settingsKeyboard(user), user); return; }
-    await sendPrompt(chatId, user.language === 'en' ? 'Choose an option below.' : tx(user).chooseOption, photoSettingsKeyboard(user), user); return;
+    await sendPrompt(chatId, tx(user).chooseOption, photoSettingsKeyboard(user), user); return;
   }
   if (user.state === 'settings_channel_menu') {
-    if (action === 'channelSet') { user.state = 'waiting_profile_channel'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, user.language === 'en' ? 'Send a public channel @username or https://t.me/username. Private invite links are not accepted.' : user.language === 'fa' ? 'نام کاربری یا لینک عمومی کانال را بفرستید؛ لینک خصوصی پذیرفته نیست.' : user.language === 'ur' ? 'عوامی چینل کا @username یا لنک بھیجیں؛ نجی لنک قبول نہیں۔' : user.language === 'ar' ? 'أرسل اسم المستخدم أو رابط القناة العامة؛ الروابط الخاصة غير مقبولة.' : 'د عام چینل @username یا لینک راولېږه؛ خصوصي لینک نه منل کېږي.', { force_reply: true }, user); return; }
+    if (action === 'channelSet') { user.state = 'waiting_profile_channel'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, tx(user).publicChannelOnly, { force_reply: true }, user); return; }
     if (action === 'channelRemoveProfile') { await db.update(users).set({ channel_username: null, state: 'settings_menu' }).where(eq(users.telegram_id, id)).run(); user.channel_username = null; user.state = 'settings_menu'; await sendPrompt(chatId, tx(user).saved + '\n' + tx(user).settings, settingsKeyboard(user), user); return; }
     if (action === 'back') { user.state = 'settings_menu'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, tx(user).settings, settingsKeyboard(user), user); return; }
     await sendPrompt(chatId, tx(user).chooseOption, channelSettingsKeyboard(user), user); return;
