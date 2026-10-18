@@ -165,7 +165,8 @@ async function sendPrompt(chatId, text, markup, user, parseMode) {
   if (user && Number(user.last_prompt_id) > 0) {
     await safeDelete(chatId, Number(user.last_prompt_id));
   }
-  const sent = await api.sendMessage({ chat_id: chatId, text: text, reply_markup: styleKeyboardMarkup(markup), ...(parseMode ? { parse_mode: parseMode } : {}) });
+  const styledMarkup = styleKeyboardMarkup(markup);
+  const sent = await api.sendMessage({ chat_id: chatId, text: text, ...(styledMarkup ? { reply_markup: styledMarkup } : {}), ...(parseMode ? { parse_mode: parseMode } : {}) });
   if (user) {
     const inlineId = markup && Array.isArray(markup.inline_keyboard) && sent && sent.message_id ? sent.message_id : 0;
     await db.update(users).set({ last_prompt_id: inlineId }).where(eq(users.telegram_id, Number(user.telegram_id))).run();
@@ -291,7 +292,8 @@ async function showProfile(chatId, user) {
   const previousId = Number(latest && latest.last_prompt_id || 0);
   if (previousId > 0) await safeDelete(chatId, previousId);
   try {
-    const sent = await api.sendPhoto({ chat_id: chatId, photo: user.profile_photo_id, caption: text, parse_mode: 'HTML', reply_markup: styleKeyboardMarkup(markup) });
+    const styledMarkup = styleKeyboardMarkup(markup);
+    const sent = await api.sendPhoto({ chat_id: chatId, photo: user.profile_photo_id, caption: text, parse_mode: 'HTML', ...(styledMarkup ? { reply_markup: styledMarkup } : {}) });
     const sentId = Number(sent && sent.message_id || 0);
     await db.update(users).set({ last_prompt_id: sentId }).where(eq(users.telegram_id, Number(user.telegram_id))).run();
     user.last_prompt_id = sentId;
