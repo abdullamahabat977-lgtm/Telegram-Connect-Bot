@@ -1,5 +1,11 @@
 export const TEXT = {
   ps: {
+    requestStatusCancelled: "⌛ دا غوښتنه مخکې لغوه شوې ده؛ نور اقدام ته اړتیا نشته.",
+    requestStatusRejected: "⌛ دا غوښتنه مخکې رد شوې ده.",
+    requestStatusExpired: "⌛ د دې غوښتنې وخت پای ته رسېدلی دی.",
+    requestStatusProcessed: "⌛ دا غوښتنه مخکې پروسس شوې ده.",
+    requestStatusInactive: "⌛ دا غوښتنه نوره فعاله نه ده.",
+    requestStatusOfferExpired: "⌛ د غوښتونکي لټون پای ته رسېدلی؛ دا غوښتنه نوره فعاله نه ده.",
     profileFollowersOnly: "🔒 ستا بشپړ پروفایل به یوازې ستا پالو ملګرو ته ښکاري؛ نورو ته به یوازې نوم او جنسیت ښکاري.",
     profilePublic: "🌐 ستا پروفایل ټولو ته ښکاره دی، خو د ستورو بیلانس هېڅکله نورو ته نه ښکاري.",
     findDeductionPrefix: "⭐ د اړیکې پر منلو به ",
@@ -25,6 +31,12 @@ export const TEXT = {
     ready: '🎉 ستا پروفایل جوړ شو!', main: 'اصلي مېنو:', cancelled: "❌ لغوه شو.", findLanguage: "🌐 د کومې ژبې ملګری غواړې؟", auto: "اتومات", costInsufficient: "⭐ د ملګري لټون لپاره ", costSuffix: " ستوري پکار دي. ستا بیلانس: ", confirmFind: "🔎 د ملګري لټون تایید کړه.", gender: "جنسیت", language: "ژبه", deductOnAccept: "⭐ د اړیکې پر منلو به ", deductSuffix: " ستوری کم شي.", confirmButton: "✅ تایید او لټون پیلول", cancelButton: "❌ لغوه", selfAction: "⚠️ دا عمل پر خپل پروفایل نه شي ترسره کېدای.", followedNotice: "❤️ کارن فالو شو.", connectionRefunded: "⚠️ اړیکه د تخنیکي ستونزې له امله جوړه نه شوه؛ ستوري بېرته ستانه شول. بیا هڅه وکړه.", connectionRefundFailed: "⚠️ اړیکه جوړه نه شوه او د ستورو د بېرته ستنولو حالت تایید نه شو. مهرباني وکړه له اډمین سره اړیکه ونیسه.", requestCancelled: "⌛ دا د اړیکې غوښتنه لغوه شوه، ځکه یو ګډونوال له بل کس سره وصل شو.", saved: '✅ بدلون ثبت شو.'
   },
   fa: {
+    requestStatusCancelled: "⌛ این درخواست قبلاً لغو شده است؛ اقدام دیگری لازم نیست.",
+    requestStatusRejected: "⌛ این درخواست قبلاً رد شده است.",
+    requestStatusExpired: "⌛ مهلت این درخواست به پایان رسیده است.",
+    requestStatusProcessed: "⌛ این درخواست قبلاً پردازش شده است.",
+    requestStatusInactive: "⌛ این درخواست دیگر فعال نیست.",
+    requestStatusOfferExpired: "⌛ جستجوی درخواست‌کننده پایان یافته؛ این درخواست دیگر فعال نیست.",
     profileFollowersOnly: "🔒 پروفایل کامل شما فقط برای دنبال‌کنندگان‌تان نمایش داده می‌شود؛ دیگران فقط نام و جنسیت را می‌بینند.",
     profilePublic: "🌐 پروفایل شما برای همه قابل مشاهده است، اما موجودی ستاره‌ها هرگز به دیگران نشان داده نمی‌شود.",
     findDeductionPrefix: "⭐ با پذیرفتن ارتباط، ",
@@ -50,6 +62,12 @@ export const TEXT = {
     ready: '🎉 پروفایل شما آماده شد!', main: 'منوی اصلی:', cancelled: "❌ لغو شد.", findLanguage: "🌐 دوست را به چه زبانی می‌خواهید؟", auto: "خودکار", costInsufficient: "⭐ برای جستجوی دوست ", costSuffix: " ستاره لازم است. موجودی شما: ", confirmFind: "🔎 جستجوی دوست را تأیید کنید.", gender: "جنسیت", language: "زبان", deductOnAccept: "⭐ با پذیرش ارتباط، ", deductSuffix: " ستاره کسر می‌شود.", confirmButton: "✅ تأیید و شروع جستجو", cancelButton: "❌ لغو", selfAction: "⚠️ این عمل روی پروفایل خودتان امکان‌پذیر نیست.", followedNotice: "❤️ کاربر به دوستان محبوب اضافه شد.", connectionRefunded: "⚠️ به دلیل مشکل فنی ارتباط برقرار نشد؛ ستاره‌ها بازگردانده شدند. دوباره تلاش کنید.", connectionRefundFailed: "⚠️ ارتباط برقرار نشد و بازگشت ستاره‌ها تأیید نشد. لطفاً با مدیر تماس بگیرید.", requestCancelled: "⌛ این درخواست ارتباط لغو شد، زیرا یکی از کاربران به فرد دیگری متصل شد.", saved: '✅ تغییرات ذخیره شد.'
   },
   en: {
+    requestStatusCancelled: "⌛ This request was already cancelled; no further action is needed.",
+    requestStatusRejected: "⌛ This request was already rejected.",
+    requestStatusExpired: "⌛ This request has expired.",
+    requestStatusProcessed: "⌛ This request has already been processed.",
+    requestStatusInactive: "⌛ This request is no longer active.",
+    requestStatusOfferExpired: "⌛ The requester's search has ended; this request is no longer active.",
     profileFollowersOnly: "🔒 Your full profile is visible only to your followers; others can see only your name and gender.",
     profilePublic: "🌐 Your profile is visible to everyone, but your star balance is never shown to others.",
     findDeductionPrefix: "⭐ Accepting the connection will deduct ",
@@ -75,6 +93,12 @@ export const TEXT = {
     ready: '🎉 Your profile is ready!', main: 'Main menu:', cancelled: "❌ Cancelled.", findLanguage: "🌐 Which language should your friend speak?", auto: "Automatic", costInsufficient: "⭐ Friend search costs ", costSuffix: " stars. Your balance: ", confirmFind: "🔎 Confirm friend search.", gender: "Gender", language: "Language", deductOnAccept: "⭐ When the connection is accepted, ", deductSuffix: " stars will be deducted.", confirmButton: "✅ Confirm and start search", cancelButton: "❌ Cancel", selfAction: "⚠️ You cannot perform this action on your own profile.", followedNotice: "❤️ User added to favorites.", connectionRefunded: "⚠️ The connection could not be created due to a technical issue; your stars were refunded. Please try again.", connectionRefundFailed: "⚠️ The connection could not be created and the star refund could not be verified. Please contact an administrator.", requestCancelled: "⌛ This connection request was cancelled because one participant connected with someone else.", saved: '✅ Changes saved.'
   },
   ur: {
+    requestStatusCancelled: "⌛ یہ درخواست پہلے ہی منسوخ ہو چکی ہے؛ مزید کارروائی کی ضرورت نہیں۔",
+    requestStatusRejected: "⌛ یہ درخواست پہلے ہی مسترد ہو چکی ہے۔",
+    requestStatusExpired: "⌛ اس درخواست کی مدت ختم ہو گئی ہے۔",
+    requestStatusProcessed: "⌛ اس درخواست پر پہلے ہی کارروائی ہو چکی ہے۔",
+    requestStatusInactive: "⌛ یہ درخواست اب فعال نہیں ہے۔",
+    requestStatusOfferExpired: "⌛ درخواست دینے والے کی تلاش ختم ہو گئی؛ یہ درخواست اب فعال نہیں ہے۔",
     profileFollowersOnly: "🔒 آپ کا مکمل پروفائل صرف آپ کے فالوورز دیکھ سکتے ہیں؛ دوسرے صرف نام اور جنس دیکھیں گے۔",
     profilePublic: "🌐 آپ کا پروفائل سب کے لیے نظر آتا ہے، لیکن اسٹارز کا بیلنس کسی کو نہیں دکھایا جاتا۔",
     findDeductionPrefix: "⭐ رابطہ قبول کرنے پر ",
@@ -100,6 +124,12 @@ export const TEXT = {
     ready: '🎉 آپ کا پروفائل تیار ہے!', main: 'مرکزی مینو:', cancelled: "❌ منسوخ ہوگیا۔", findLanguage: "🌐 آپ کس زبان بولنے والا دوست چاہتے ہیں؟", auto: "خودکار", costInsufficient: "⭐ دوست تلاش کرنے کے لیے ", costSuffix: " اسٹارز درکار ہیں۔ آپ کا بیلنس: ", confirmFind: "🔎 دوست کی تلاش کی تصدیق کریں۔", gender: "جنس", language: "زبان", deductOnAccept: "⭐ رابطہ قبول ہونے پر ", deductSuffix: " اسٹارز کٹ جائیں گے۔", confirmButton: "✅ تصدیق کریں اور تلاش شروع کریں", cancelButton: "❌ منسوخ", selfAction: "⚠️ یہ عمل اپنے پروفائل پر نہیں کیا جا سکتا۔", followedNotice: "❤️ صارف پسندیدہ دوستوں میں شامل ہوگیا۔", connectionRefunded: "⚠️ تکنیکی مسئلے کی وجہ سے رابطہ قائم نہیں ہو سکا؛ اسٹارز واپس کر دیے گئے ہیں۔ دوبارہ کوشش کریں۔", connectionRefundFailed: "⚠️ رابطہ قائم نہیں ہوا اور اسٹارز کی واپسی کی تصدیق نہیں ہو سکی۔ ایڈمن سے رابطہ کریں۔", requestCancelled: "⌛ رابطے کی درخواست منسوخ ہوگئی کیونکہ ایک صارف کسی اور سے رابطے میں آگیا۔", saved: '✅ تبدیلی محفوظ ہوگئی۔'
   },
   ar: {
+    requestStatusCancelled: "⌛ تم إلغاء هذا الطلب مسبقاً؛ لا يلزم أي إجراء آخر.",
+    requestStatusRejected: "⌛ تم رفض هذا الطلب مسبقاً.",
+    requestStatusExpired: "⌛ انتهت صلاحية هذا الطلب.",
+    requestStatusProcessed: "⌛ تمت معالجة هذا الطلب مسبقاً.",
+    requestStatusInactive: "⌛ لم يعد هذا الطلب نشطاً.",
+    requestStatusOfferExpired: "⌛ انتهى بحث صاحب الطلب؛ لم يعد الطلب نشطاً.",
     profileFollowersOnly: "🔒 يظهر ملفك الكامل لمتابعيك فقط؛ أما الآخرون فيرون الاسم والجنس فقط.",
     profilePublic: "🌐 ملفك الشخصي ظاهر للجميع، لكن رصيد النجوم لا يظهر للآخرين أبداً.",
     findDeductionPrefix: "⭐ عند قبول الاتصال سيتم خصم ",
