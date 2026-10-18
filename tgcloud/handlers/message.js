@@ -430,7 +430,8 @@ function sessionInteractionKeyboard(targetId, sessionId, following, liked, user)
   ]] };
 }
 async function sessionProfileText(target, viewerId) {
-  const p = tx(await getUser(viewerId)).sessionText;
+  const viewer = await getUser(viewerId);
+  const p = tx(viewer).sessionText;
   const name = [target.name || target.first_name || p.fallbackName, target.surname || ''].filter(Boolean).join(' ');
   const gender = target.gender === 'female' ? p.female : target.gender === 'male' ? p.male : p.genderUnset;
   if (target.profile_visibility === 'followers' && !(await isFollowing(viewerId, target.telegram_id))) {
@@ -440,7 +441,7 @@ async function sessionProfileText(target, viewerId) {
   const language = LANGUAGES.find(item => item.code === target.language);
   const favCount = await db.$count(favorites, eq(favorites.favorite_telegram_id, Number(target.telegram_id)));
   return '👤 ' + p.name + ': ' + name + '\n\n⚧ ' + p.gender + ': ' + gender +
-    '\n\n🌍 ' + p.country + ': ' + (country ? (tx(await getUser(viewerId)).countryNames[country.code] || country.label) : '—') +
+    '\n\n🌍 ' + p.country + ': ' + (country ? (tx(viewer).countryNames[country.code] || country.label) : '—') +
     '\n\n🎂 ' + p.age + ': ' + (target.age || '—') + '\n\n🗣️ ' + p.language + ': ' + (language ? language.label : target.language || '—') +
     '\n\n📢 ' + p.channel + ': ' + (target.channel_username || '—') + '\n\n📨 ' + p.referrals + ': ' + Number(target.referral_count || 0) +
     '\n\n👥 ' + p.favorites + ': ' + favCount + '\n\n🏆 ' + p.points + ': ' + Number(target.points || 0) + '\n\n❤️ ' + p.likes + ': ' + Number(target.likes || 0);
