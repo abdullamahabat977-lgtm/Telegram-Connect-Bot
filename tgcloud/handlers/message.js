@@ -281,12 +281,19 @@ async function showProfile(chatId, user) {
   const fullName = [user.name || user.first_name || t.notSet, user.surname || ''].filter(Boolean).join(' ');
   const favCount = await db.$count(favorites, eq(favorites.favorite_telegram_id, Number(user.telegram_id)));
   const idLabel = t.telegramIdLabel || '🆔 Telegram ID number:';
-  const text = t.profile + '\n━━━━━━━━━━━━━━\n\n👤 نوم: ' + escapeHtml(fullName) +
+  const p = t.sessionText;
+  const text = t.profile + '\n━━━━━━━━━━━━━━\n\n👤 ' + p.name + ': ' + escapeHtml(fullName) +
     '\n\n' + idLabel + ' <code>' + Number(user.telegram_id) + '</code>' +
-    '\n\n🌍 هېواد: ' + escapeHtml(c ? c.label : t.notSet) + '\n\n⚧ جنسیت: ' + escapeHtml(genderLabel) + '\n\n🎂 عمر: ' + escapeHtml(user.age || t.notSet) +
-    '\n\n🗣️ ژبه: ' + escapeHtml(l.label) + '\n\n📢 عام چینل: ' + escapeHtml(user.channel_username || t.notSet) +
-    '\n\n📨 ریفرلونه: ' + Number(user.referral_count || 0) + '\n\n👥 پالو ملګري: ' + favCount +
-    '\n\n⭐ ستوري: ' + Number(user.stars || 0) + '\n\n🏆 نمرې: ' + Number(user.points || 0) + '\n\n❤️ لایکونه: ' + Number(user.likes || 0);
+    '\n\n🌍 ' + p.country + ': ' + escapeHtml(c ? c.label : t.notSet) +
+    '\n\n⚧ ' + p.gender + ': ' + escapeHtml(genderLabel) +
+    '\n\n🎂 ' + p.age + ': ' + escapeHtml(user.age || t.notSet) +
+    '\n\n🗣️ ' + p.language + ': ' + escapeHtml(l.label) +
+    '\n\n📢 ' + p.channel + ': ' + escapeHtml(user.channel_username || t.notSet) +
+    '\n\n📨 ' + p.referrals + ': ' + Number(user.referral_count || 0) +
+    '\n\n👥 ' + p.favorites + ': ' + favCount +
+    '\n\n⭐ ' + p.gameText.balanceNow.replace('⭐ ', '') + Number(user.stars || 0) +
+    '\n\n🏆 ' + p.points + ': ' + Number(user.points || 0) +
+    '\n\n❤️ ' + p.likes + ': ' + Number(user.likes || 0);
   const markup = null;
   if (!user.profile_photo_id) {
     await sendPrompt(chatId, text, markup, user, 'HTML');
