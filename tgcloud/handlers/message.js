@@ -1718,7 +1718,7 @@ async function processMessage(message) {
   const balanceMatch = String(user.state || '').match(/^admin_adjust_balance:(stars|points|likes):(add|sub):(\d+)$/);
   if (balanceMatch) {
     const field = balanceMatch[1], operation = balanceMatch[2], targetId = Number(balanceMatch[3]), amount = Number(input);
-    if (!Number.isSafeInteger(amount) || amount <= 0 || amount > 1000000000) { await sendPrompt(chatId, user.language === 'en' ? 'Send a positive whole number.' : 'مثبت صحیح عدد راولېږه.', { force_reply: true }, user); return; }
+    if (!Number.isSafeInteger(amount) || amount <= 0 || amount > 1000000000) { await sendPrompt(chatId, tx(user).adminText.invalidInteger, { force_reply: true }, user); return; }
     const target = await getUser(targetId); if (!target) { user.state = 'admin_menu'; await db.update(users).set({ state: 'admin_menu' }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, tx(user).userNotFound, adminKeyboard(user), user); return; }
     const oldValue = Number(target[field] || 0), nextValue = operation === 'add' ? oldValue + amount : Math.max(0, oldValue - amount);
     if (field === 'stars') await db.update(users).set({ stars: nextValue }).where(eq(users.telegram_id, targetId)).run();
@@ -1731,7 +1731,7 @@ async function processMessage(message) {
   if (sendToUserMatch) {
     const targetId = Number(sendToUserMatch[1]);
     try { await api.copyMessage({ chat_id: targetId, from_chat_id: chatId, message_id: message.message_id }); }
-    catch (e) { await sendPrompt(chatId, user.language === 'en' ? 'Could not send this message to the user.' : tx(user).adminText.adminMessageFailed, { force_reply: true }, user); return; }
+    catch (e) { await sendPrompt(chatId, tx(user).adminText.adminMessageFailed, { force_reply: true }, user); return; }
     const target = await getUser(targetId); user.state = 'admin_menu'; await db.update(users).set({ state: 'admin_menu' }).where(eq(users.telegram_id, id)).run();
     if (target) await showAdminUserSettings(chatId, user, target); return;
   }
@@ -2095,12 +2095,12 @@ async function processMessage(message) {
     if (action === 'channelSet') { user.state = 'waiting_profile_channel'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, user.language === 'en' ? 'Send a public channel @username or https://t.me/username. Private invite links are not accepted.' : user.language === 'fa' ? 'نام کاربری یا لینک عمومی کانال را بفرستید؛ لینک خصوصی پذیرفته نیست.' : user.language === 'ur' ? 'عوامی چینل کا @username یا لنک بھیجیں؛ نجی لنک قبول نہیں۔' : user.language === 'ar' ? 'أرسل اسم المستخدم أو رابط القناة العامة؛ الروابط الخاصة غير مقبولة.' : 'د عام چینل @username یا لینک راولېږه؛ خصوصي لینک نه منل کېږي.', { force_reply: true }, user); return; }
     if (action === 'channelRemoveProfile') { await db.update(users).set({ channel_username: null, state: 'settings_menu' }).where(eq(users.telegram_id, id)).run(); user.channel_username = null; user.state = 'settings_menu'; await sendPrompt(chatId, tx(user).saved + '\n' + tx(user).settings, settingsKeyboard(user), user); return; }
     if (action === 'back') { user.state = 'settings_menu'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, tx(user).settings, settingsKeyboard(user), user); return; }
-    await sendPrompt(chatId, user.language === 'en' ? 'Choose an option below.' : 'لاندې یو انتخاب وټاکه.', channelSettingsKeyboard(user), user); return;
+    await sendPrompt(chatId, tx(user).chooseOption, channelSettingsKeyboard(user), user); return;
   }
   if (user.state === 'settings_favorites_menu') {
     if (action === 'favoritesList') { await showFavoriteSettings(chatId, user, 0); return; }
     if (action === 'back') { user.state = 'settings_menu'; await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, tx(user).settings, settingsKeyboard(user), user); return; }
-    await sendPrompt(chatId, user.language === 'en' ? 'Choose an option below.' : 'لاندې یو انتخاب وټاکه.', favoriteSettingsKeyboard(user), user); return;
+    await sendPrompt(chatId, tx(user).chooseOption, favoriteSettingsKeyboard(user), user); return;
   }
 
   if (user.state === 'admin_menu') {
