@@ -1878,6 +1878,62 @@ async function processMessage(message) {
     await showAdminUserSettings(chatId, user, updatedTarget);
     return;
   }
+  if (/^waiting_channel_invite_link:-?\d+:(?:new|-?\d+)$/.test(String(user.state || ''))) {
+    const match = String(user.state).match(/^waiting_channel_invite_link:(-?\d+):(new|-?\d+)$/);
+    const requestedId = match[1];
+    const originalId = match[2] === 'new' ? '' : match[2];
+    const inviteLink = input.trim();
+    const backToChannels = async (message) => {
+      user.state = 'admin_channels_menu';
+      await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run();
+      await sendPrompt(chatId, message, channelKeyboard(user), user);
+    };
+    if (action === 'cancel' || input === '/cancel') {
+      await backToChannels(tx(user).cancel);
+      return;
+    }
+    if (!/^https?:\/\/t\.me\//i.test(inviteLink)) {
+      await sendPrompt(chatId, tx(user).badChannelInviteLink, { force_reply: true }, user);
+      return;
+    }
+    let chat;
+    try {
+      chat = await api.getChat({ chat_id: requestedId });
+    } catch (e) {
+      await backToChannels(channelError(user, 'invalid'));
+      return;
+    }
+    if (!chat || !['group', 'supergroup', 'channel'].includes(chat.type)) {
+      await backToChannels(channelError(user, 'invalid'));
+      return;
+    }
+    const existing = await db.select().from(required_chats).where(eq(required_chats.chat_id, requestedId)).get();
+    if (existing && (!originalId || String(existing.chat_id) !== originalId)) {
+      await backToChannels(tx(user).channelExists);
+      return;
+    }
+    const chatType = chat.type === 'channel' ? 'channel' : 'group';
+    const title = String(chat.title || chat.first_name || chat.username || requestedId).replace(/^(channel|group)::/, '');
+    if (originalId) {
+      await db.update(required_chats).set({
+        chat_id: requestedId, invite_link: inviteLink,
+        title: chatType + '::' + title, is_active: 1
+      }).where(eq(required_chats.chat_id, originalId)).run();
+    } else {
+      await db.insert(required_chats).values({
+        chat_id: requestedId, invite_link: inviteLink,
+        title: chatType + '::' + title, is_active: 1,
+        created_at: new Date().toISOString()
+      }).run();
+    }
+    const verified = await db.select().from(required_chats).where(eq(required_chats.chat_id, requestedId)).get();
+    if (!verified || String(verified.invite_link || '') !== inviteLink) {
+      await backToChannels('⚠️ ' + tx(user).saved);
+      return;
+    }
+    await backToChannels(tx(user).channelAdded);
+    return;
+  }
   if (user.state === 'waiting_channel_details' || /^waiting_edit_channel_id:-?\d+$/.test(String(user.state || ''))) {
     const editing = /^waiting_edit_channel_id:-?\d+$/.test(String(user.state || ''));
     const originalId = editing ? String(user.state).slice('waiting_edit_channel_id:'.length) : '';
@@ -1915,7 +1971,12 @@ async function processMessage(message) {
       }
     }
     if (!(String(inviteLink || '').startsWith('https://t.me/') || String(inviteLink || '').startsWith('http://t.me/'))) {
-      await backToChannels(channelError(user, 'link')); return;
+      // Bot is an admin but Telegram may deny it permission to manage invite links.
+      // Let the admin supply an existing invite link manually instead of failing.
+      user.state = 'waiting_channel_invite_link:' + requestedId + ':' + (editing ? originalId : 'new');
+      await db.update(users).set({ state: user.state }).where(eq(users.telegram_id, id)).run();
+      await sendPrompt(chatId, tx(user).askChannelInviteLink, { force_reply: true }, user);
+      return;
     }
     const chatType = chat.type === 'channel' ? 'channel' : 'group';
     const title = String(chat.title || chat.first_name || chat.username || requestedId).replace(/^(channel|group)::/, '');
