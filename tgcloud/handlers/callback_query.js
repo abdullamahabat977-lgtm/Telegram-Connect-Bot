@@ -2106,7 +2106,7 @@ async function handleGameCallback(query, actor, data, actorId, chatId) {
       try {
         await api.sendMessage({
           chat_id: opponentId,
-          text: '⌛ د ګېم غوښتونکی خپله غوښتنه لغوه کړه. دا ګېم نور فعال نه دی.'
+          text: sessionTx(await getUser(opponentId)).sessionText.gameText.cancelByRequester
         });
       } catch (error) {
         reportDiagnostic('callback-handler', 'Could not notify opponent about cancelled game', { actorId, opponentId, error });
@@ -2120,17 +2120,17 @@ async function handleGameCallback(query, actor, data, actorId, chatId) {
       Number(row.player_id) === actorId && ['waiting', 'pending'].includes(row.status)
     );
     if (stillPlaying) {
-      await showMain(chatId, actor, '⚠️ ګېم لا پیل شوی دی؛ د خوندیتوب لپاره یې له دې تڼۍ لغوه کول نه شو کولای.');
+      await showMain(chatId, actor, sessionTx(actor).sessionText.gameText.gameStatusChanged);
     } else if (stillPending) {
-      await showMain(chatId, actor, '⚠️ د ګېم غوښتنه لا فعاله ده. لږ شېبه وروسته بیا د لغوه کولو هڅه وکړه.');
+      await showMain(chatId, actor, sessionTx(actor).sessionText.gameStatusChanged);
     } else if (cancelledCount > 0) {
       await showMain(chatId, actor, sessionTx(actor).sessionText.gameCancelled);
     } else {
-      await showMain(chatId, actor, '⌛ ستا لپاره فعاله ګېم غوښتنه ونه موندل شوه. اوس نوی ګېم پیل کولای شې.');
+      await showMain(chatId, actor, sessionTx(actor).sessionText.gameInactive);
     }
     return;
   }
-  if (!game || !['waiting','pending'].includes(game.status)) { await sendPrompt(chatId, '⌛ دا ګېم نور فعال نه دی.', mainKeyboard(actor, await isAdmin(actorId)), actor); return; }
+  if (!game || !['waiting','pending'].includes(game.status)) { await sendPrompt(chatId, sessionTx(actor).sessionText.gameInactive, mainKeyboard(actor, await isAdmin(actorId)), actor); return; }
   // An old pending offer must not be accepted after its matchmaking window expires.
   if (game.status === 'pending') {
     const waitSeconds = Math.max(1, Number(await getSetting('game_wait_seconds', 120)) || 120);
@@ -2143,10 +2143,11 @@ async function handleGameCallback(query, actor, data, actorId, chatId) {
       if (expired && Array.isArray(expired.rows) && expired.rows.length > 0) {
         for (const targetId of [Number(game.player_id), Number(game.opponent_id)]) {
           if (!targetId) continue;
-          try { await api.sendMessage({ chat_id: targetId, text: '⌛ د ګېم غوښتنې وخت پای ته رسېدلی؛ دا ګېم نور فعال نه دی. نوې غوښتنه پیلولای شې.' }); } catch (e) {}
+          try { const targetUser = await getUser(targetId);
+          await api.sendMessage({ chat_id: targetId, text: targetUser ? sessionTx(targetUser).sessionText.gameText.requestExpired : '⌛ Game request expired.' }); } catch (e) {}
         }
       }
-      await sendPrompt(chatId, '⌛ د دې ګېم وخت پای ته رسېدلی یا ګېم نور فعال نه دی.', mainKeyboard(actor, await isAdmin(actorId)), actor);
+      await sendPrompt(chatId, sessionTx(actor).sessionText.gameText.gameExpiredPrompt, mainKeyboard(actor, await isAdmin(actorId)), actor);
       return;
     }
   }
@@ -2188,11 +2189,11 @@ async function handleGameCallback(query, actor, data, actorId, chatId) {
          win_stars: Number(game.win_stars ?? await getSetting('game_min_stars', 3.5)),
          points_award: Number(game.points_award ?? await getSetting('game_win_points', 1))
        }).run();
-       if (player) await sendPrompt(Number(player.telegram_id), '❌ سیال غوښتنه رد کړه؛ د بل سیال لټون روان دی.\\n\\nکه غواړې، لټون لغوه کولای شې.', { inline_keyboard: [[{ text: '❌ ګېم لغوه کول', callback_data: 'game:cancel' }]] }, player);
+       if (player) await sendPrompt(Number(player.telegram_id), sessionTx(player).sessionText.gameText.gameRejectedContinue, { inline_keyboard: [[{ text: sessionTx(player).sessionText.gameText.cancelButton, callback_data: 'game:cancel' }]] }, player);
      } else if (player) {
-       await sendPrompt(Number(player.telegram_id), '❌ سیال غوښتنه رد کړه؛ خو ستا بله اړیکه یا ګېم لا فعال دی، نو نوی ګېم ونه جوړ شو.', mainKeyboard(player, await isAdmin(playerId)), player);
+       await sendPrompt(Number(player.telegram_id), sessionTx(player).sessionText.gameText.gameRejectedBlocked, mainKeyboard(player, await isAdmin(playerId)), player);
      }
-     await sendPrompt(chatId, '❌ د ګېم غوښتنه رد شوه.', mainKeyboard(actor, await isAdmin(actorId)), actor);
+     await sendPrompt(chatId, sessionTx(actor).sessionText.gameText.gameRejected, mainKeyboard(actor, await isAdmin(actorId)), actor);
     try { await tryMatchGames(); } catch (error) { reportDiagnostic('callback-handler', 'Game rematch after rejection failed', { gameId: gameId, actorId: actorId, error: error }); }
     return;
   }
@@ -2215,7 +2216,7 @@ async function handleGameCallback(query, actor, data, actorId, chatId) {
           .where(and(eq(game_sessions.id, gameId), eq(game_sessions.status, 'pending'), eq(game_sessions.opponent_id, actorId)))
           .returning({ id: game_sessions.id }).run();
         if (!cancelled || !Array.isArray(cancelled.rows) || cancelled.rows.length === 0) {
-          await sendPrompt(chatId, '⌛ د ګېم حالت د کتنې پر مهال بدل شو؛ غوښتنه په خپله لغوه نه شوه. مهرباني وکړه حالت تازه وګوره.', mainKeyboard(actor, await isAdmin(actorId)), actor);
+          await sendPrompt(chatId, sessionTx(actor).sessionText.gameText.gameStatusChanged, mainKeyboard(actor, await isAdmin(actorId)), actor);
           return;
         }
         const notice = pairBlocked
