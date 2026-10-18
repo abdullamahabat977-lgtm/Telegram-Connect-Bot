@@ -285,8 +285,7 @@ async function showProfile(chatId, user) {
     '\n\n🗣️ ژبه: ' + l.label + '\n\n📢 عام چینل: ' + (user.channel_username || t.notSet) +
     '\n\n📨 ریفرلونه: ' + Number(user.referral_count || 0) + '\n\n👥 پالو ملګري: ' + favCount +
     '\n\n⭐ ستوري: ' + Number(user.stars || 0) + '\n\n🏆 نمرې: ' + Number(user.points || 0) + '\n\n❤️ لایکونه: ' + Number(user.likes || 0);
-  const copyLabel = user.language === 'en' ? '📋 Copy Telegram ID' : user.language === 'fa' ? '📋 کپی شناسه' : user.language === 'ur' ? '📋 ID کاپی کریں' : user.language === 'ar' ? '📋 نسخ المعرّف' : '📋 ID کاپي';
-  const markup = { inline_keyboard: [[{ text: copyLabel, copy_text: { text: String(user.telegram_id) } }]] };
+  const markup = { inline_keyboard: [[{ text: String(Number(user.telegram_id)), copy_text: { text: String(Number(user.telegram_id)) } }]] };
   if (!user.profile_photo_id) {
     await sendPrompt(chatId, text, markup, user);
     return;
@@ -738,7 +737,7 @@ async function tryOfferSearches() {
           (Number(row.player_id) === candidateId || Number(row.opponent_id) === candidateId))) return false;
       if (!candidate.country || !candidate.gender || !candidate.age) return false;
       const active = Date.parse(candidate.last_active_at || '');
-      if (!Number.isFinite(active) || now - active > 120000) return false;
+      if (!Number.isFinite(active) || now - active > waitSeconds * 1000) return false;
       if (alreadyTried.has(candidateId)) return false;
       if (allBlocks.some(row => (Number(row.blocker_telegram_id) === candidateId && Number(row.blocked_telegram_id) === Number(search.requester_id)) ||
         (Number(row.blocker_telegram_id) === Number(search.requester_id) && Number(row.blocked_telegram_id) === candidateId))) return false;
@@ -1135,7 +1134,7 @@ export async function tryMatchGames() {
       const id = Number(candidate.telegram_id);
       if (id === Number(game.player_id) || id === Number(game.opponent_id || 0) || Number(candidate.is_blocked) === 1 || Number(candidate.stars || 0) < requiredBalance) return false;
       const last = Date.parse(candidate.last_active_at || '');
-      if (!Number.isFinite(last) || now - last > 2 * 60 * 1000) return false;
+      if (!Number.isFinite(last) || now - last > waitSeconds * 1000) return false;
       if (busyGameIds.has(id)) return false;
       if (allConnectionRequests.some(row => ['searching', 'pending', 'matching'].includes(row.status) &&
           (Number(row.requester_id) === id || Number(row.recipient_id) === id))) return false;
@@ -2022,6 +2021,11 @@ async function processMessage(message) {
     if (!['settings','profile','stats','invite','language','admin','game','leaderboards','find','random'].includes(quickAction)) return;
   }
   const field = action;
+  const mainMenuActions = ['find','random','invite','profile','language','settings','stats','admin','game','leaderboards'];
+  if (mainMenuActions.includes(field) && !(await checkMembership(id))) {
+    await showMembership(chatId, user);
+    return;
+  }
   if (field === 'find') await sendPrompt(chatId, '🔎 کوم ډول ملګری غواړې؟', { inline_keyboard: [[{ text: '👨 نارینه', callback_data: 'find:gender:male' }, { text: '👩 ښځینه', callback_data: 'find:gender:female' }], [{ text: '🌐 اتومات', callback_data: 'find:gender:auto' }], [{ text: '❌ لغوه', callback_data: 'find:cancel' }]] }, user);
   else if (field === 'random') {
     const cost = Number(await getSetting('connection_cost_stars', 1));
