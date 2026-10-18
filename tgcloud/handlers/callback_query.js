@@ -380,24 +380,26 @@ async function handleAdminCallback(query, actor, data, actorId, chatId) {
     const followRows = kind === 'follows' ? await db.select().from(favorites).all() : [];
     const counts = new Map();
     for (const row of followRows) counts.set(Number(row.favorite_telegram_id), (counts.get(Number(row.favorite_telegram_id)) || 0) + 1);
+    const rt = sessionTx(actor).sessionText.adminText;
     const config = {
-      points: { title: '🏆 تر ټولو ډېرې نمرې', value: row => Number(row.points || 0), label: 'نمرې' },
-      referrals: { title: '📨 تر ټولو ډېر ریفرلونه', value: row => Number(row.referral_count || 0), label: 'ریفرلونه' },
-      follows: { title: '👥 تر ټولو ډېر فالو شوي کسان', value: row => Number(counts.get(Number(row.telegram_id)) || 0), label: 'فالو' },
-      likes: { title: '❤️ تر ټولو ډېر لایکونه', value: row => Number(row.likes || 0), label: 'لایکونه' }
+      points: { title: rt.rankPoints, value: row => Number(row.points || 0), label: rt.rankLabelPoints },
+      referrals: { title: rt.rankReferrals, value: row => Number(row.referral_count || 0), label: rt.rankLabelReferrals },
+      follows: { title: rt.rankFollows, value: row => Number(counts.get(Number(row.telegram_id)) || 0), label: rt.rankLabelFollows },
+      likes: { title: rt.rankLikes, value: row => Number(row.likes || 0), label: rt.rankLabelLikes }
     }[kind];
     const ranked = allUsers.map(row => ({ row, score: config.value(row) })).filter(item => item.score > 0)
       .sort((a, b) => b.score - a.score || Number(a.row.telegram_id) - Number(b.row.telegram_id)).slice(0, 5);
     const escapeHtml = value => String(value == null ? '' : value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     const text = config.title + '\n━━━━━━━━━━━━━━\n\n' + (ranked.length
-      ? ranked.map((item, i) => (i + 1) + '. ' + escapeHtml([item.row.name || item.row.first_name || item.row.username || 'کارن', item.row.surname || ''].filter(Boolean).join(' ')) +
+      ? ranked.map((item, i) => (i + 1) + '. ' + escapeHtml([item.row.name || item.row.first_name || item.row.username || rt.fallbackName, item.row.surname || ''].filter(Boolean).join(' ')) +
         '\n   ' + config.label + ': ' + item.score + '\n   ID: <code>' + Number(item.row.telegram_id) + '</code>').join('\n\n')
-      : 'تر اوسه په دې درجه‌بندۍ کې نمره نه شته.');
-    await sendPrompt(chatId, text, { inline_keyboard: [[{ text: '🔙 لوړ رتبه کسان', callback_data: 'admin:rank_menu' }], [{ text: '🔙 اصلي مېنو', callback_data: 'admin:main' }]] }, actor, 'HTML');
+      : rt.rankNoData);
+    await sendPrompt(chatId, text, { inline_keyboard: [[{ text: rt.rankBack, callback_data: 'admin:rank_menu' }], [{ text: rt.mainMenuButton, callback_data: 'admin:main' }]] }, actor, 'HTML');
     return;
   }
   if (p[1] === 'rank_menu') {
-    await sendPrompt(chatId, '🏆 لوړ رتبه کسان\n\nلاندې درجه‌بندي وټاکه:', { inline_keyboard: [[{ text: '🏆 تر ټولو ډېرې نمرې', callback_data: 'admin:rank:points' }], [{ text: '📨 تر ټولو ډېر ریفرلونه', callback_data: 'admin:rank:referrals' }], [{ text: '👥 تر ټولو ډېر فالو', callback_data: 'admin:rank:follows' }], [{ text: '❤️ تر ټولو ډېر لایکونه', callback_data: 'admin:rank:likes' }], [{ text: '🔙 اصلي مېنو', callback_data: 'admin:main' }]] }, actor);
+    const rt = sessionTx(actor).sessionText.adminText;
+    await sendPrompt(chatId, rt.rankMenuTitle + '\n\n' + rt.rankMenuPrompt, { inline_keyboard: [[{ text: rt.rankPoints, callback_data: 'admin:rank:points' }], [{ text: rt.rankReferrals, callback_data: 'admin:rank:referrals' }], [{ text: rt.rankFollows, callback_data: 'admin:rank:follows' }], [{ text: rt.rankLikes, callback_data: 'admin:rank:likes' }], [{ text: rt.mainMenuButton, callback_data: 'admin:main' }]] }, actor);
     return;
   }
   if (p[1] === 'users' && p[2] === 'page') { await showUserListPage(chatId, actor, Number(p[3])); return; }
