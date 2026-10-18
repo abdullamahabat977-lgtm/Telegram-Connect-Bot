@@ -269,14 +269,10 @@ async function showRequiredChannelList(chatId, actor, notice) {
     return [{ text: (info.type === 'channel' ? '📢 ' : '👥 ') + String(info.title || row.chat_id).slice(0, 48),
       callback_data: 'admin:channels:item:' + encodeURIComponent(String(row.chat_id)) }];
   });
-  rows.push([{ text: '🔙 بېرته', callback_data: 'admin:channels:back' }]);
-  const title = actor.language === 'en' ? '📢 Required groups and channels' :
-    actor.language === 'fa' ? '📢 گروه‌ها و کانال‌های عضویت اجباری' :
-    actor.language === 'ur' ? '📢 لازمی گروپس اور چینلز' :
-    actor.language === 'ar' ? '📢 مجموعات وقنوات العضوية الإلزامية' : '📢 د غړیتوب ګروپونه او چینلونه';
-  const hint = chats.length
-    ? (actor.language === 'en' ? 'Choose a group/channel to edit or delete it.' : 'د بدلولو یا حذفولو لپاره د ګروپ یا چینل نوم وټاکه.')
-    : (actor.language === 'en' ? 'No groups/channels are configured.' : 'تر اوسه هېڅ ګروپ یا چینل نشته.');
+  rows.push([{ text: sessionTx(actor).channelBack, callback_data: 'admin:channels:back' }]);
+  const adminText = sessionTx(actor).sessionText.adminText;
+  const title = sessionTx(actor).channelIntro;
+  const hint = chats.length ? adminText.channelListHint : adminText.channelListEmpty;
   await sendPrompt(chatId, (notice ? notice + '\n\n' : '') + title + '\n\n' + hint, { inline_keyboard: rows }, actor);
 }
 async function showRequiredChannelDetail(chatId, actor, chatIdValue, notice) {
