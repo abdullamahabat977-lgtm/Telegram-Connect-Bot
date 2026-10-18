@@ -1498,8 +1498,23 @@ async function resolveUserGame(game) {
       return;
     }
   }
-  for (const pair of [{ id: Number(player.telegram_id), mine: pRoll, other: oRoll, balance: pFinal }, { id: Number(opponent.telegram_id), mine: oRoll, other: pRoll, balance: oFinal }]) {
-    try { await api.sendMessage({ chat_id: pair.id, text: tx(user).gameResultTitle + '\n\n' + tx(user).yourDice + ': ' + pair.mine + '\n\n' + tx(user).opponentDice + ': ' + pair.other + '\n\n' + result + '\n\n' + tx(user).currentBalance + ': ' + pair.balance }); } catch (e) {}
+  for (const pair of [
+    { user: player, id: Number(player.telegram_id), mine: pRoll, other: oRoll, balance: pFinal },
+    { user: opponent, id: Number(opponent.telegram_id), mine: oRoll, other: pRoll, balance: oFinal }
+  ]) {
+    const g = sessionTx(pair.user).sessionText.gameText;
+    const outcome = pair.mine === pair.other
+      ? g.draw + fee + g.drawEnd
+      : pair.mine > pair.other
+        ? g.userWon + (winStars - fee) + g.userWonMid + points + g.userWonEnd
+        : g.opponentWon + winStars + g.opponentWonEnd;
+    try {
+      await api.sendMessage({
+        chat_id: pair.id,
+        text: g.resultTitle + '\n\n' + g.yourDice + pair.mine + '\n\n' + g.opponentDice + pair.other +
+          '\n\n' + outcome + '\n\n' + g.balanceNow + pair.balance
+      });
+    } catch (e) {}
   }
 }
 async function handleConnectionCallback(query, actor, data, actorId, chatId) {
