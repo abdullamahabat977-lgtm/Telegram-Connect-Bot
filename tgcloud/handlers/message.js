@@ -841,7 +841,7 @@ async function tryOfferSearches() {
     }
     try {
       await api.sendMessage({ chat_id: Number(candidate.telegram_id),
-        text: '🎲 یو ناڅاپي کس غواړي له تا سره اړیکه پیل کړي.\n\nته د غوښتونکي نوم، عکس، جنسیت او نور معلومات نه وینې. که غوښتنه ومنې، اړیکه به وصل شي؛ که رد یې کړې، بل کس ته به غوښتنه واستول شي.',
+        text: tx(candidate).sessionText.offer,
         reply_markup: styleKeyboardMarkup({ inline_keyboard: [[{ text: tx(candidate).sessionText.accept, callback_data: 'conn:accept:' + offer.id }, { text: tx(candidate).sessionText.reject, callback_data: 'conn:reject:' + offer.id }]] })
       });
     } catch (error) {
