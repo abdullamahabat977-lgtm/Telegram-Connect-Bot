@@ -1725,7 +1725,7 @@ async function processMessage(message) {
   const balanceMatch = String(user.state || '').match(/^admin_adjust_balance:(stars|points|likes):(add|sub):(\d+)$/);
   if (balanceMatch) {
     const field = balanceMatch[1], operation = balanceMatch[2], targetId = Number(balanceMatch[3]), amount = Number(input);
-    if (!Number.isSafeInteger(amount) || amount <= 0 || amount > 1000000000) { await sendPrompt(chatId, tx(user).sessionText.adminText.invalidInteger, { force_reply: true }, user); return; }
+    if (!Number.isSafeInteger(amount) || amount <= 0 || amount > 1000000000) { await sendPrompt(chatId, tx(user).sessionText.adminText.adminAmountInvalid, { force_reply: true }, user); return; }
     const target = await getUser(targetId); if (!target) { user.state = 'admin_menu'; await db.update(users).set({ state: 'admin_menu' }).where(eq(users.telegram_id, id)).run(); await sendPrompt(chatId, tx(user).userNotFound, adminKeyboard(user), user); return; }
     const oldValue = Number(target[field] || 0), nextValue = operation === 'add' ? oldValue + amount : Math.max(0, oldValue - amount);
     if (field === 'stars') await db.update(users).set({ stars: nextValue }).where(eq(users.telegram_id, targetId)).run();
@@ -2243,7 +2243,7 @@ export default async function (message) {
       try {
         await api.sendMessage({
           chat_id: message.chat.id,
-          text: '⚠️ یوه تخنیکي ستونزه رامنځته شوه. مهرباني وکړه /start ولیکه او بیا هڅه وکړه.'
+          text: tx(user).technicalError
         });
       } catch (sendError) {}
     }
