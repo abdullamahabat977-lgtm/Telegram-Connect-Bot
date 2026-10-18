@@ -892,8 +892,8 @@ async function tryOfferSearches() {
       continue;
     }
     try { await api.sendMessage({ chat_id: Number(candidate.telegram_id),
-      text: '🎲 یو ناڅاپي کس د اړیکې غوښتنه کړې ده.\n\nد غوښتونکي هېڅ معلومات نه ښکاري. که ومنې، اړیکه به وصل شي؛ که رد یې کړې، بل کس ته به غوښتنه ولاړه شي.',
-      reply_markup: styleKeyboardMarkup({ inline_keyboard: [[{ text: '✅ غوښتنه منل', callback_data: 'conn:accept:' + offer.id }, { text: '❌ ردول', callback_data: 'conn:reject:' + offer.id }]] }) }); }
+      text: sessionTx(user).sessionText.offer,
+        reply_markup: styleKeyboardMarkup({ inline_keyboard: [[{ text: sessionTx(user).sessionText.accept, callback_data: 'conn:accept:' + offer.id }, { text: sessionTx(user).sessionText.reject, callback_data: 'conn:reject:' + offer.id }]] }) });
     catch (error) {
       reportDiagnostic('callback-handler', 'Failed to send connection offer to candidate', { searchId: search.id, offerId: offer.id, candidateId: candidate.telegram_id, error });
       await db.update(connection_requests).set({ status: 'rejected', updated_at: new Date().toISOString() }).where(and(eq(connection_requests.id, Number(offer.id)), eq(connection_requests.status, 'pending'))).run();
