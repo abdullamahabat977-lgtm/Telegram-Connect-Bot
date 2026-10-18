@@ -277,7 +277,7 @@ async function showRequiredChannelList(chatId, actor, notice) {
 }
 async function showRequiredChannelDetail(chatId, actor, chatIdValue, notice) {
   const row = await db.select().from(required_chats).where(eq(required_chats.chat_id, String(chatIdValue))).get();
-  if (!row) { await showRequiredChannelList(chatId, actor, actor.language === 'en' ? 'This group/channel no longer exists.' : 'دا ګروپ یا چینل نور شتون نه لري.'); return; }
+  if (!row) { await showRequiredChannelList(chatId, actor, sessionTx(actor).sessionText.adminText.channelGone); return; }
   const info = requiredChatInfo(row);
   const labels = {
     ps: ['✏️ بدلول', '🗑 حذفول', '🔙 لېست ته بېرته', '📢 ګروپ/چینل', '🔗 لینک'],
