@@ -354,15 +354,10 @@ async function showReferral(chatId, user) {
   const me = await api.getMe();
   const link = 'https://t.me/' + me.username + '?start=' + String(user.telegram_id);
   const rewardStars = await getSetting('referral_reward_stars', 15), rewardPoints = await getSetting('referral_reward_points', 5), rewardLikes = await getSetting('referral_reward_likes', 2);
-  const rewardLine = user.language === 'en'
-    ? '\n\n🎁 Reward for each successful invite:\n⭐ Stars: ' + rewardStars + '\n🏆 Points: ' + rewardPoints + '\n❤️ Likes: ' + rewardLikes
-    : user.language === 'fa'
-      ? '\n\n🎁 پاداش هر دعوت موفق:\n⭐ ستاره: ' + rewardStars + '\n🏆 امتیاز: ' + rewardPoints + '\n❤️ لایک: ' + rewardLikes
-      : user.language === 'ur'
-        ? '\n\n🎁 ہر کامیاب دعوت کا انعام:\n⭐ ستارے: ' + rewardStars + '\n🏆 پوائنٹس: ' + rewardPoints + '\n❤️ لائکس: ' + rewardLikes
-        : user.language === 'ar'
-          ? '\n\n🎁 مكافأة كل دعوة ناجحة:\n⭐ النجوم: ' + rewardStars + '\n🏆 النقاط: ' + rewardPoints + '\n❤️ الإعجابات: ' + rewardLikes
-          : '\n\n🎁 د هر بریالي دعوت جایزه:\n⭐ ستوري: ' + rewardStars + '\n🏆 نمرې: ' + rewardPoints + '\n❤️ لایکونه: ' + rewardLikes;
+  const rewardLine = t.referralRewardLine
+    .replace('{stars}', String(rewardStars))
+    .replace('{points}', String(rewardPoints))
+    .replace('{likes}', String(rewardLikes));
   const shareText = t.referralText + rewardLine + '\n\n🔗 ' + link;
   const share = 'https://t.me/share/url?text=' + encodeURIComponent(shareText);
   await sendPrompt(chatId, t.referralTitle + '\n\n' + t.referralText + rewardLine + '\n\n🔗 ' + link,
