@@ -1460,8 +1460,8 @@ async function resolveUserGame(game) {
     try {
       await api.sendMessage({
         chat_id: pair.id,
-        text: g.resultTitle + '\n\n' + g.yourDice + pair.mine + '\n\n' + g.opponentDice + pair.other +
-          '\n\n' + outcome + '\n\n' + g.balanceNow + pair.balance
+        text: g.resultTitle + '\\n\\n' + g.playerName + ': ' + (player.name || player.first_name || player.username || player.telegram_id) + '\\n' + g.opponentName + ': ' + (opponent.name || opponent.first_name || opponent.username || opponent.telegram_id) +
+          '\\n\\n' + g.yourDice + pair.mine + '\\n\\n' + g.opponentDice + pair.other + '\\n\\n' + outcome + '\\n\\n' + g.balanceNow + pair.balance
       });
     } catch (e) {}
   }
