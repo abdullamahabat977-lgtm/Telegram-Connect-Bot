@@ -1119,7 +1119,80 @@ async function startConnectionSearch(userId, type) {
         return;
       }
     }
-    user.state = 'searching_connection';
+    // Reuse an older valid connection search when this newly active user is its eligible candidate.
+    // Do not create a duplicate search or send a generic "search started" confirmation to this user.
+    const waitSeconds = Math.max(1, Number(await getSetting('connection_search_seconds', 120)) || 120);
+    const [olderRequests, olderGames, olderSessions, olderBlocks, olderUsers] = await Promise.all([
+      db.select().from(connection_requests).all(),
+      db.select().from(game_sessions).all(),
+      db.select().from(chat_sessions).all(),
+      db.select().from(user_blocks).all(),
+      db.select().from(users).all()
+    ]);
+    const olderSearches = olderRequests.filter(row => row.status === 'searching' && !row.recipient_id &&
+      Number(row.requester_id) !== Number(userId))
+      .sort((a, b) => Date.parse(a.created_at || '') - Date.parse(b.created_at || ''));
+    let reusedOlderSearch = false;
+    for (const olderSearch of olderSearches) {
+      const age = Date.now() - Date.parse(olderSearch.created_at || '');
+      if (!Number.isFinite(age) || age >= waitSeconds * 1000) continue;
+      const requester = olderUsers.find(row => Number(row.telegram_id) === Number(olderSearch.requester_id));
+      if (!requester || Number(requester.is_blocked) === 1 || !user.country || !user.gender || !user.age) continue;
+      if (olderSearch.request_type === 'find' && olderSearch.gender_filter !== 'auto' && user.gender !== olderSearch.gender_filter) continue;
+      if (olderSearch.request_type === 'find' && olderSearch.language_filter !== 'auto' && user.language !== olderSearch.language_filter) continue;
+      if (olderBlocks.some(row =>
+        (Number(row.blocker_telegram_id) === Number(userId) && Number(row.blocked_telegram_id) === Number(requester.telegram_id)) ||
+        (Number(row.blocker_telegram_id) === Number(requester.telegram_id) && Number(row.blocked_telegram_id) === Number(userId)))) continue;
+      if (olderSessions.some(row => row.status === 'connected' &&
+        [Number(row.first_user_telegram_id), Number(row.second_user_telegram_id)].includes(Number(requester.telegram_id)))) continue;
+      if (olderGames.some(row => ['waiting', 'pending', 'playing', 'settlement_error'].includes(row.status) &&
+        (Number(row.player_id) === Number(requester.telegram_id) || Number(row.opponent_id) === Number(requester.telegram_id)))) continue;
+      if (olderRequests.some(row => Number(row.id) !== Number(olderSearch.id) &&
+        ['searching', 'matching', 'pending'].includes(row.status) &&
+        (Number(row.requester_id) === Number(requester.telegram_id) || Number(row.recipient_id) === Number(requester.telegram_id)))) continue;
+      const offerAt = new Date().toISOString();
+      const insertedOffer = await db.insert(connection_requests).values({
+        requester_id: Number(requester.telegram_id), recipient_id: Number(userId), status: 'pending',
+        request_type: olderSearch.request_type, gender_filter: olderSearch.gender_filter,
+        language_filter: olderSearch.language_filter, created_at: offerAt, updated_at: offerAt
+      }).returning().run();
+      let olderOffer = insertedOffer && Array.isArray(insertedOffer.rows) ? insertedOffer.rows[0] : null;
+      if (!olderOffer || !Number.isSafeInteger(Number(olderOffer.id)) || Number(olderOffer.id) <= 0) {
+        const verify = await db.select().from(connection_requests).all();
+        olderOffer = verify.filter(row => Number(row.requester_id) === Number(requester.telegram_id) &&
+          Number(row.recipient_id) === Number(userId) && row.status === 'pending' &&
+          String(row.created_at || '') === offerAt && row.request_type === olderSearch.request_type)
+          .sort((a, b) => Number(b.id) - Number(a.id))[0] || null;
+      }
+      if (!olderOffer || !Number.isSafeInteger(Number(olderOffer.id)) || Number(olderOffer.id) <= 0) continue;
+      // The recipient is no longer searching; the pending offer now reserves this user's next action.
+      await db.update(users).set({ state: 'ready' })
+        .where(and(eq(users.telegram_id, Number(userId)), eq(users.state, 'searching_connection'))).run();
+      user.state = 'ready';
+      try {
+        await api.sendMessage({
+          chat_id: Number(userId),
+          text: sessionTx(user).sessionText.offer,
+          reply_markup: styleKeyboardMarkup({ inline_keyboard: [[
+            { text: sessionTx(user).sessionText.accept, callback_data: 'conn:accept:' + olderOffer.id },
+            { text: sessionTx(user).sessionText.reject, callback_data: 'conn:reject:' + olderOffer.id }
+          ]] })
+        });
+        reusedOlderSearch = true;
+        break;
+      } catch (deliveryError) {
+        await db.update(connection_requests).set({ status: 'rejected', updated_at: new Date().toISOString() })
+          .where(and(eq(connection_requests.id, Number(olderOffer.id)), eq(connection_requests.status, 'pending'))).run();
+        reportDiagnostic('callback-handler', 'Could not deliver older connection search to newly active candidate', {
+          searchId: Number(olderSearch.id), offerId: Number(olderOffer.id),
+          requesterId: Number(requester.telegram_id), candidateId: Number(userId), deliveryError
+        });
+        await db.update(users).set({ state: 'searching_connection' })
+          .where(and(eq(users.telegram_id, Number(userId)), eq(users.state, 'ready'))).run();
+        user.state = 'searching_connection';
+      }
+    }
+    if (reusedOlderSearch) return;
     startupStage = 'insert-search';
     const now = new Date().toISOString();
     searchCreatedAt = now;
