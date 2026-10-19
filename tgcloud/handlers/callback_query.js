@@ -1163,11 +1163,16 @@ async function startConnectionSearch(userId, type) {
       }
       if (!searchClaimed) continue;
       const offerAt = new Date().toISOString();
-      const insertedOffer = await db.insert(connection_requests).values({
-        requester_id: Number(requester.telegram_id), recipient_id: Number(userId), status: 'pending',
-        request_type: olderSearch.request_type, gender_filter: olderSearch.gender_filter,
-        language_filter: olderSearch.language_filter, created_at: offerAt, updated_at: offerAt
-      }).returning().run();
+      let insertedOffer = null, offerInsertError = null;
+      try {
+        insertedOffer = await db.insert(connection_requests).values({
+          requester_id: Number(requester.telegram_id), recipient_id: Number(userId), status: 'pending',
+          request_type: olderSearch.request_type, gender_filter: olderSearch.gender_filter,
+          language_filter: olderSearch.language_filter, created_at: offerAt, updated_at: offerAt
+        }).returning().run();
+      } catch (insertError) {
+        offerInsertError = insertError;
+      }
       let olderOffer = insertedOffer && Array.isArray(insertedOffer.rows) ? insertedOffer.rows[0] : null;
       if (!olderOffer || !Number.isSafeInteger(Number(olderOffer.id)) || Number(olderOffer.id) <= 0) {
         const verify = await db.select().from(connection_requests).all();
@@ -1180,6 +1185,10 @@ async function startConnectionSearch(userId, type) {
         await db.update(connection_requests).set({ status: 'searching', updated_at: new Date().toISOString() })
           .where(and(eq(connection_requests.id, Number(olderSearch.id)), eq(connection_requests.status, 'matching'),
             eq(connection_requests.updated_at, claimAt))).run();
+        if (offerInsertError) reportDiagnostic('callback-handler', 'Could not insert offer for reused connection search', {
+          searchId: Number(olderSearch.id), requesterId: Number(requester.telegram_id),
+          candidateId: Number(userId), offerInsertError
+        });
         continue;
       }
       const releaseAt = new Date().toISOString();
