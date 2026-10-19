@@ -939,6 +939,67 @@ async function startDiceGame(chatId, user) {
     await sendPrompt(chatId, tx(user).sessionText.gameText.gameInProgress, menuKeyboard(user, await isAdmin(user.telegram_id)), user);
     return;
   }
+  // Before creating a second waiting row, give an older, still-valid request to this newly active user.
+  // The older request remains the source of truth; this user's tap does not create a duplicate game.
+  const pendingConnectionRows = await db.select().from(connection_requests).all();
+  const pendingSessions = await db.select().from(chat_sessions).all();
+  const pendingBlocks = await db.select().from(user_blocks).all();
+  const oldWaitingGames = freshRows.filter(row => row.status === 'waiting' && !row.opponent_id && Number(row.player_id) !== userId)
+    .sort((a, b) => Date.parse(a.created_at || '') - Date.parse(b.created_at || ''));
+  for (const oldGame of oldWaitingGames) {
+    const oldAge = Date.now() - Date.parse(oldGame.created_at || oldGame.updated_at || '');
+    if (!Number.isFinite(oldAge) || oldAge >= waitSeconds * 1000) continue;
+    const oldPlayerId = Number(oldGame.player_id);
+    const oldPlayer = await getUser(oldPlayerId);
+    if (!oldPlayer || Number(oldPlayer.is_blocked) === 1 || Number(oldPlayer.stars || 0) < requiredBalance) continue;
+    if (pendingBlocks.some(row =>
+      (Number(row.blocker_telegram_id) === oldPlayerId && Number(row.blocked_telegram_id) === userId) ||
+      (Number(row.blocker_telegram_id) === userId && Number(row.blocked_telegram_id) === oldPlayerId))) continue;
+    if (pendingSessions.some(row => row.status === 'connected' &&
+      [Number(row.first_user_telegram_id), Number(row.second_user_telegram_id)].includes(oldPlayerId))) continue;
+    if (pendingConnectionRows.some(row => ['searching', 'pending', 'matching'].includes(row.status) &&
+      (Number(row.requester_id) === oldPlayerId || Number(row.recipient_id) === oldPlayerId))) continue;
+    if (freshRows.some(row => Number(row.id) !== Number(oldGame.id) &&
+      ['waiting', 'pending', 'playing', 'settlement_error'].includes(row.status) &&
+      (Number(row.player_id) === oldPlayerId || Number(row.opponent_id) === oldPlayerId))) continue;
+    const offeredAt = new Date().toISOString();
+    const linked = await db.update(game_sessions).set({
+      opponent_id: userId, status: 'pending', updated_at: offeredAt
+    }).where(and(
+      eq(game_sessions.id, Number(oldGame.id)),
+      eq(game_sessions.player_id, oldPlayerId),
+      eq(game_sessions.status, 'waiting'),
+      eq(game_sessions.opponent_id, null)
+    )).returning({ id: game_sessions.id }).run();
+    let linkedVerified = Boolean(linked && Array.isArray(linked.rows) && linked.rows.length > 0);
+    if (!linkedVerified) {
+      const persisted = await db.select().from(game_sessions).where(eq(game_sessions.id, Number(oldGame.id))).get();
+      linkedVerified = Boolean(persisted && persisted.status === 'pending' &&
+        Number(persisted.opponent_id) === userId && String(persisted.updated_at || '') === offeredAt);
+    }
+    if (!linkedVerified) continue;
+    try {
+      await api.sendMessage({
+        chat_id: userId,
+        text: tx(user).sessionText.gameText.requestOffer + requiredBalance +
+          tx(user).sessionText.gameText.requestOfferMid + minStars +
+          tx(user).sessionText.gameText.requestOfferFee + fee +
+          tx(user).sessionText.gameText.requestOfferEnd,
+        reply_markup: styleKeyboardMarkup({ inline_keyboard: [[
+          { text: tx(user).sessionText.gameText.acceptButton, callback_data: 'game:accept:' + oldGame.id },
+          { text: tx(user).sessionText.gameText.reject, callback_data: 'game:reject:' + oldGame.id }
+        ]] })
+      });
+      return;
+    } catch (deliveryError) {
+      await db.update(game_sessions).set({ status: 'waiting', opponent_id: null, updated_at: new Date().toISOString() })
+        .where(and(eq(game_sessions.id, Number(oldGame.id)), eq(game_sessions.status, 'pending'),
+          eq(game_sessions.opponent_id, userId), eq(game_sessions.updated_at, offeredAt))).run();
+      reportDiagnostic('message-handler', 'Could not deliver older waiting game to newly active player', {
+        gameId: Number(oldGame.id), oldPlayerId, candidateId: userId, deliveryError
+      });
+    }
+  }
   const now = new Date().toISOString();
   const insertedGame = await db.insert(game_sessions).values({ player_id: Number(user.telegram_id), opponent_id: null, status: 'waiting',
     created_at: now, updated_at: now, fee_stars: fee,
