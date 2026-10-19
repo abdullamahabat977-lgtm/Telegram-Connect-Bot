@@ -1136,6 +1136,18 @@ async function startConnectionSearch(userId, type) {
     for (const olderSearch of olderSearches) {
       const age = Date.now() - Date.parse(olderSearch.created_at || '');
       if (!Number.isFinite(age) || age >= waitSeconds * 1000) continue;
+      const claimAt = new Date().toISOString();
+      const searchClaim = await db.update(connection_requests).set({ status: 'matching', updated_at: claimAt })
+        .where(and(eq(connection_requests.id, Number(olderSearch.id)),
+          eq(connection_requests.status, 'searching'), eq(connection_requests.recipient_id, null)))
+        .returning({ id: connection_requests.id }).run();
+      let searchClaimed = Boolean(searchClaim && Array.isArray(searchClaim.rows) && searchClaim.rows.length > 0);
+      if (!searchClaimed) {
+        const persistedSearch = await db.select().from(connection_requests).where(eq(connection_requests.id, Number(olderSearch.id))).get();
+        searchClaimed = Boolean(persistedSearch && persistedSearch.status === 'matching' &&
+          String(persistedSearch.updated_at || '') === claimAt && !persistedSearch.recipient_id);
+      }
+      if (!searchClaimed) continue;
       const requester = olderUsers.find(row => Number(row.telegram_id) === Number(olderSearch.requester_id));
       if (!requester || Number(requester.is_blocked) === 1 || !user.country || !user.gender || !user.age) continue;
       if (olderSearch.request_type === 'find' && olderSearch.gender_filter !== 'auto' && user.gender !== olderSearch.gender_filter) continue;
@@ -1164,7 +1176,30 @@ async function startConnectionSearch(userId, type) {
           String(row.created_at || '') === offerAt && row.request_type === olderSearch.request_type)
           .sort((a, b) => Number(b.id) - Number(a.id))[0] || null;
       }
-      if (!olderOffer || !Number.isSafeInteger(Number(olderOffer.id)) || Number(olderOffer.id) <= 0) continue;
+      if (!olderOffer || !Number.isSafeInteger(Number(olderOffer.id)) || Number(olderOffer.id) <= 0) {
+        await db.update(connection_requests).set({ status: 'searching', updated_at: new Date().toISOString() })
+          .where(and(eq(connection_requests.id, Number(olderSearch.id)), eq(connection_requests.status, 'matching'),
+            eq(connection_requests.updated_at, claimAt))).run();
+        continue;
+      }
+      const releaseAt = new Date().toISOString();
+      const releasedSearch = await db.update(connection_requests).set({ status: 'searching', updated_at: releaseAt })
+        .where(and(eq(connection_requests.id, Number(olderSearch.id)), eq(connection_requests.status, 'matching'),
+          eq(connection_requests.updated_at, claimAt))).returning({ id: connection_requests.id }).run();
+      let searchReleased = Boolean(releasedSearch && Array.isArray(releasedSearch.rows) && releasedSearch.rows.length > 0);
+      if (!searchReleased) {
+        const persistedRelease = await db.select().from(connection_requests).where(eq(connection_requests.id, Number(olderSearch.id))).get();
+        searchReleased = Boolean(persistedRelease && persistedRelease.status === 'searching' &&
+          String(persistedRelease.updated_at || '') === releaseAt);
+      }
+      if (!searchReleased) {
+        await db.update(connection_requests).set({ status: 'rejected', updated_at: new Date().toISOString() })
+          .where(and(eq(connection_requests.id, Number(olderOffer.id)), eq(connection_requests.status, 'pending'))).run();
+        reportDiagnostic('callback-handler', 'Could not release reused connection search after offer creation', {
+          searchId: Number(olderSearch.id), offerId: Number(olderOffer.id), candidateId: Number(userId)
+        });
+        continue;
+      }
       // The recipient is no longer searching; the pending offer now reserves this user's next action.
       await db.update(users).set({ state: 'ready' })
         .where(and(eq(users.telegram_id, Number(userId)), eq(users.state, 'searching_connection'))).run();
@@ -1533,8 +1568,8 @@ async function resolveUserGame(game) {
     try {
       await api.sendMessage({
         chat_id: pair.id,
-        text: g.resultTitle + '\\n\\n' + g.playerName + ': ' + (player.name || player.first_name || player.username || player.telegram_id) + '\\n' + g.opponentName + ': ' + (opponent.name || opponent.first_name || opponent.username || opponent.telegram_id) +
-          '\\n\\n' + g.yourDice + pair.mine + '\\n\\n' + g.opponentDice + pair.other + '\\n\\n' + outcome + '\\n\\n' + g.balanceNow + pair.balance
+        text: g.resultTitle + '\n\n' + g.playerName + ': ' + (player.name || player.first_name || player.username || player.telegram_id) + '\n' + g.opponentName + ': ' + (opponent.name || opponent.first_name || opponent.username || opponent.telegram_id) +
+          '\n\n' + g.yourDice + pair.mine + '\n\n' + g.opponentDice + pair.other + '\n\n' + outcome + '\n\n' + g.balanceNow + pair.balance
       });
     } catch (e) {}
   }
