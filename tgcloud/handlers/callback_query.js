@@ -1149,7 +1149,7 @@ async function startConnectionSearch(userId, type) {
       }
       if (!searchClaimed) continue;
       const requester = olderUsers.find(row => Number(row.telegram_id) === Number(olderSearch.requester_id));
-      if (!requester || Number(requester.is_blocked) === 1 || !user.country || !user.gender || !user.age) continue;
+      if (!requester || Number(requester.is_blocked) === 1 || Number(requester.stars || 0) < cost || !user.country || !user.gender || !user.age) continue;
       if (olderSearch.request_type === 'find' && olderSearch.gender_filter !== 'auto' && user.gender !== olderSearch.gender_filter) continue;
       if (olderSearch.request_type === 'find' && olderSearch.language_filter !== 'auto' && user.language !== olderSearch.language_filter) continue;
       if (olderBlocks.some(row =>
