@@ -1151,7 +1151,7 @@ export async function resolveBotGame(game) {
     try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: tx(player).sessionText.gameText.botResultNotSaved }); } catch (e) {}
     return;
   }
-  try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: tx(player).sessionText.gameText.resultTitle + '\\n\\n' + tx(player).sessionText.gameText.playerName + ': ' + (player.name || player.first_name || player.username || player.telegram_id) + '\\n' + tx(player).sessionText.gameText.opponentName + ': ' + tx(player).sessionText.gameText.botName + '\\n\\n' + tx(player).sessionText.gameText.yourDice + playerRoll + '\\n\\n' + tx(player).sessionText.gameText.botDice + botRoll + '\\n\\n' + outcome + '\\n\\n' + tx(player).sessionText.gameText.balanceNow + newBalance }); } catch (e) {}
+  try { await api.sendMessage({ chat_id: Number(player.telegram_id), text: tx(player).sessionText.gameText.resultTitle + '\n\n' + tx(player).sessionText.gameText.playerName + ': ' + (player.name || player.first_name || player.username || player.telegram_id) + '\n' + tx(player).sessionText.gameText.opponentName + ': ' + tx(player).sessionText.gameText.botName + '\n\n' + tx(player).sessionText.gameText.yourDice + playerRoll + '\n\n' + tx(player).sessionText.gameText.botDice + botRoll + '\n\n' + outcome + '\n\n' + tx(player).sessionText.gameText.balanceNow + newBalance }); } catch (e) {}
 }
 export async function tryMatchGames() {
   let rows = await db.select().from(game_sessions).all();
