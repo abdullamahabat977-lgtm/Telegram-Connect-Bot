@@ -1136,18 +1136,6 @@ async function startConnectionSearch(userId, type) {
     for (const olderSearch of olderSearches) {
       const age = Date.now() - Date.parse(olderSearch.created_at || '');
       if (!Number.isFinite(age) || age >= waitSeconds * 1000) continue;
-      const claimAt = new Date().toISOString();
-      const searchClaim = await db.update(connection_requests).set({ status: 'matching', updated_at: claimAt })
-        .where(and(eq(connection_requests.id, Number(olderSearch.id)),
-          eq(connection_requests.status, 'searching'), eq(connection_requests.recipient_id, null)))
-        .returning({ id: connection_requests.id }).run();
-      let searchClaimed = Boolean(searchClaim && Array.isArray(searchClaim.rows) && searchClaim.rows.length > 0);
-      if (!searchClaimed) {
-        const persistedSearch = await db.select().from(connection_requests).where(eq(connection_requests.id, Number(olderSearch.id))).get();
-        searchClaimed = Boolean(persistedSearch && persistedSearch.status === 'matching' &&
-          String(persistedSearch.updated_at || '') === claimAt && !persistedSearch.recipient_id);
-      }
-      if (!searchClaimed) continue;
       const requester = olderUsers.find(row => Number(row.telegram_id) === Number(olderSearch.requester_id));
       if (!requester || Number(requester.is_blocked) === 1 || Number(requester.stars || 0) < cost || !user.country || !user.gender || !user.age) continue;
       if (olderSearch.request_type === 'find' && olderSearch.gender_filter !== 'auto' && user.gender !== olderSearch.gender_filter) continue;
@@ -1162,6 +1150,18 @@ async function startConnectionSearch(userId, type) {
       if (olderRequests.some(row => Number(row.id) !== Number(olderSearch.id) &&
         ['searching', 'matching', 'pending'].includes(row.status) &&
         (Number(row.requester_id) === Number(requester.telegram_id) || Number(row.recipient_id) === Number(requester.telegram_id)))) continue;
+      const claimAt = new Date().toISOString();
+      const searchClaim = await db.update(connection_requests).set({ status: 'matching', updated_at: claimAt })
+        .where(and(eq(connection_requests.id, Number(olderSearch.id)),
+          eq(connection_requests.status, 'searching'), eq(connection_requests.recipient_id, null)))
+        .returning({ id: connection_requests.id }).run();
+      let searchClaimed = Boolean(searchClaim && Array.isArray(searchClaim.rows) && searchClaim.rows.length > 0);
+      if (!searchClaimed) {
+        const persistedSearch = await db.select().from(connection_requests).where(eq(connection_requests.id, Number(olderSearch.id))).get();
+        searchClaimed = Boolean(persistedSearch && persistedSearch.status === 'matching' &&
+          String(persistedSearch.updated_at || '') === claimAt && !persistedSearch.recipient_id);
+      }
+      if (!searchClaimed) continue;
       const offerAt = new Date().toISOString();
       const insertedOffer = await db.insert(connection_requests).values({
         requester_id: Number(requester.telegram_id), recipient_id: Number(userId), status: 'pending',
