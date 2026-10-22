@@ -17,7 +17,6 @@ export const users = table('users', {
   points: integer('points').notNull().default(0),
   likes: integer('likes').notNull().default(0),
   last_active_at: text('last_active_at'),
-  connection_request_mode: text('connection_request_mode').notNull().default('all'),
   welcome_reward_claimed: integer('welcome_reward_claimed').notNull().default(0),
   profile_visibility: text('profile_visibility').notNull().default('everyone'),
   search_gender: text('search_gender').notNull().default('auto'),
@@ -93,20 +92,6 @@ export const user_blocks = table('user_blocks', {
     blockedBlockerIdx: index('idx_user_blocks_blocked_blocker').on(t.blocked_telegram_id, t.blocker_telegram_id),
   }));
 
-export const reports = table('reports', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  reporter_telegram_id: integer('reporter_telegram_id').notNull(),
-  reported_telegram_id: integer('reported_telegram_id').notNull(),
-  reason: text('reason'),
-  status: text('status').notNull().default('pending'),
-  reviewed_by: integer('reviewed_by'),
-  reviewed_at: text('reviewed_at'),
-  created_at: text('created_at').notNull(),
-  }, (t) => ({
-    statusCreatedIdx: index('idx_reports_status_created').on(t.status, t.created_at),
-    reporterIdx: index('idx_reports_reporter').on(t.reporter_telegram_id),
-    reportedIdx: index('idx_reports_reported').on(t.reported_telegram_id),
-  }));
 
 export const connection_requests = table('connection_requests', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -130,6 +115,7 @@ export const chat_messages = table('chat_messages', {
   sender_id: integer('sender_id').notNull(),
   recipient_id: integer('recipient_id').notNull(),
   recipient_message_id: integer('recipient_message_id').notNull(),
+  source_message_id: integer('source_message_id'),
   created_at: text('created_at').notNull(),
   }, (t) => ({
     sessionCreatedIdx: index('idx_chat_messages_session_created').on(t.session_id, t.created_at),
@@ -169,7 +155,8 @@ export const game_sessions = table('game_sessions', {
   created_at: text('created_at').notNull(),
   updated_at: text('updated_at').notNull(),
   fee_stars: real('fee_stars').notNull().default(0.5),
-  win_stars: real('win_stars').notNull().default(3),
+  win_stars: real('win_stars').notNull().default(3.5),
+  // Legacy compatibility column retained for existing databases; current game logic does not read or write it.
   bot_loss_total_stars: real('bot_loss_total_stars').notNull().default(3.5),
   points_award: integer('points_award').notNull().default(1),
   }, (t) => ({

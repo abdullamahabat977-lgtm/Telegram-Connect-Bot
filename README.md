@@ -39,13 +39,13 @@ Random Connect د کاروونکي ثبت، اجباري غړیتوب، تصاد
 - د Telegram محدودیت له مخې بوټ د کارن اصلي پیغامونه په شخصي چټ کې نه شي حذفولای؛ د حذف تڼۍ یوازې د ملګري هغه کاپي شوي پیغامونه حذفوي چې بوټ په تېرو ۱۰ دقیقو کې کارن ته لېږلي وي.
 - د غړیتوب د کتلو لپاره بوټ باید په هر اجباري ګروپ یا چینل کې د اړینې اجازې لرونکی وي.
 - GitHub ته د کوډ ثبتول په خپله ژوندی Serverless کوډ نه بدلوي. لومړی کوډ Deploy/Push کړه، بیا د Database د Migration بدلونونه په دقت وګوره او تطبیق یې کړه. هېڅ خطرناک یا د حذف بدلون مه تاییدوه تر څو یې اغېز روښانه نه وي.
-- د prompt tracking لپاره `users.last_prompt_id` هم اړین دی؛ که په موجود جدول کې نه وي، د migration کرښه یې اجرا کړه. د `user_blocks` او `reports` جدولونه هم د `CREATE TABLE IF NOT EXISTS` له لارې جوړېږي او موجود معلومات نه حذفوي. که د دغو جدولونو/فیلډونو له ډلې کوم یو مخکې موجود وي، تکراري ALTER مه اجرا کوه.
+- د prompt tracking لپاره `users.last_prompt_id` هم اړین دی؛ که په موجود جدول کې نه وي، د migration کرښه یې اجرا کړه. د `user_blocks` جدول هم د `CREATE TABLE IF NOT EXISTS` له لارې جوړېږي او موجود معلومات نه حذفوي. که د دغو جدولونو/فیلډونو له ډلې کوم یو مخکې موجود وي، تکراري ALTER مه اجرا کوه.
 
-د users جدول کې نوي فیلډونه: `profile_photo_id`، `channel_username`، `stars`، `points`، `likes`، `last_active_at`، `connection_request_mode`، `welcome_reward_claimed`، `profile_visibility`، `search_gender` او `search_language` دي. د chat_sessions جدول کې `last_activity_at` او `end_reason` هم ورزیات شوي. د نوي کوډ له Deploy مخکې د موجودو معلوماتو له حذف پرته migration تطبیق کړه.
+د users جدول کې نوي فیلډونه: `profile_photo_id`، `channel_username`، `stars`، `points`، `likes`، `last_active_at`، `welcome_reward_claimed`، `profile_visibility`، `search_gender` او `search_language` دي. د chat_sessions جدول کې `last_activity_at` او `end_reason` هم ورزیات شوي. د نوي کوډ له Deploy مخکې د موجودو معلوماتو له حذف پرته migration تطبیق کړه.
 - لاندې migration کې د پخوانیو او نویو فیلډونو ټول اړین ALTER او CREATE بیانونه راغلي. هر ALTER یوازې هغه وخت اجرا کړه چې فیلډ موجود نه وي؛ که موجود وي، هغه کرښه پرېږده.
 - د ښه راغلاست جایزه ډیفالټ ۱۰ ستوري، ۳ نمرې او ۲ لایکونه ده؛ هر کارن یې یوازې یو ځل اخلي. د ریفرل جایزه ډیفالټ ۱۵ ستوري، ۵ نمرې او ۲ لایکونه ده؛ دواړه جایزې د اډمین له پینل څخه بدلېدای شي.
 - د آنلاین شمېر معیار د وروستیو ۱۵ دقیقو فعالیت دی؛ د کارن پیغام او د بوټ بټن کلیک د فعالیت وخت تازه کوي.
-- د اړیکې د غوښتنو تنظیمات د matching پر مهال کارول کېږي: `all`، `followed` او `none` د احتمالي ترلاسه کوونکو د ټاکلو پر مهال ارزول کېږي؛ د ملګري لټون کې د جنسیت او ژبې فلټرونه هم کارول کېږي.
+- د ملګري لټون کې د جنسیت او ژبې فلټرونه کارول کېږي.
 
 
 د نوي matching او game schema لپاره د DB migration
@@ -53,7 +53,6 @@ Random Connect د کاروونکي ثبت، اجباري غړیتوب، تصاد
 دا بدلونونه یوازې یو ځل تطبیق کړه. د ALTER TABLE هره کرښه یوازې هغه وخت اجرا کړه چې فیلډ لا په جدول کې موجود نه وي. هېڅ جدول مه حذفوه.
 
 ALTER TABLE users ADD COLUMN last_active_at TEXT;
-ALTER TABLE users ADD COLUMN connection_request_mode TEXT NOT NULL DEFAULT 'all';
 ALTER TABLE users ADD COLUMN welcome_reward_claimed INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE users ADD COLUMN profile_visibility TEXT NOT NULL DEFAULT 'everyone';
 ALTER TABLE users ADD COLUMN search_gender TEXT NOT NULL DEFAULT 'auto';
@@ -69,16 +68,6 @@ CREATE TABLE IF NOT EXISTS user_blocks (
   created_at TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS reports (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  reporter_telegram_id INTEGER NOT NULL,
-  reported_telegram_id INTEGER NOT NULL,
-  reason TEXT,
-  status TEXT NOT NULL DEFAULT 'pending',
-  reviewed_by INTEGER,
-  reviewed_at TEXT,
-  created_at TEXT NOT NULL
-);
 
 CREATE TABLE IF NOT EXISTS connection_requests (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -127,8 +116,7 @@ CREATE TABLE IF NOT EXISTS game_sessions (
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   fee_stars TEXT NOT NULL DEFAULT '0.5',
-  win_stars TEXT NOT NULL DEFAULT '3',
-  bot_loss_total_stars TEXT NOT NULL DEFAULT '3.5',
+  win_stars TEXT NOT NULL DEFAULT '3.5',
   points_award INTEGER NOT NULL DEFAULT 1
 );
 
@@ -138,7 +126,7 @@ CREATE TABLE IF NOT EXISTS game_sessions (
 - `tgcloud/handlers/callback_query.js` — د inline بټنونو callback handler.
 - `tgcloud/lib/shared.js` — د دواړو handlerونو ګډ constants او helper functions.
 - `tgcloud/lib/message-text.js` او `tgcloud/lib/callback-text.js` — د ژبو او متنونو جلا ماډیولونه.
-- `tgcloud/schema.js` — ۱۳ جدولونه: users، admins، required_chats، app_settings، favorites، chat_sessions، user_blocks، reports، connection_requests، chat_messages، user_ratings، user_likes او game_sessions.
+- `tgcloud/schema.js` — ۱۲ جدولونه: users، admins، required_chats، app_settings، favorites، chat_sessions، user_blocks، connection_requests، chat_messages، user_ratings، user_likes او game_sessions.
 
 رسمي اسناد
 https://core.telegram.org/bots/serverless
@@ -152,3 +140,18 @@ https://core.telegram.org/bots/serverless
 - د GitHub بدلونونه په خپله د BotFather Serverless ته نه لېږدول کېږي. د Serverless په ویب پاڼه کې د Handler او Database کوډونه جلا دي؛ د GitHub نسخه او په Serverless کې خوندي شوې نسخه باید جلا پرتله شي.
 - **د Migration مهم خبرداری:** که د Database → Migration په لېست کې `users.draft_*`، `ad_requests`، `ads` یا `listings` ښکاري، یا د `users.telegram_id` او `users.state` د بدلون خبرداری وي، تر ارزونې مخکې **Start Migration مه وهئ**. دا ښايي د پخواني/بل Schema او اوسني Random Connect Schema ترمنځ اختلاف وي؛ ځینې بدلونونه د معلوماتو یا جدولونو د حذف خطر لري. لومړی د موجودو جدولونو او د بدلونونو بشپړ لېست خوندي کړئ او د معلوماتو د ساتلو لپاره یې یو په یو وارزوئ.
 - د Schema ثبتول او د Database Migration دوه جلا کارونه دي. د Migration لېست کې د `not in schema` مانا دا کېدای شي چې موجود جدول/ستنه په اوسني Schema کې نه تعریفېږي؛ دا په خپله د حذف اجازه نه ده.
+
+## د معلوماتو د بشپړتیا اضافي Migration
+
+د تکراري فالو، بلاک، لایک او نمرو ریکارډونو د مخنیوي لپاره یو جلا SQL فایل هم ورزیات شوی:
+
+`migrations/2026-10-12-data-integrity.sql`
+
+**د اجرا مخکې مهم ټکي:**
+1. د ژوندۍ ډیټابیس Backup واخله.
+2. تایید کړه چې `favorites`، `user_blocks`، `user_likes`، `user_ratings` او `users` جدولونه موجود دي.
+3. فایل د خپل ډیټابیس له سم SQL کنسول څخه اجرا کړه؛ د Serverless SDK د migration ملاتړ په اتومات ډول مه انګېرئ.
+4. دا Migration د تکراري اړیکو ریکارډونه د هرې جوړې د تر ټولو ټیټ ID په ساتلو پاکوي او د لایکونو `users.likes` شمېر بیا حسابوي.
+5. دا فایل د فعالو Connection/ګیمونو زاړه ټکرونه په خپله نه حل کوي؛ د هغو لپاره د ژوندۍ ډیټابیس پلټنه او جلا بیا رغونه ضروري ده.
+
+دا Migration د اصلي کاروونکو، پیغامونو، راپورونو، اړیکو یا ګېمونو ریکارډونه نه حذفوي؛ یوازې د څلورو اړیکه‌ییزو جدولونو تکراري قطارونه پاکوي.
