@@ -380,7 +380,7 @@ async function handleAdminCallback(query, actor, data, actorId, chatId) {
   }
   if (p[1] === 'block' || p[1] === 'unblock') {
     if (p[1] === 'block' && await isAdmin(targetId)) {
-      await sendPrompt(chatId, tx(actor).adminCannotBlock, adminUserSettingsKeyboard(actor, targetId, target.is_blocked), actor); return;
+      await sendPrompt(chatId, tx(actor).adminCannotBlock, adminSettingsKeyboard(actor, targetId, target.is_blocked), actor); return;
     }
     const blocking = p[1] === 'block';
     const value = blocking ? 1 : 0;
@@ -1596,14 +1596,14 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
       });
       try {
         await sendPrompt(chatId,
-          tx(actor).sessionText.connectionSearchFailed,
+          mt(actor).sessionText.connectionSearchFailed,
           mainKeyboard(actor, await isAdmin(actorId)), actor);
       } catch (notifyError) {
         reportDiagnostic('callback-handler', 'Could not show connection startup error to user', { actorId, notifyError });
         try {
           await api.sendMessage({
             chat_id: Number(chatId),
-            text: tx(actor).sessionText.connectionSearchFailed
+            text: mt(actor).sessionText.connectionSearchFailed
           });
         } catch (fallbackError) {
           reportDiagnostic('callback-handler', 'Could not send fallback connection startup notice', { actorId, fallbackError });
@@ -1729,14 +1729,14 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
       try { await tryOfferSearches(); } catch (error) { reportDiagnostic('callback-handler', 'Connection retry after rejection failed', { offerId: offerId, actorId: actorId, error: error }); }
       return;
     }
-    if (!search) { await db.update(connection_requests).set({ status: 'expired', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, offerId)).run(); await sendPrompt(chatId, tx(actor).sessionText.connectionOfferExpired, mainKeyboard(actor, await isAdmin(actorId)), actor); return; }
+    if (!search) { await db.update(connection_requests).set({ status: 'expired', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, offerId)).run(); await sendPrompt(chatId, mt(actor).sessionText.connectionOfferExpired, mainKeyboard(actor, await isAdmin(actorId)), actor); return; }
     const requester = await getUser(offer.requester_id), cost = Number(await getSetting('connection_cost_stars', 1));
     if (requester && await blockedPair(Number(requester.telegram_id), actorId)) {
       await db.update(connection_requests).set({ status: 'rejected', updated_at: new Date().toISOString() })
         .where(and(eq(connection_requests.id, offerId), eq(connection_requests.status, 'pending'))).run();
       await db.update(connection_requests).set({ status: 'cancelled', updated_at: new Date().toISOString() })
         .where(and(eq(connection_requests.id, Number(search.id)), eq(connection_requests.status, 'searching'))).run();
-      const notice = tx(actor).sessionText.connectionBlocked;
+      const notice = mt(actor).sessionText.connectionBlocked;
       try { await api.sendMessage({ chat_id: Number(requester.telegram_id), text: notice }); } catch (e) {}
       await sendPrompt(chatId, notice, mainKeyboard(actor, await isAdmin(actorId)), actor);
       return;
@@ -1746,14 +1746,14 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
         .where(and(eq(connection_requests.id, offerId), eq(connection_requests.status, 'pending'))).run();
       await db.update(connection_requests).set({ status: 'cancelled', updated_at: new Date().toISOString() })
         .where(and(eq(connection_requests.id, Number(search.id)), eq(connection_requests.status, 'searching'))).run();
-      const notice = tx(actor).sessionText.connectionCostInvalid;
+      const notice = mt(actor).sessionText.connectionCostInvalid;
       try { await api.sendMessage({ chat_id: Number(offer.requester_id), text: notice }); } catch (e) {}
       await sendPrompt(chatId, notice, mainKeyboard(actor, await isAdmin(actorId)), actor);
       return;
     }
     if (!requester || Number(requester.stars || 0) < cost) {
       await db.update(connection_requests).set({ status: 'rejected', updated_at: new Date().toISOString() }).where(eq(connection_requests.id, offerId)).run();
-      if (requester) try { await api.sendMessage({ chat_id: Number(requester.telegram_id), text: tx(requester).sessionText.connectionInsufficientStars }); } catch (e) {}
+      if (requester) try { await api.sendMessage({ chat_id: Number(requester.telegram_id), text: mt(requester).sessionText.connectionInsufficientStars }); } catch (e) {}
       try { await tryOfferSearches(); } catch (error) { reportDiagnostic('callback-handler', 'Connection retry after insufficient balance failed', { offerId: offerId, actorId: actorId, error: error }); }
       return;
     }
@@ -1766,8 +1766,8 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
         .where(and(eq(connection_requests.id, offerId), eq(connection_requests.status, 'pending'))).run();
       await db.update(connection_requests).set({ status: 'cancelled', updated_at: new Date().toISOString() })
         .where(and(eq(connection_requests.id, Number(search.id)), eq(connection_requests.status, 'searching'))).run();
-      await sendPrompt(chatId, tx(actor).sessionText.connectionGameConflictActor, mainKeyboard(actor, await isAdmin(actorId)), actor);
-      try { await api.sendMessage({ chat_id: Number(requester.telegram_id), text: tx(requester).sessionText.connectionGameConflictRequester }); } catch (e) {}
+      await sendPrompt(chatId, mt(actor).sessionText.connectionGameConflictActor, mainKeyboard(actor, await isAdmin(actorId)), actor);
+      try { await api.sendMessage({ chat_id: Number(requester.telegram_id), text: mt(requester).sessionText.connectionGameConflictRequester }); } catch (e) {}
       return;
     }
     const requesterSession = await activeSessionFor(requester.telegram_id);
@@ -1777,7 +1777,7 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
         .where(and(eq(connection_requests.id, offerId), eq(connection_requests.status, 'pending'))).run();
       await db.update(connection_requests).set({ status: 'cancelled', updated_at: new Date().toISOString() })
         .where(and(eq(connection_requests.id, Number(search.id)), eq(connection_requests.status, 'searching'))).run();
-      const notice = tx(actor).sessionText.connectionBusy;
+      const notice = mt(actor).sessionText.connectionBusy;
       try { await api.sendMessage({ chat_id: Number(requester.telegram_id), text: notice }); } catch (e) {}
       await sendPrompt(chatId, notice, mainKeyboard(actor, await isAdmin(actorId)), actor);
       return;
@@ -1870,7 +1870,7 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
         .where(and(eq(connection_requests.id, Number(search.id)), eq(connection_requests.status, 'connected'))).run();
       await db.update(connection_requests).set({ status: 'rejected', updated_at: new Date().toISOString() })
         .where(and(eq(connection_requests.id, offerId), eq(connection_requests.status, 'matching'))).run();
-      const notice = tx(actor).sessionText.connectionDebitFailed;
+      const notice = mt(actor).sessionText.connectionDebitFailed;
       try { await api.sendMessage({ chat_id: Number(requester.telegram_id), text: notice }); } catch (e) {}
       await sendPrompt(chatId, notice, mainKeyboard(actor, await isAdmin(actorId)), actor);
       return;
@@ -1894,8 +1894,8 @@ async function handleConnectionCallback(query, actor, data, actorId, chatId) {
         .where(and(eq(connection_requests.id, Number(search.id)), eq(connection_requests.status, 'connected'))).run();
       await db.update(connection_requests).set({ status: 'rejected', updated_at: new Date().toISOString() })
         .where(and(eq(connection_requests.id, offerId), eq(connection_requests.status, 'matching'))).run();
-      const requesterNotice = refunded ? tx(requester).sessionText.connectionRefunded : tx(requester).sessionText.connectionRefundUnverified;
-      const actorNotice = refunded ? tx(actor).sessionText.connectionRefunded : tx(actor).sessionText.connectionRefundUnverified;
+      const requesterNotice = refunded ? mt(requester).sessionText.connectionRefunded : mt(requester).sessionText.connectionRefundUnverified;
+      const actorNotice = refunded ? mt(actor).sessionText.connectionRefunded : mt(actor).sessionText.connectionRefundUnverified;
       try { await api.sendMessage({ chat_id: Number(requester.telegram_id), text: requesterNotice }); } catch (e) {}
       await sendPrompt(chatId, actorNotice, mainKeyboard(actor, await isAdmin(actorId)), actor);
       return;
@@ -2077,7 +2077,7 @@ async function handleSessionCallback(query, actor, data, actorId, chatId) {
   const target = await getUser(targetId);
   if (!target) return;
   if (targetId === actorId && ['follow', 'like', 'rate'].includes(action)) {
-    await sendPrompt(chatId, tx(actor).sessionText.connectionSelfAction, mainKeyboard(actor, await isAdmin(actorId)), actor);
+    await sendPrompt(chatId, mt(actor).sessionText.connectionSelfAction, mainKeyboard(actor, await isAdmin(actorId)), actor);
     return;
   }
   if (action === 'follow') {
@@ -2085,7 +2085,7 @@ async function handleSessionCallback(query, actor, data, actorId, chatId) {
     if (!rows.some(row => Number(row.favorite_telegram_id) === targetId)) await db.insert(favorites).values({ user_telegram_id: actorId, favorite_telegram_id: targetId, created_at: new Date().toISOString() }).run();
     const session = await db.select().from(chat_sessions).where(eq(chat_sessions.id, sessionId)).get();
     if (session && session.status === 'connected') await showSessionProfile(session, actorId);
-    else await sendPrompt(chatId, tx(actor).sessionText.followed + '\n\n' + await publicProfileText(target, actorId), mainKeyboard(actor, await isAdmin(actorId)), actor);
+    else await sendPrompt(chatId, mt(actor).sessionText.followed + '\n\n' + await publicProfileText(target, actorId), mainKeyboard(actor, await isAdmin(actorId)), actor);
     return;
   }
   if (action === 'like') {
@@ -2113,7 +2113,7 @@ async function handleSessionCallback(query, actor, data, actorId, chatId) {
       : [];
     if (!ratingSession || ratingSession.status !== 'ended' ||
         !sessionParticipants.includes(actorId) || !sessionParticipants.includes(targetId) || targetId === actorId) {
-      await sendPrompt(chatId, tx(actor).sessionText.rateWrongSession, mainKeyboard(actor, await isAdmin(actorId)), actor);
+      await sendPrompt(chatId, mt(actor).sessionText.rateWrongSession, mainKeyboard(actor, await isAdmin(actorId)), actor);
       return;
     }
     const allRatings = await db.select().from(user_ratings).all();
@@ -2123,7 +2123,7 @@ async function handleSessionCallback(query, actor, data, actorId, chatId) {
       Number(row.rated_id) === targetId
     );
     if (thisSessionRating) {
-      await sendPrompt(chatId, tx(actor).sessionText.rateAlready, mainKeyboard(actor, await isAdmin(actorId)), actor); return;
+      await sendPrompt(chatId, mt(actor).sessionText.rateAlready, mainKeyboard(actor, await isAdmin(actorId)), actor); return;
     }
     const alreadyGiven = allRatings
       .filter(row => Number(row.rater_id) === actorId && Number(row.rated_id) === targetId)
@@ -2131,14 +2131,14 @@ async function handleSessionCallback(query, actor, data, actorId, chatId) {
     const remaining = Math.max(0, 5 - alreadyGiven);
     if (remaining < 1 || rating > remaining) {
       await sendPrompt(chatId, remaining > 0
-        ? tx(actor).sessionText.rateRemainingPrefix + remaining + tx(actor).sessionText.rateRemainingSuffix
-        : tx(actor).sessionText.rateMaxReached,
+        ? mt(actor).sessionText.rateRemainingPrefix + remaining + mt(actor).sessionText.rateRemainingSuffix
+        : mt(actor).sessionText.rateMaxReached,
         mainKeyboard(actor, await isAdmin(actorId)), actor);
       return;
     }
     await db.insert(user_ratings).values({ session_id: sessionId, rater_id: actorId, rated_id: targetId, rating, created_at: new Date().toISOString() }).run();
     await db.update(users).set({ points: Number(target.points || 0) + rating }).where(eq(users.telegram_id, targetId)).run();
-    await sendPrompt(chatId, tx(actor).sessionText.rateSuccessPrefix + rating + tx(actor).sessionText.rateSuccessMiddle + (alreadyGiven + rating) + tx(actor).sessionText.rateSuccessSuffix, mainKeyboard(actor, await isAdmin(actorId)), actor); return;
+    await sendPrompt(chatId, mt(actor).sessionText.rateSuccessPrefix + rating + mt(actor).sessionText.rateSuccessMiddle + (alreadyGiven + rating) + mt(actor).sessionText.rateSuccessSuffix, mainKeyboard(actor, await isAdmin(actorId)), actor); return;
   }
   if (action === 'profile') {
     const session = await db.select().from(chat_sessions).where(eq(chat_sessions.id, sessionId)).get();
